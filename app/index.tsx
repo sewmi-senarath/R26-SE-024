@@ -7,7 +7,7 @@ export default function Index() {
   const router = useRouter();
 
   const handleLoginPress = () => {
-    router.push("/pages/login");
+    router.push("/auth/login");
   };
 
   return (
