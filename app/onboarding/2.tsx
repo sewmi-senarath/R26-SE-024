@@ -15,8 +15,8 @@ export default function Onboarding2() {
   };
 
   return (
-    <ScrollView className="flex-1 bg-blue-50">
-      <View className="flex-1 px-6 py-8 justify-between min-h-screen">
+    <View className="flex-1 bg-blue-50">
+      <View className="flex-1 px-6 py-8 justify-between">
         {/* Skip Button */}
         <TouchableOpacity onPress={handleSkip} className="self-end">
           <Text className="text-blue-600 font-medium text-base">Skip</Text>
@@ -39,7 +39,7 @@ export default function Onboarding2() {
         {/* Subtitle */}
         <View className="items-center mt-4">
           <Text className="text-center text-gray-600 text-base">
-            Daily Reminders and Activities adapted to each user's{'\n'}cognitive ability
+            Daily Reminders and Cognitive Activities{'\n'}adapted to each user
           </Text>
         </View>
 
@@ -59,6 +59,6 @@ export default function Onboarding2() {
           <Ionicons name="chevron-forward" size={20} color="white" className="ml-2" />
         </TouchableOpacity>
       </View>
-    </ScrollView>
+    </View>
   );
 }

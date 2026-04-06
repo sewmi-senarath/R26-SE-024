@@ -7,7 +7,7 @@ export default function Onboarding3() {
   const router = useRouter();
 
   const handleGetStarted = () => {
-    router.push('/auth/login');
+    router.push('/role/select');
   };
 
   const handleSkip = () => {
@@ -15,8 +15,8 @@ export default function Onboarding3() {
   };
 
   return (
-    <ScrollView className="flex-1 bg-blue-50">
-      <View className="flex-1 px-6 py-8 justify-between min-h-screen">
+    <View className="flex-1 bg-blue-50">
+      <View className="flex-1 px-6 py-8 justify-between">
         {/* Skip Button */}
         <TouchableOpacity onPress={handleSkip} className="self-end">
           <Text className="text-blue-600 font-medium text-base">Skip</Text>
@@ -59,6 +59,6 @@ export default function Onboarding3() {
           <Ionicons name="chevron-forward" size={20} color="white" className="ml-2" />
         </TouchableOpacity>
       </View>
-    </ScrollView>
+    </View>
   );
 }

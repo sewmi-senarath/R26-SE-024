@@ -10,6 +10,10 @@ export default function Index() {
     router.push("/auth/login");
   };
 
+  const handleOnboardingPress = () => {
+    router.push("/onboarding/1");
+  };
+
   return (
     <View className="flex-1 justify-center items-center">
       <Text className="text-red-500 text-lg font-bold">
@@ -17,6 +21,9 @@ export default function Index() {
       </Text>
       <Button onPressIn={handleLoginPress} className="bg-white text-white">
         Login
+      </Button>
+      <Button onPressIn={handleOnboardingPress} className="bg-white text-white">
+        Go to onboarding pages
       </Button>
     </View>
   );

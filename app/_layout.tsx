@@ -4,7 +4,7 @@ export default function RootLayout() {
   return (
     <Stack
       screenOptions={{
-        headerTitle: "MemoCare", // Default title for all screens
+        headerTitle: "MemoCare",
       }}
     >
     </Stack>

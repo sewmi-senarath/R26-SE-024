@@ -16,7 +16,7 @@ export default function WelcomeScreen() {
   };
 
   return (
-    <ScrollView className="flex-1 bg-blue-50">
+    <View className="flex-1 bg-blue-50">
       <View className="flex-1 px-6 py-8 justify-between">
         {/* Skip Button */}
         <TouchableOpacity onPress={handleSkip} className="self-end">
@@ -25,13 +25,13 @@ export default function WelcomeScreen() {
 
         {/* Brain Icon */}
         <View className="items-center mt-0">
-          {/* <View className="w-32 h-32 rounded-full bg-blue-500 justify-center items-center shadow-lg"> */}
+          <View className="w-40 h-40 rounded-full bg-white justify-center items-center shadow-lg">
             <Image
               source={require('../../assets/images/favicon.png')}
-              className="w-5"
+              className="w-40 h-40"
               // resizeMode="contain"
             />
-          {/* </View> */}
+          </View>
         </View>
 
         {/* Title */}
@@ -64,6 +64,6 @@ export default function WelcomeScreen() {
           <Ionicons name="chevron-forward" size={20} color="white" className="ml-2" />
         </TouchableOpacity>
       </View>
-    </ScrollView>
+    </View>
   );
 }
