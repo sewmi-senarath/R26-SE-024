@@ -3,9 +3,10 @@
   "compilerOptions": {
     "strict": true,
     "paths": {
-      "@/*": [
-        "./*"
-      ]
+      "@/*": [ "./*"],
+      "@/src/*": ["./src/*"],
+      "@/app/*": ["./app/*"],
+      "@/components/*": ["./src/components/*"]
     },
     "types": [
       "nativewind/types"
