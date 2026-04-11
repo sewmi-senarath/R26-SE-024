@@ -1,0 +1,1 @@
+patient-memory vault component middleware goes here
