@@ -30,3 +30,19 @@ export interface CaregiverInsight {
   level: 'Low' | 'Moderate' | 'High';
   message: string;
 }
+
+
+export interface Routine {
+  id: string;
+  title: string;
+  time: string;
+  completed: boolean;
+}
+
+export interface PatientDetail extends Patient {
+  age: number;
+  stage: string;
+  condition_notes: string;
+  condition_description: string;
+  routines: Routine[];
+}
