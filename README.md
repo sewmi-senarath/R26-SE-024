@@ -163,7 +163,7 @@ We welcome contributions from the team! To contribute:
    ```bash
    git push origin feature/your-feature-name
    ```
-4. Always use frontend/backend in the branch name according to your changes to ensure that the changes are identifiable
+## 4. Always use frontend/backend in the branch name or your commit message according to the changes to ensure that the changes are identifiable
 
 
 
