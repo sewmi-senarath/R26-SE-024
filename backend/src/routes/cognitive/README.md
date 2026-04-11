@@ -1,0 +1,1 @@
+patient-cognitive activities component routes goes here
