@@ -56,6 +56,7 @@ export default function PatientRegistration() {
         const payload = { ...step1Data, ...step2Data, ...step3Data };
         console.log('Submit patient registration', payload);
         // Add submission logic here
+        router.push('/patient/activity-selector');
     };
 
     const renderProgressBar = () => (
