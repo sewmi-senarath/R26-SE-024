@@ -46,3 +46,46 @@ export interface PatientDetail extends Patient {
   condition_description: string;
   routines: Routine[];
 }
+
+
+export type TaskStatus = 'todo' | 'done';
+export type TaskPriority = 'low' | 'medium' | 'high';
+export type TaskFilter = 'all' | 'todo' | 'done';
+
+export interface CaregiverTask {
+  id: string;
+  title: string;
+  patientName: string;
+  patientInitials: string;
+  patientColor: string;
+  time: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  assignee: string;
+  category: 'bathing' | 'feeding' | 'exercise' | 'medication' | 'outdoor' | 'other';
+}
+export type StressLevel = 'Low' | 'Moderate' | 'High' | 'Critical';
+export type MoodType = 'awful' | 'bad' | 'okay' | 'good' | 'great';
+
+export interface WellbeingStats {
+  avgSleep: number;
+  activeHours: number;
+  tasksCompleted: number;
+  breaksTaken: number;
+}
+
+export interface Recommendation {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  color: string;
+  bgColor: string;
+  urgent: boolean;
+}
+
+export interface WeeklyData {
+  day: string;
+  stress: number;
+  tasks: number;
+}
