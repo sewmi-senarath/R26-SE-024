@@ -101,18 +101,14 @@ export default function PatientsScreen() {
   const [expandedId, setExpandedId]     = useState<string | null>(null);
   const [patients, setPatients]         = useState<PatientDetail[]>(MOCK_PATIENTS);
   const [refreshing, setRefreshing]     = useState(false);
-
-  // Add Patient modal
   const [patientModalVisible, setPatientModalVisible] = useState(false);
-
-  // Add Routine modal — tracks which patient's routine we're adding
   const [routineModal, setRoutineModal] = useState<{
     visible: boolean;
     patientId: string | null;
     patientName: string;
   }>({ visible: false, patientId: null, patientName: '' });
 
-  // ── Filter by search ────────────────────────────────────────────────────────
+  // ── Filter ──────────────────────────────────────────────────────────────────
   const filteredPatients = useMemo(() => {
     if (!searchQuery.trim()) return patients;
     const q = searchQuery.toLowerCase();
@@ -124,12 +120,10 @@ export default function PatientsScreen() {
     );
   }, [searchQuery, patients]);
 
-  // ── Expand / collapse ───────────────────────────────────────────────────────
-  const handleToggleExpand = (id: string) => {
+  // ── Handlers ────────────────────────────────────────────────────────────────
+  const handleToggleExpand = (id: string) =>
     setExpandedId((prev) => (prev === id ? null : id));
-  };
 
-  // ── Toggle routine complete ─────────────────────────────────────────────────
   const handleRoutineToggle = (patientId: string, routineId: string) => {
     setPatients((prev) =>
       prev.map((p) =>
@@ -145,24 +139,15 @@ export default function PatientsScreen() {
     );
   };
 
-  // ── Open Add Routine modal for a specific patient ───────────────────────────
   const handleAddRoutine = (patientId: string) => {
     const patient = patients.find((p) => p.id === patientId);
     if (!patient) return;
-    setRoutineModal({
-      visible: true,
-      patientId,
-      patientName: patient.name,
-    });
+    setRoutineModal({ visible: true, patientId, patientName: patient.name });
   };
 
-  // ── Save new routine to the correct patient ─────────────────────────────────
   const handleRoutineSubmit = (routine: Omit<Routine, 'id'>) => {
     if (!routineModal.patientId) return;
-    const newRoutine: Routine = {
-      ...routine,
-      id: `r-${Date.now()}`,
-    };
+    const newRoutine: Routine = { ...routine, id: `r-${Date.now()}` };
     setPatients((prev) =>
       prev.map((p) =>
         p.id !== routineModal.patientId
@@ -172,7 +157,6 @@ export default function PatientsScreen() {
     );
   };
 
-  // ── Add new patient ─────────────────────────────────────────────────────────
   const handleAddPatient = (
     newPatientData: Omit<PatientDetail, 'id' | 'emoji' | 'lastChecked' | 'routines'>,
   ) => {
@@ -186,13 +170,12 @@ export default function PatientsScreen() {
     setPatients((prev) => [newPatient, ...prev]);
   };
 
-  // ── Pull-to-refresh ─────────────────────────────────────────────────────────
   const handleRefresh = () => {
     setRefreshing(true);
     setTimeout(() => setRefreshing(false), 1000);
   };
 
-  // ── Render ──────────────────────────────────────────────────────────────────
+  // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
@@ -202,17 +185,18 @@ export default function PatientsScreen() {
         style={{
           backgroundColor: Colors.background,
           paddingTop: 56,
-          paddingHorizontal: 20,
-          paddingBottom: 12,
+          paddingBottom: 4,
+          // ← NO paddingHorizontal here — each child manages its own
         }}
       >
-        {/* Title row + Add Patient button */}
+        {/* Title row — has its own horizontal padding */}
         <View
           style={{
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'space-between',
             marginBottom: 16,
+            paddingHorizontal: 20,   // ← only title row needs this
           }}
         >
           <Text
@@ -250,7 +234,7 @@ export default function PatientsScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Search bar */}
+        {/* Search bar — manages its own marginHorizontal: 20 internally */}
         <PatientSearchBar
           value={searchQuery}
           onChangeText={setSearchQuery}
@@ -309,20 +293,19 @@ export default function PatientsScreen() {
               isExpanded={expandedId === patient.id}
               onToggleExpand={handleToggleExpand}
               onRoutineToggle={handleRoutineToggle}
-              onAddRoutine={handleAddRoutine}  // ← opens AddRoutineModal
+              onAddRoutine={handleAddRoutine}
             />
           ))
         )}
       </ScrollView>
 
-      {/* ── Add Patient Modal ── */}
+      {/* ── Modals ── */}
       <AddPatientModal
         visible={patientModalVisible}
         onClose={() => setPatientModalVisible(false)}
         onSubmit={handleAddPatient}
       />
 
-      {/* ── Add Routine Modal ── */}
       <AddRoutineModal
         visible={routineModal.visible}
         patientName={routineModal.patientName}

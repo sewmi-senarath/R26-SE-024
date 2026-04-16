@@ -1,5 +1,6 @@
-import React, { useRef } from 'react';
-import { View, Text, TouchableOpacity, Animated } from 'react-native';
+import React from 'react';
+import { View, Text, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../../constants/colors';
 import { TaskFilter } from '../../../types/caregiver.types';
 
@@ -7,6 +8,9 @@ interface Tab {
   key: TaskFilter;
   label: string;
   count: number;
+  icon: keyof typeof Ionicons.glyphMap;
+  activeColor: string;
+  activeBg: string;
 }
 
 interface TaskFilterTabsProps {
@@ -21,9 +25,30 @@ export const TaskFilterTabs: React.FC<TaskFilterTabsProps> = ({
   onTabChange,
 }) => {
   const tabs: Tab[] = [
-    { key: 'all',  label: 'All',    count: counts.all  },
-    { key: 'todo', label: 'To Do',  count: counts.todo },
-    { key: 'done', label: 'Done',   count: counts.done },
+    {
+      key: 'all',
+      label: 'All',
+      count: counts.all,
+      icon: 'list-outline',
+      activeColor: Colors.primary,
+      activeBg: Colors.primaryLight,
+    },
+    {
+      key: 'todo',
+      label: 'To Do',
+      count: counts.todo,
+      icon: 'ellipse-outline',
+      activeColor: Colors.warning,
+      activeBg: Colors.warningSoft,
+    },
+    {
+      key: 'done',
+      label: 'Done',
+      count: counts.done,
+      icon: 'checkmark-circle-outline',
+      activeColor: Colors.success,
+      activeBg: Colors.successSoft,
+    },
   ];
 
   return (
@@ -33,8 +58,9 @@ export const TaskFilterTabs: React.FC<TaskFilterTabsProps> = ({
         marginHorizontal: 20,
         marginBottom: 16,
         backgroundColor: Colors.borderLight,
-        borderRadius: 16,
+        borderRadius: 18,
         padding: 4,
+        gap: 4,
       }}
     >
       {tabs.map((tab) => {
@@ -49,22 +75,27 @@ export const TaskFilterTabs: React.FC<TaskFilterTabsProps> = ({
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: 6,
-              paddingVertical: 10,
-              borderRadius: 12,
+              gap: 5,
+              paddingVertical: 11,
+              borderRadius: 14,
               backgroundColor: isActive ? Colors.white : 'transparent',
-              shadowColor: isActive ? Colors.primary : 'transparent',
+              shadowColor: isActive ? tab.activeColor : 'transparent',
               shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: isActive ? 0.1 : 0,
+              shadowOpacity: isActive ? 0.12 : 0,
               shadowRadius: 6,
               elevation: isActive ? 2 : 0,
             }}
           >
+            <Ionicons
+              name={tab.icon}
+              size={14}
+              color={isActive ? tab.activeColor : Colors.textMuted}
+            />
             <Text
               style={{
                 fontSize: 13,
-                fontWeight: isActive ? '700' : '500',
-                color: isActive ? Colors.primary : Colors.textMuted,
+                fontWeight: isActive ? '800' : '500',
+                color: isActive ? tab.activeColor : Colors.textMuted,
               }}
             >
               {tab.label}
@@ -72,22 +103,17 @@ export const TaskFilterTabs: React.FC<TaskFilterTabsProps> = ({
             {tab.count > 0 && (
               <View
                 style={{
-                  minWidth: 20,
-                  height: 20,
+                  minWidth: 20, height: 20,
                   borderRadius: 10,
-                  backgroundColor: isActive ? Colors.primary : Colors.border,
-                  alignItems: 'center',
-                  justifyContent: 'center',
+                  backgroundColor: isActive ? tab.activeColor : Colors.border,
+                  alignItems: 'center', justifyContent: 'center',
                   paddingHorizontal: 5,
                 }}
               >
-                <Text
-                  style={{
-                    fontSize: 10,
-                    fontWeight: '700',
-                    color: isActive ? Colors.white : Colors.textMuted,
-                  }}
-                >
+                <Text style={{
+                  fontSize: 10, fontWeight: '800',
+                  color: isActive ? Colors.white : Colors.textMuted,
+                }}>
                   {tab.count}
                 </Text>
               </View>

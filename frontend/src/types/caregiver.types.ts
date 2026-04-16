@@ -89,3 +89,94 @@ export interface WeeklyData {
   stress: number;
   tasks: number;
 }
+
+export interface MenuItem {
+  id: string;
+  label: string;
+  icon: string;
+  iconColor: string;
+  iconBg: string;
+  badge?: number;
+  badgeColor?: string;
+  route?: string;
+}
+
+export interface MenuSection {
+  title: string;
+  items: MenuItem[];
+}
+
+export interface CaregiverProfile {
+  name: string;
+  role: string;
+  email: string;
+  initials: string;
+  avatarColor: string;
+  isOnline: boolean;
+  shiftsCompleted: number;
+  patientsAssigned: number;
+  hoursThisWeek: number;
+}
+
+export type MedicationStatus = 'taken' | 'pending' | 'missed';
+export type MedicationTime = 'all' | 'morning' | 'afternoon' | 'evening';
+
+export interface Medication {
+  id: string;
+  name: string;
+  dose: string;
+  form: string;
+  patientName: string;
+  patientInitials: string;
+  patientColor: string;
+  time: string;
+  timeSlot: 'morning' | 'afternoon' | 'evening';
+  status: MedicationStatus;
+  streak: number;
+}
+
+// ── Notifications ─────────────────────────────────────────
+export type NotificationSeverity = 'urgent' | 'warning' | 'info';
+
+export interface AppNotification {
+  id: string;
+  patientName: string;
+  message: string;
+  time: string;
+  severity: NotificationSeverity;
+  acknowledged: boolean;
+  hasAction?: boolean;
+  actionLabel?: string;
+}
+
+// ── Reports ───────────────────────────────────────────────
+export type ReportTimeframe = 'daily' | 'weekly' | 'monthly';
+export type ReportType =
+  | 'Comprehensive Care Summary'
+  | 'Medication Adherence'
+  | 'Task Completion'
+  | 'Behavioral Incident Log';
+
+// ── Wellbeing ─────────────────────────────────────────────
+export interface WellbeingRecommendation {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  color: string;
+  bgColor: string;
+  actionLabel: string;
+  duration: string;
+}
+export interface CaregiverProfile {
+  name: string;
+  role: string;
+  email: string;
+  initials: string;
+  avatarColor: string;
+  isOnline: boolean;
+  shiftsCompleted: number;
+  patientsAssigned: number;
+  hoursThisWeek: number;
+  profileImage?: string; 
+}

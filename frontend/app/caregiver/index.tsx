@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { RefreshControl, ScrollView, StatusBar, View } from 'react-native';
+import { router } from 'expo-router';
 import { DashboardHeader } from '../../src/components/caregiver/dashboard/DashboardHeader';
 import { InsightsBanner } from '../../src/components/caregiver/dashboard/InsightsBanner';
 import { PatientOverview } from '../../src/components/caregiver/dashboard/PatientOverview';
@@ -7,10 +8,10 @@ import { StatsGrid } from '../../src/components/caregiver/dashboard/StatsGrid';
 import { UpcomingTasks } from '../../src/components/caregiver/dashboard/UpcomingTasks';
 import { Colors } from '../../src/constants/colors';
 import {
-    CaregiverInsight,
-    DashboardStats,
-    Patient,
-    Task,
+  CaregiverInsight,
+  DashboardStats,
+  Patient,
+  Task,
 } from '../../src/types/caregiver.types';
 
 // ── Mock Data ──────────────────────────────────────────────────────────────
@@ -97,12 +98,12 @@ const MOCK_TASKS: Task[] = [
 // ──────────────────────────────────────────────────────────────────────────
 
 export default function CaregiverDashboard() {
-  const [tasks, setTasks] = useState<Task[]>(MOCK_TASKS);
+  const [tasks, setTasks]     = useState<Task[]>(MOCK_TASKS);
   const [refreshing, setRefreshing] = useState(false);
 
   const handleTaskComplete = (taskId: string) => {
     setTasks((prev) =>
-      prev.map((t) => (t.id === taskId ? { ...t, completed: !t.completed } : t))
+      prev.map((t) => (t.id === taskId ? { ...t, completed: !t.completed } : t)),
     );
   };
 
@@ -111,8 +112,19 @@ export default function CaregiverDashboard() {
     setTimeout(() => setRefreshing(false), 1200);
   };
 
+  // ── Navigation helpers ─────────────────────────────────────────────────────
+  // Tab screens  → router.push with the tab name
+  // Sub-screens  → router.push with full path (hidden from tab bar)
+
+  const goToPatients     = () => router.push('/caregiver/patients');
+  const goToTasks        = () => router.push('/caregiver/tasks');
+  const goToInsights     = () => router.push('/caregiver/insights');
+  const goToMedications  = () => router.push('/caregiver/medications');
+  const goToAlerts       = () => router.push('/caregiver/alerts');
+  const goToMore         = () => router.push('/caregiver/more');
+
   return (
-    <View className="flex-1" style={{ backgroundColor: Colors.background }}>
+    <View style={{ flex: 1, backgroundColor: Colors.background }}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
 
       <ScrollView
@@ -126,34 +138,52 @@ export default function CaregiverDashboard() {
         }
         contentContainerStyle={{ paddingBottom: 120 }}
       >
+        {/* ── Header
+             🔔 notification icon  → Alerts page
+             👤 profile avatar     → More page (profile lives there)       ── */}
         <DashboardHeader
           caregiverName="Sarah"
           alertCount={2}
-          onNotificationPress={() => console.log('Notifications')}
-          onProfilePress={() => console.log('Profile')}
+          onNotificationPress={goToAlerts}
+          onProfilePress={goToMore}
         />
 
+        {/* ── Stats Grid
+             Patients card  → Patients page
+             Tasks card     → Tasks page
+             Meds card      → Medications page
+             Alerts card    → Alerts page                                  ── */}
         <StatsGrid
           stats={MOCK_STATS}
-          onPatientPress={() => console.log('Patients')}
-          onTaskPress={() => console.log('Tasks')}
+          onPatientPress={goToPatients}
+          onTaskPress={goToTasks}
+          onMedPress={goToMedications}
+          onAlertPress={goToAlerts}
         />
 
+        {/* ── Patient Overview
+             "See all" button      → Patients page
+             Individual card tap   → Patients page                         ── */}
         <PatientOverview
           patients={MOCK_PATIENTS}
-          onSeeAllPress={() => console.log('See all patients')}
-          onPatientPress={(p) => console.log('Patient:', p.name)}
+          onSeeAllPress={goToPatients}
+          onPatientPress={(_patient) => goToPatients()}
         />
 
+        {/* ── Caregiver Insights banner → Insights page                   ── */}
         <InsightsBanner
           insight={MOCK_INSIGHT}
-          onPress={() => console.log('Insights')}
+          onPress={goToInsights}
         />
 
+        {/* ── Upcoming Tasks
+             "View schedule" button  → Tasks page
+             Individual task tap     → Tasks page
+             Checkbox tap            → toggles complete locally             ── */}
         <UpcomingTasks
           tasks={tasks}
-          onViewSchedule={() => console.log('Schedule')}
-          onTaskPress={(t) => console.log('Task:', t.title)}
+          onViewSchedule={goToTasks}
+          onTaskPress={(_task) => goToTasks()}
           onTaskComplete={handleTaskComplete}
         />
       </ScrollView>
