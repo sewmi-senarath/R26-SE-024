@@ -10,9 +10,9 @@ import { TaskProgressBar } from '../../src/components/caregiver/tasks/TaskProgre
 import { TaskFilterTabs } from '../../src/components/caregiver/tasks/TaskFilterTabs';
 import { TaskCard } from '../../src/components/caregiver/tasks/TaskCard';
 import { EmptyTaskState } from '../../src/components/caregiver/tasks/EmptyTaskState';
+import { AddTaskModal } from '../../src/components/caregiver/tasks/AddTaskModal';
 import { CaregiverTask, TaskFilter } from '../../src/types/caregiver.types';
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTH_LABELS = [
   'January','February','March','April','May','June',
@@ -24,7 +24,6 @@ const isSameDay = (a: Date, b: Date) =>
   a.getMonth()    === b.getMonth()    &&
   a.getDate()     === b.getDate();
 
-// Build 7 days centred on today for the week strip
 const getWeekDays = (anchor: Date) => {
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(anchor);
@@ -33,7 +32,6 @@ const getWeekDays = (anchor: Date) => {
   });
 };
 
-// ── Mock Data ─────────────────────────────────────────────────────────────────
 const MOCK_TASKS: CaregiverTask[] = [
   {
     id: '1', title: 'Morning Bathing Assist',
@@ -61,34 +59,31 @@ const MOCK_TASKS: CaregiverTask[] = [
     time: '04:00 PM', status: 'todo', priority: 'low', assignee: 'SJ', category: 'outdoor',
   },
 ];
-// ─────────────────────────────────────────────────────────────────────────────
 
 export default function TasksScreen() {
   const today = new Date();
 
-  const [tasks, setTasks]             = useState<CaregiverTask[]>(MOCK_TASKS);
-  const [activeTab, setActiveTab]     = useState<TaskFilter>('all');
-  const [refreshing, setRefreshing]   = useState(false);
+  const [tasks, setTasks]               = useState<CaregiverTask[]>(MOCK_TASKS);
+  const [activeTab, setActiveTab]       = useState<TaskFilter>('all');
+  const [refreshing, setRefreshing]     = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>(today);
   const [showCalendar, setShowCalendar] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);   // ← new
 
   const weekDays = useMemo(() => getWeekDays(selectedDate), [selectedDate]);
 
-  // ── Counts ──────────────────────────────────────────────────────────────────
   const counts = useMemo(() => ({
     all:  tasks.length,
     todo: tasks.filter((t) => t.status === 'todo').length,
     done: tasks.filter((t) => t.status === 'done').length,
   }), [tasks]);
 
-  // ── Filtered list ───────────────────────────────────────────────────────────
   const filteredTasks = useMemo(() => {
     if (activeTab === 'all')  return tasks;
     if (activeTab === 'todo') return tasks.filter((t) => t.status === 'todo');
     return tasks.filter((t) => t.status === 'done');
   }, [tasks, activeTab]);
 
-  // ── Toggle complete ─────────────────────────────────────────────────────────
   const handleToggleComplete = (id: string) => {
     setTasks((prev) =>
       prev.map((t) =>
@@ -97,7 +92,11 @@ export default function TasksScreen() {
     );
   };
 
-  // ── Navigate week ───────────────────────────────────────────────────────────
+  // ← new: prepend the new task so it appears at the top
+  const handleAddTask = (task: CaregiverTask) => {
+    setTasks((prev) => [task, ...prev]);
+  };
+
   const shiftWeek = (dir: -1 | 1) => {
     const d = new Date(selectedDate);
     d.setDate(d.getDate() + dir * 7);
@@ -111,7 +110,6 @@ export default function TasksScreen() {
 
   const isToday = isSameDay(selectedDate, today);
 
-  // ── Date Picker Modal ───────────────────────────────────────────────────────
   const DatePickerModal = () => (
     <Modal
       visible={showCalendar}
@@ -133,7 +131,6 @@ export default function TasksScreen() {
               shadowRadius: 24,
               elevation: 10,
             }}>
-              {/* Calendar header */}
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                 <TouchableOpacity
                   onPress={() => shiftWeek(-1)}
@@ -154,7 +151,6 @@ export default function TasksScreen() {
                 </TouchableOpacity>
               </View>
 
-              {/* Week strip */}
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 }}>
                 {weekDays.map((day, i) => {
                   const isSelected = isSameDay(day, selectedDate);
@@ -193,7 +189,6 @@ export default function TasksScreen() {
                 })}
               </View>
 
-              {/* Jump to today */}
               {!isToday && (
                 <TouchableOpacity
                   onPress={() => { setSelectedDate(today); setShowCalendar(false); }}
@@ -216,19 +211,17 @@ export default function TasksScreen() {
     </Modal>
   );
 
-  // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
 
-      {/* ── Fixed Header ── */}
+      {/* Fixed Header */}
       <View style={{
         backgroundColor: Colors.background,
         paddingTop: 56,
         paddingHorizontal: 20,
         paddingBottom: 16,
       }}>
-        {/* Title row */}
         <View style={{
           flexDirection: 'row', alignItems: 'center',
           justifyContent: 'space-between', marginBottom: 16,
@@ -237,7 +230,6 @@ export default function TasksScreen() {
             Tasks
           </Text>
 
-          {/* Today / Date button — opens calendar */}
           <TouchableOpacity
             onPress={() => setShowCalendar(true)}
             style={{
@@ -271,7 +263,6 @@ export default function TasksScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Selected date display strip */}
         {!isToday && (
           <View style={{
             flexDirection: 'row', alignItems: 'center',
@@ -302,13 +293,9 @@ export default function TasksScreen() {
         }
         contentContainerStyle={{ paddingBottom: 120 }}
       >
-        {/* Progress Bar */}
         <TaskProgressBar completed={counts.done} total={counts.all} />
-
-        {/* Filter Tabs */}
         <TaskFilterTabs activeTab={activeTab} counts={counts} onTabChange={setActiveTab} />
 
-        {/* Task List */}
         {filteredTasks.length === 0
           ? <EmptyTaskState activeTab={activeTab} />
           : filteredTasks.map((task) => (
@@ -324,6 +311,36 @@ export default function TasksScreen() {
 
       {/* Date Picker Modal */}
       <DatePickerModal />
+
+      {/* ── Floating Add Button ── */}
+      <TouchableOpacity
+        onPress={() => setShowAddModal(true)}
+        style={{
+          position: 'absolute',
+          bottom: 100,
+          right: 20,
+          width: 56,
+          height: 56,
+          borderRadius: 28,
+          backgroundColor: Colors.primary,
+          alignItems: 'center',
+          justifyContent: 'center',
+          shadowColor: Colors.primary,
+          shadowOffset: { width: 0, height: 6 },
+          shadowOpacity: 0.35,
+          shadowRadius: 12,
+          elevation: 8,
+        }}
+      >
+        <Ionicons name="add" size={28} color="white" />
+      </TouchableOpacity>
+
+      {/* ── Add Task Modal ── */}
+      <AddTaskModal
+        visible={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onAdd={handleAddTask}
+      />
     </View>
   );
 }
