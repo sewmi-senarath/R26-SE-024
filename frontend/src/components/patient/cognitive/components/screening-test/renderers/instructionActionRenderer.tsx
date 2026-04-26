@@ -1,6 +1,6 @@
 import { Question } from '@/src/types/assessment.types';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 interface Props {
@@ -10,6 +10,10 @@ interface Props {
 
 export function InstructionActionRenderer({ question, onAnswer }: Props) {
   const [userResponse, setUserResponse] = useState<'correct' | 'incorrect' | null>(null);
+
+  useEffect(() => {
+    setUserResponse(null);
+  }, [question.id]);
 
   const handleCorrect = () => {
     setUserResponse('correct');

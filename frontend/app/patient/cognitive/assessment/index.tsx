@@ -1,10 +1,20 @@
-import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAssessmentSession } from '@/src/hooks/useAssessmentSession';
 import { useRouter } from 'expo-router';
+import React from 'react';
+import { Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+const PATIENT_ID = 'patient_001';
+const CAREGIVER_ID = 'caregiver-001';
 
 export default function AssessmentWelcome() {
   const router = useRouter();
+  const { startSession } = useAssessmentSession(PATIENT_ID, CAREGIVER_ID);
+
+  const handleStart = () => {
+    startSession();
+    router.replace('/patient/cognitive/assessment/0');
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-blue-50">
@@ -29,7 +39,7 @@ export default function AssessmentWelcome() {
         </Text>
 
         <TouchableOpacity
-          onPress={() => router.push('/patient/cognitive/assessment/0')}
+          onPress={handleStart}
           className="w-full bg-blue-500 py-4 rounded-2xl items-center"
         >
           <Text className="text-white font-semibold text-base">Start Test</Text>

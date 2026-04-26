@@ -120,3 +120,42 @@ export function buildScoringLog(
     max: q.maxScore,
   }));
 }
+
+export interface SeverityInfo {
+  level: Severity;
+  label: string;
+  description: string;
+  color: string;        // for UI styling
+  scoreRange: string;
+}
+
+export function getSeverityInfo(score: number): SeverityInfo {
+  if (score >= 24) return {
+    level: 'none',
+    label: 'No Impairment',
+    description: 'Score indicates no signs of cognitive impairment.',
+    color: 'green',
+    scoreRange: '24 – 30',
+  };
+  if (score >= 19) return {
+    level: 'mild',
+    label: 'Mild Impairment',
+    description: 'Score suggests mild cognitive impairment. Follow-up recommended.',
+    color: 'amber',
+    scoreRange: '19 – 23',
+  };
+  if (score >= 10) return {
+    level: 'moderate',
+    label: 'Moderate Impairment',
+    description: 'Score suggests moderate cognitive impairment. Clinical review required.',
+    color: 'orange',
+    scoreRange: '10 – 18',
+  };
+  return {
+    level: 'severe',
+    label: 'Severe Impairment',
+    description: 'Score suggests severe cognitive impairment. Immediate clinical attention needed.',
+    color: 'red',
+    scoreRange: '0 – 9',
+  };
+}

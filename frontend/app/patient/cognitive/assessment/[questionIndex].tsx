@@ -1,21 +1,20 @@
-// the single question engine screen
-import React, { useCallback } from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { ProgressBar } from '@/src/components/patient/cognitive/components/screening-test/progressBar';
+import { DrawingRenderer } from '@/src/components/patient/cognitive/components/screening-test/renderers/drawingRenderer';
+import { ImageMcqRenderer } from '@/src/components/patient/cognitive/components/screening-test/renderers/imageMcqRenderer';
+import { InstructionActionRenderer } from '@/src/components/patient/cognitive/components/screening-test/renderers/instructionActionRenderer';
+import { MCQRenderer } from '@/src/components/patient/cognitive/components/screening-test/renderers/mcqRenderer';
+import { PhraseRepeatRenderer } from '@/src/components/patient/cognitive/components/screening-test/renderers/phraseRepeatRenderer';
+import { SerialSubtractionRenderer } from '@/src/components/patient/cognitive/components/screening-test/renderers/serialSubtractionRenderer';
+import { TimerBar } from '@/src/components/patient/cognitive/components/screening-test/renderers/timeBar';
+import { WordRecallRenderer } from '@/src/components/patient/cognitive/components/screening-test/renderers/wordRecallRenderer';
 import { useAssessmentSession } from '@/src/hooks/useAssessmentSession';
 import { useQuestionTimer } from '@/src/hooks/useQuestionTimer';
-import { ProgressBar } from '@/src/components/patient/cognitive/components/progressBar';
-import { TimerBar } from '@/src/components/patient/cognitive/components/renderers/timeBar';
-import { MCQRenderer } from '@/src/components/patient/cognitive/components/renderers/mcqRenderer';
-import { WordRecallRenderer } from '@/src/components/patient/cognitive/components/renderers/wordRecallRenderer';
-import { SerialSubtractionRenderer } from '@/src/components/patient/cognitive/components/renderers/serialSubtractionRenderer';
 import { Question } from '@/src/types/assessment.types';
-import { ImageMcqRenderer } from '@/src/components/patient/cognitive/components/renderers/imageMcqRenderer';
-import { PhraseRepeatRenderer } from '@/src/components/patient/cognitive/components/renderers/phraseRepeatRenderer';
-import { InstructionActionRenderer } from '@/src/components/patient/cognitive/components/renderers/instructionActionRenderer';
-// You'll pass patientId and clinicianId via route params or context
-// For now hardcoding for development
+import { useRouter } from 'expo-router';
+import React, { useCallback } from 'react';
+import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
 const PATIENT_ID = 'patient_001';
 const CAREGIVER_ID = 'caregiver-001';
 
@@ -26,8 +25,8 @@ export default function QuestionScreen() {
     currentQuestion,
     progressPercent,
     submitAnswer,
-    goToNext,
-    goToPrev,
+    goToNext: handleGoToNext,
+    goToPrev: handleGoToPrev,
     markTimeExpired,
   } = useAssessmentSession(PATIENT_ID, CAREGIVER_ID);
 
@@ -41,16 +40,27 @@ export default function QuestionScreen() {
   });
 
   const handleAnswer = (answer: any) => {
+    if (!currentQuestion) return;
     submitAnswer(currentQuestion.id, answer);
   };
 
-  const handleNext = () => {
+  // ── Navigate to next question 
+  const handleNext = useCallback(() => {
+    handleGoToNext();
     if (session.status === 'done') {
       router.replace('/patient/cognitive/assessment/results');
     } else {
-      goToNext();
+      router.replace(`/patient/cognitive/assessment/${session.currentQuestionIndex + 1}`);
     }
-  };
+  }, [handleGoToNext, session.status, session.currentQuestionIndex, router]);
+
+  // ── Navigate to previous question ──────────────────────────
+  const handlePrev = useCallback(() => {
+    if (session.currentQuestionIndex > 0) {
+      handleGoToPrev();
+      router.replace(`/patient/cognitive/assessment/${session.currentQuestionIndex - 1}`);
+    }
+  }, [handleGoToPrev, session.currentQuestionIndex, router]);
 
   if (!currentQuestion) return null;
 
@@ -116,7 +126,7 @@ export default function QuestionScreen() {
         </TouchableOpacity>
 
         {session.currentQuestionIndex > 0 && (
-          <TouchableOpacity onPress={goToPrev} className="items-center py-2">
+          <TouchableOpacity onPress={handlePrev} className="items-center py-2">
             <Text className="text-sm text-gray-400">Go back</Text>
           </TouchableOpacity>
         )}
@@ -138,10 +148,12 @@ function renderQuestion(question: Question, onAnswer: (a: any) => void) {
       return <WordRecallRenderer question={question} onAnswer={onAnswer} />;
     case 'serial_subtraction':
       return <SerialSubtractionRenderer question={question} onAnswer={onAnswer} />;
-    case 'phrase_repeat' :
+    case 'phrase_repeat':
       return <PhraseRepeatRenderer question={question} onAnswer={onAnswer} />;
     case 'instruction_action':
       return <InstructionActionRenderer question={question} onAnswer={onAnswer} />;
+    case 'drawing_canvas':
+      return <DrawingRenderer question={question} onAnswer={onAnswer} />;
     default:
       return (
         <View className="px-6">

@@ -1,29 +1,47 @@
 // session state manager
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { MMSE_QUESTIONS, TOTAL_QUESTIONS, IMPAIRMENT_THRESHOLD } from '@/src/constants/questions';
-import { MMSESession, SectionScores } from '@/src/types/assessment.types';
-import { computeSectionScores, computeTotalScore, computeSeverity, buildScoringLog } from '../utils/scoring';
-import 'react-native-get-random-values'; // needed for uuid
-import { v4 as uuidv4 } from 'uuid';
-import { saveSession } from '../utils/sessionStorage';
+import {
+  IMPAIRMENT_THRESHOLD,
+  MMSE_QUESTIONS,
+  TOTAL_QUESTIONS,
+} from "@/src/constants/questions";
+import { MMSESession } from "@/src/types/assessment.types";
+import { useCallback, useEffect, useRef, useState } from "react";
+import "react-native-get-random-values";
+import { v4 as uuidv4 } from "uuid";
+import {
+  buildScoringLog,
+  computeSectionScores,
+  computeSeverity,
+  computeTotalScore,
+} from "../utils/scoring";
+import { loadSession, saveSession } from "../utils/sessionStorage";
 
-function buildInitialSession(patientId: string, caregiverId: string): MMSESession {
+function buildInitialSession(
+  patientId: string,
+  caregiverId: string,
+): MMSESession {
   return {
     currentQuestionIndex: 0,
     totalQuestions: TOTAL_QUESTIONS,
-    status: 'idle',
+    status: "idle",
     answers: {},
     answeredAt: {},
     timePerQuestion: {},
     attemptCount: {},
     skipped: [],
-    registrationWords: ['Apple', 'Table', 'Penny'],
-    sectionScores: { Orientation: 0, Registration: 0, Attention: 0, Recall: 0, Language: 0 },
+    registrationWords: ["Apple", "Table", "Penny"],
+    sectionScores: {
+      Orientation: 0,
+      Registration: 0,
+      Attention: 0,
+      Recall: 0,
+      Language: 0,
+    },
     totalScore: 0,
-    attentionMethod: 'serial7',
+    attentionMethod: "serial7",
     adjustedScore: null,
     impairmentFlag: false,
-    severity: 'none',
+    severity: "none",
     scoringLog: [],
     serial7Attempted: false,
     worldSpellingFallback: false,
@@ -36,74 +54,97 @@ function buildInitialSession(patientId: string, caregiverId: string): MMSESessio
     caregiverId,
     startedAt: new Date().toISOString(),
     completedAt: null,
-    locale: 'en-AU',
-    administrationMode: 'assisted',
+    locale: "en-AU",
+    administrationMode: "assisted",
   };
 }
 
 export function useAssessmentSession(patientId: string, caregiverId: string) {
-  const [session, setSession] = useState<MMSESession>(() =>
-    buildInitialSession(patientId, caregiverId)
-  );
-
-  // Track time spent on current question
+  const [session, setSession] = useState<MMSESession | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const questionStartRef = useRef<number>(Date.now());
 
+  // ── Load session from storage on mount ──────────────────────
+  useEffect(() => {
+    const initSession = async () => {
+      const stored = await loadSession(patientId, caregiverId);
+
+      if (stored) {
+        setSession(stored);
+      } else {
+        setSession(buildInitialSession(patientId, caregiverId));
+      }
+      setIsLoading(false);
+    };
+
+    initSession();
+  }, [patientId, caregiverId]);
+
   const startSession = useCallback(() => {
+    if (!session) return;
     questionStartRef.current = Date.now();
-    setSession(prev => ({
-      ...prev,
-      status: 'active',
-      questionStartTime: Date.now(),
-      timeLimit: MMSE_QUESTIONS[0].timeLimit ?? null,
-    }));
-  }, []);
+    setSession((prev) =>
+      prev
+        ? {
+            ...prev,
+            status: "active",
+            questionStartTime: Date.now(),
+            timeLimit: MMSE_QUESTIONS[0].timeLimit ?? null,
+          }
+        : null,
+    );
+  }, [session]);
 
-  const submitAnswer = useCallback((questionId: string, answer: any) => {
-    const timeSpent = Date.now() - questionStartRef.current;
+  const submitAnswer = useCallback(
+    (questionId: string, answer: any) => {
+      if (!session) return;
+      const timeSpent = Date.now() - questionStartRef.current;
 
-    setSession(prev => {
-      const newAnswers = { ...prev.answers, [questionId]: answer };
-      const newAnsweredAt = { ...prev.answeredAt, [questionId]: Date.now() };
-      const newTimePerQ = { ...prev.timePerQuestion, [questionId]: timeSpent };
+      setSession((prev) => {
+        if (!prev) return null;
 
-      // Special flag: mark registration words as shown so recall is unlocked
-      const recallWordsShown =
-        prev.recallWordsShown || questionId === 'registration';
+        const newAnswers = { ...prev.answers, [questionId]: answer };
+        const newAnsweredAt = { ...prev.answeredAt, [questionId]: Date.now() };
+        const newTimePerQ = {
+          ...prev.timePerQuestion,
+          [questionId]: timeSpent,
+        };
 
-      // Special flag: track attention method used
-      const serial7Attempted =
-        prev.serial7Attempted || questionId === 'attention_serial7';
+        const recallWordsShown =
+          prev.recallWordsShown || questionId === "registration";
+        const serial7Attempted =
+          prev.serial7Attempted || questionId === "attention_serial7";
 
-      // Recompute scores immediately after every answer
-      const updatedSession = {
-        ...prev,
-        answers: newAnswers,
-        answeredAt: newAnsweredAt,
-        timePerQuestion: newTimePerQ,
-        recallWordsShown,
-        serial7Attempted,
-      };
+        const updatedSession = {
+          ...prev,
+          answers: newAnswers,
+          answeredAt: newAnsweredAt,
+          timePerQuestion: newTimePerQ,
+          recallWordsShown,
+          serial7Attempted,
+        };
 
-      const sectionScores = computeSectionScores(newAnswers, updatedSession);
-      const totalScore = computeTotalScore(sectionScores);
-      const scoringLog = buildScoringLog(newAnswers, updatedSession);
+        const sectionScores = computeSectionScores(newAnswers, updatedSession);
+        const totalScore = computeTotalScore(sectionScores);
+        const scoringLog = buildScoringLog(newAnswers, updatedSession);
 
-      
-
-      return {
-        ...updatedSession,
-        sectionScores,
-        totalScore,
-        scoringLog,
-        impairmentFlag: totalScore <= IMPAIRMENT_THRESHOLD,
-        severity: computeSeverity(totalScore),
-      };
-    });
-  }, []);
+        return {
+          ...updatedSession,
+          sectionScores,
+          totalScore,
+          scoringLog,
+          impairmentFlag: totalScore <= IMPAIRMENT_THRESHOLD,
+          severity: computeSeverity(totalScore),
+        };
+      });
+    },
+    [session],
+  );
 
   const goToNext = useCallback(() => {
-    setSession(prev => {
+    if (!session) return;
+    setSession((prev) => {
+      if (!prev) return null;
       const nextIndex = prev.currentQuestionIndex + 1;
       const isDone = nextIndex >= prev.totalQuestions;
       questionStartRef.current = Date.now();
@@ -111,18 +152,21 @@ export function useAssessmentSession(patientId: string, caregiverId: string) {
       return {
         ...prev,
         currentQuestionIndex: isDone ? prev.currentQuestionIndex : nextIndex,
-        status: isDone ? 'done' : 'active',
+        status: isDone ? "done" : "active",
         completedAt: isDone ? new Date().toISOString() : null,
         questionStartTime: Date.now(),
-        timeLimit: isDone ? null : (MMSE_QUESTIONS[nextIndex]?.timeLimit ?? null),
+        timeLimit: isDone
+          ? null
+          : (MMSE_QUESTIONS[nextIndex]?.timeLimit ?? null),
         timeExpired: false,
       };
     });
-  }, []);
+  }, [session]);
 
   const goToPrev = useCallback(() => {
-    setSession(prev => {
-      if (prev.currentQuestionIndex === 0) return prev;
+    if (!session) return;
+    setSession((prev) => {
+      if (!prev || prev.currentQuestionIndex === 0) return prev;
       const prevIndex = prev.currentQuestionIndex - 1;
       questionStartRef.current = Date.now();
       return {
@@ -132,34 +176,48 @@ export function useAssessmentSession(patientId: string, caregiverId: string) {
         timeExpired: false,
       };
     });
-  }, []);
+  }, [session]);
 
   const markTimeExpired = useCallback(() => {
-    setSession(prev => ({ ...prev, timeExpired: true }));
-  }, []);
+    if (!session) return;
+    setSession((prev) => (prev ? { ...prev, timeExpired: true } : null));
+  }, [session]);
 
-  const skipQuestion = useCallback((questionId: string) => {
-    setSession(prev => ({
-      ...prev,
-      skipped: [...prev.skipped, questionId],
-    }));
-  }, []);
+  const skipQuestion = useCallback(
+    (questionId: string) => {
+      if (!session) return;
+      setSession((prev) =>
+        prev
+          ? {
+              ...prev,
+              skipped: [...prev.skipped, questionId],
+            }
+          : null,
+      );
+    },
+    [session],
+  );
 
-  const currentQuestion = MMSE_QUESTIONS[session.currentQuestionIndex];
-  const progressPercent = (session.currentQuestionIndex / session.totalQuestions) * 100;
-  const isAnswered = (id: string) => id in session.answers;
+  // ── Auto-persist every time session changes ──────────────────
+  useEffect(() => {
+    if (!session || session.status === "idle") return;
+    saveSession(session);
+  }, [session]);
 
-  // Auto-persist every time session state changes
-    useEffect(() => {
-        if (session.status === 'idle') return; // don't save before test starts
-        saveSession(session);
-    }, [session]);
+  const currentQuestion = session
+    ? MMSE_QUESTIONS[session.currentQuestionIndex]
+    : null;
+  const progressPercent = session
+    ? (session.currentQuestionIndex / session.totalQuestions) * 100
+    : 0;
+  const isAnswered = (id: string) => (session ? id in session.answers : false);
 
   return {
-    session,
+    session: session || buildInitialSession(patientId, caregiverId),
     currentQuestion,
     progressPercent,
     isAnswered,
+    isLoading,
     startSession,
     submitAnswer,
     goToNext,

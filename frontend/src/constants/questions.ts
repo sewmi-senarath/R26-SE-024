@@ -105,7 +105,7 @@ export const MMSE_QUESTIONS: Question[] = [
     type: 'phrase_repeat',
     prompt: 'Repeat this phrase exactly:',
     subPrompt: '"No ifs, ands or buts"',
-    timeLimit: 10,
+    timeLimit: 20,
     maxScore: 1,
   },
   {
@@ -114,7 +114,7 @@ export const MMSE_QUESTIONS: Question[] = [
     type: 'instruction_action',
     prompt: 'Read the instruction below and follow it',
     subPrompt: 'CLOSE YOUR EYES',
-    instructionSteps: ['Close your eyes'],
+    // instructionSteps: ['Close your eyes'],
     timeLimit: 10,
     maxScore: 1,
   },
