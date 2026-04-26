@@ -10,7 +10,7 @@ interface UseQuestionTimerOptions {
 
 export function useQuestionTimer({ limitSeconds, onExpire, autoStart = true }: UseQuestionTimerOptions) {
   const [secondsLeft, setSecondsLeft] = useState<number>(limitSeconds ?? 0);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const expiredRef = useRef(false);
 
   const clear = () => {
