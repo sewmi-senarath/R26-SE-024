@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import { KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function CaregiverRegistration() {
     const router = useRouter();
@@ -18,6 +18,10 @@ export default function CaregiverRegistration() {
 
     const handleBackPress = () => {
         router.back();
+    };
+
+    const handleRegisterPress = () => {
+        router.push('/caregiver');
     };
 
     return (
@@ -142,6 +146,7 @@ export default function CaregiverRegistration() {
                     {/* Register Button */}
                     <TouchableOpacity
                         className="bg-blue-600 rounded-lg py-4 px-6 items-center justify-center mt-8 shadow-md"
+                        onPress={handleRegisterPress}
                     >
                         <Text className="text-white font-semibold text-base">Register</Text>
                     </TouchableOpacity>
