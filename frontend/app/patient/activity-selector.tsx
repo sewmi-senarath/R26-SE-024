@@ -5,16 +5,12 @@ import { ScrollView, Text, TouchableOpacity, View, Image } from 'react-native';
 
 export default function PatientHome() {
   const router = useRouter();
-  const userName = 'Margaret'; // This should come from auth/context
   const currentDate = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
     month: 'long',
     day: 'numeric',
   });
 
-  const handleMenuPress = (route: string) => {
-    router.push(route);
-  };
 
   return (
     <ScrollView className="flex-1 bg-blue-50">
@@ -26,11 +22,7 @@ export default function PatientHome() {
               <Ionicons name="sunny" size={40} color="#fbbf24" />
               <Text className="text-5xl font-bold text-black">Welcome Back</Text>
             </View>
-            {/* <Text className="text-3xl font-bold text-white">{userName}</Text> */}
           </View>
-          {/* <TouchableOpacity>
-            <Ionicons name="menu" size={28} color="white" />
-          </TouchableOpacity> */}
         </View>
         <Text className="text-2xl text-black">{currentDate}</Text>
       </View>
@@ -39,7 +31,7 @@ export default function PatientHome() {
       <View className="px-6 py-6 gap-4">
         {/* My Daily Routine Card */}
         <TouchableOpacity
-          onPress={() => handleMenuPress('/patient/daily-routine')}
+          // onPress={() => router.push('/patient/memory')}
           activeOpacity={0.7}
         >
           <View className="bg-white rounded-2xl p-4 shadow-sm flex-row items-center gap-4">
@@ -56,7 +48,7 @@ export default function PatientHome() {
 
         {/* Memory Vault Card */}
         <TouchableOpacity
-          onPress={() => handleMenuPress('/patient/memory-vault')}
+          // onPress={() => router.push('/patient/memory-vault')}
           activeOpacity={0.7}
         >
           <View className="bg-white rounded-2xl p-4 shadow-sm flex-row items-center gap-4">
@@ -73,7 +65,7 @@ export default function PatientHome() {
 
         {/* Brain Games Card */}
         <TouchableOpacity
-          onPress={() => handleMenuPress('/patient/brain-games')}
+          onPress={() => router.push('/patient/cognitive/assessment')}
           activeOpacity={0.7}
         >
           <View className="bg-white rounded-2xl p-4 shadow-sm flex-row items-center gap-4">
@@ -90,7 +82,7 @@ export default function PatientHome() {
 
         {/* Call for Help Card - Emergency */}
         <TouchableOpacity
-          onPress={() => handleMenuPress('/patient/emergency')}
+          // onPress={() => router.push('/patient/emergency')}
           activeOpacity={0.7}
           className='mt-10'
         >
