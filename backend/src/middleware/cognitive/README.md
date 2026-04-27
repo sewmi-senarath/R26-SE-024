@@ -1,1 +1,0 @@
-patient-cognitive activities component middleware goes here

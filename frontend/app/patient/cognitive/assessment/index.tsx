@@ -11,8 +11,8 @@ export default function AssessmentWelcome() {
   const router = useRouter();
   const { startSession } = useAssessmentSession(PATIENT_ID, CAREGIVER_ID);
 
-  const handleStart = () => {
-    startSession();
+  const handleStart = async () => {
+    await startSession();
     router.replace('/patient/cognitive/assessment/0');
   };
 

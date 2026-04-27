@@ -39,26 +39,28 @@ export default function QuestionScreen() {
     onExpire: handleExpire,
   });
 
-  const handleAnswer = (answer: any) => {
+  const handleAnswer = async (answer: any) => {
     if (!currentQuestion) return;
-    submitAnswer(currentQuestion.id, answer);
+    await submitAnswer(currentQuestion.id, answer);
   };
 
   // ── Navigate to next question 
-  const handleNext = useCallback(() => {
-    handleGoToNext();
-    if (session.status === 'done') {
+  const handleNext = useCallback(async () => {
+    const updated = await handleGoToNext();
+    if (updated?.status === 'done') {
       router.replace('/patient/cognitive/assessment/results');
     } else {
-      router.replace(`/patient/cognitive/assessment/${session.currentQuestionIndex + 1}`);
+      const nextIndex = updated?.currentQuestionIndex ?? (session.currentQuestionIndex + 1);
+      router.replace(`/patient/cognitive/assessment/${nextIndex}`);
     }
-  }, [handleGoToNext, session.status, session.currentQuestionIndex, router]);
+  }, [handleGoToNext, session.currentQuestionIndex, router]);
 
   // ── Navigate to previous question ──────────────────────────
-  const handlePrev = useCallback(() => {
+  const handlePrev = useCallback(async () => {
     if (session.currentQuestionIndex > 0) {
-      handleGoToPrev();
-      router.replace(`/patient/cognitive/assessment/${session.currentQuestionIndex - 1}`);
+      const updated = await handleGoToPrev();
+      const prevIndex = updated?.currentQuestionIndex ?? (session.currentQuestionIndex - 1);
+      router.replace(`/patient/cognitive/assessment/${prevIndex}`);
     }
   }, [handleGoToPrev, session.currentQuestionIndex, router]);
 

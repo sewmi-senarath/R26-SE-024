@@ -1,6 +1,4 @@
-import { Question } from '@/src/types/assessment.types';
-
-export const MMSE_QUESTIONS: Question[] = [
+const MMSE_QUESTIONS = [
   //  ORIENTATION (10 pts)
   {
     id: 'orientation_time',
@@ -141,5 +139,6 @@ export const MMSE_QUESTIONS: Question[] = [
   },
 ];
 
-export const TOTAL_QUESTIONS = MMSE_QUESTIONS.length;
-export const IMPAIRMENT_THRESHOLD = 23;
+module.exports = {
+  MMSE_QUESTIONS,
+};

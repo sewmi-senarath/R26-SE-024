@@ -1,19 +1,15 @@
-// session state manager
 import {
-  IMPAIRMENT_THRESHOLD,
   MMSE_QUESTIONS,
   TOTAL_QUESTIONS,
 } from "@/src/constants/questions";
 import { MMSESession } from "@/src/types/assessment.types";
 import { useCallback, useEffect, useRef, useState } from "react";
-import "react-native-get-random-values";
-import { v4 as uuidv4 } from "uuid";
 import {
-  buildScoringLog,
-  computeSectionScores,
-  computeSeverity,
-  computeTotalScore,
-} from "../utils/scoring";
+  completeSession as completeSessionApi,
+  startSession as startSessionApi,
+  submitAnswer as submitAnswerApi,
+  updateSessionProgress,
+} from "../api/assessmentApi";
 import { loadSession, saveSession } from "../utils/sessionStorage";
 
 function buildInitialSession(
@@ -49,7 +45,7 @@ function buildInitialSession(
     questionStartTime: 0,
     timeLimit: null,
     timeExpired: false,
-    sessionId: uuidv4(),
+    sessionId: "",
     patientId,
     caregiverId,
     startedAt: new Date().toISOString(),
@@ -80,120 +76,103 @@ export function useAssessmentSession(patientId: string, caregiverId: string) {
     initSession();
   }, [patientId, caregiverId]);
 
-  const startSession = useCallback(() => {
-    if (!session) return;
+  const startSession = useCallback(async () => {
+    const started = await startSessionApi({
+      patientId,
+      caregiverId,
+      locale: "en-AU",
+      administrationMode: "assisted",
+    });
     questionStartRef.current = Date.now();
-    setSession((prev) =>
-      prev
-        ? {
-            ...prev,
-            status: "active",
-            questionStartTime: Date.now(),
-            timeLimit: MMSE_QUESTIONS[0].timeLimit ?? null,
-          }
-        : null,
-    );
-  }, [session]);
+    setSession(started);
+    return started;
+  }, [patientId, caregiverId]);
 
   const submitAnswer = useCallback(
-    (questionId: string, answer: any) => {
+    async (questionId: string, answer: any) => {
       if (!session) return;
       const timeSpent = Date.now() - questionStartRef.current;
-
-      setSession((prev) => {
-        if (!prev) return null;
-
-        const newAnswers = { ...prev.answers, [questionId]: answer };
-        const newAnsweredAt = { ...prev.answeredAt, [questionId]: Date.now() };
-        const newTimePerQ = {
-          ...prev.timePerQuestion,
-          [questionId]: timeSpent,
-        };
-
-        const recallWordsShown =
-          prev.recallWordsShown || questionId === "registration";
-        const serial7Attempted =
-          prev.serial7Attempted || questionId === "attention_serial7";
-
-        const updatedSession = {
-          ...prev,
-          answers: newAnswers,
-          answeredAt: newAnsweredAt,
-          timePerQuestion: newTimePerQ,
-          recallWordsShown,
-          serial7Attempted,
-        };
-
-        const sectionScores = computeSectionScores(newAnswers, updatedSession);
-        const totalScore = computeTotalScore(sectionScores);
-        const scoringLog = buildScoringLog(newAnswers, updatedSession);
-
-        return {
-          ...updatedSession,
-          sectionScores,
-          totalScore,
-          scoringLog,
-          impairmentFlag: totalScore <= IMPAIRMENT_THRESHOLD,
-          severity: computeSeverity(totalScore),
-        };
+      const updated = await submitAnswerApi(session.sessionId, {
+        questionId,
+        answer,
+        timeSpentMs: timeSpent,
+        answeredAt: Date.now(),
       });
+      setSession(updated);
+      return updated;
     },
     [session],
   );
 
   const goToNext = useCallback(() => {
     if (!session) return;
-    setSession((prev) => {
-      if (!prev) return null;
-      const nextIndex = prev.currentQuestionIndex + 1;
-      const isDone = nextIndex >= prev.totalQuestions;
+    const run = async () => {
+      const nextIndex = session.currentQuestionIndex + 1;
+      const isDone = nextIndex >= session.totalQuestions;
       questionStartRef.current = Date.now();
 
-      return {
-        ...prev,
-        currentQuestionIndex: isDone ? prev.currentQuestionIndex : nextIndex,
-        status: isDone ? "done" : "active",
-        completedAt: isDone ? new Date().toISOString() : null,
+      if (isDone) {
+        const completed = await completeSessionApi(session.sessionId);
+        setSession(completed);
+        return completed;
+      }
+
+      const progressed = await updateSessionProgress(session.sessionId, {
+        currentQuestionIndex: nextIndex,
         questionStartTime: Date.now(),
-        timeLimit: isDone
-          ? null
-          : (MMSE_QUESTIONS[nextIndex]?.timeLimit ?? null),
+        timeLimit: MMSE_QUESTIONS[nextIndex]?.timeLimit ?? null,
         timeExpired: false,
-      };
-    });
+      });
+      setSession(progressed);
+      return progressed;
+    };
+    return run();
   }, [session]);
 
   const goToPrev = useCallback(() => {
     if (!session) return;
-    setSession((prev) => {
-      if (!prev || prev.currentQuestionIndex === 0) return prev;
-      const prevIndex = prev.currentQuestionIndex - 1;
+    if (session.currentQuestionIndex === 0) return;
+    const run = async () => {
+      const prevIndex = session.currentQuestionIndex - 1;
       questionStartRef.current = Date.now();
-      return {
-        ...prev,
+      const progressed = await updateSessionProgress(session.sessionId, {
         currentQuestionIndex: prevIndex,
+        questionStartTime: Date.now(),
         timeLimit: MMSE_QUESTIONS[prevIndex]?.timeLimit ?? null,
         timeExpired: false,
-      };
-    });
+      });
+      setSession(progressed);
+      return progressed;
+    };
+    return run();
   }, [session]);
 
   const markTimeExpired = useCallback(() => {
     if (!session) return;
-    setSession((prev) => (prev ? { ...prev, timeExpired: true } : null));
+    const run = async () => {
+      const progressed = await updateSessionProgress(session.sessionId, {
+        timeExpired: true,
+      });
+      setSession(progressed);
+      return progressed;
+    };
+    return run();
   }, [session]);
 
   const skipQuestion = useCallback(
     (questionId: string) => {
       if (!session) return;
-      setSession((prev) =>
-        prev
-          ? {
-              ...prev,
-              skipped: [...prev.skipped, questionId],
-            }
-          : null,
-      );
+      const run = async () => {
+        const updated = await submitAnswerApi(session.sessionId, {
+          questionId,
+          answer: null,
+          skipped: true,
+          answeredAt: Date.now(),
+        });
+        setSession(updated);
+        return updated;
+      };
+      return run();
     },
     [session],
   );
