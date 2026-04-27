@@ -1,7 +1,6 @@
 import { MMSESession } from "@/src/types/assessment.types";
 
 const API_BASE_URL = `${process.env.EXPO_PUBLIC_API_URL}/api/cognitive`;
-// Example Android emulator: http://10.0.2.2:5000/api/cognitive
 
 type ApiSuccess<T> = {
   success: true;
@@ -61,23 +60,16 @@ async function apiRequest<T>(path: string, init: RequestInit): Promise<T> {
   return (body as ApiSuccess<T>).data;
 }
 
-/**
- * Creates assessment session in backend.
- * Backend becomes source of truth for sessionId and initial state.
- */
-export async function startSession(payload: CreateSessionPayload): Promise<MMSESession> {
+export async function startSession(
+  payload: CreateSessionPayload
+): Promise<MMSESession> {
   const data = await apiRequest<{ session: MMSESession }>("/assessments", {
     method: "POST",
     body: JSON.stringify(payload),
   });
-
   return data.session;
 }
 
-/**
- * Submits one answer safely to backend and receives updated computed session.
- * Score, severity, and scoringLog are recalculated server-side.
- */
 export async function submitAnswer(
   sessionId: string,
   payload: SubmitAnswerPayload
@@ -89,21 +81,14 @@ export async function submitAnswer(
       body: JSON.stringify(payload),
     }
   );
-
   return data.session;
 }
 
-/**
- * Finalizes session. Backend locks status to done and stamps completedAt.
- */
 export async function completeSession(sessionId: string): Promise<MMSESession> {
   const data = await apiRequest<{ session: MMSESession }>(
     `/assessments/${sessionId}/complete`,
-    {
-      method: "POST",
-    }
+    { method: "POST" }
   );
-
   return data.session;
 }
 
@@ -118,6 +103,5 @@ export async function updateSessionProgress(
       body: JSON.stringify(payload),
     }
   );
-
   return data.session;
 }

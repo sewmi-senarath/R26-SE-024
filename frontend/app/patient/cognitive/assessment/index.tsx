@@ -1,11 +1,11 @@
-import { useAssessmentSession } from '@/src/hooks/useAssessmentSession';
-import { useRouter } from 'expo-router';
-import React from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAssessmentSession } from "@/src/hooks/useAssessmentSession";
+import { useRouter } from "expo-router";
+import React from "react";
+import { Text, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-const PATIENT_ID = 'patient_001';
-const CAREGIVER_ID = 'caregiver-001';
+const PATIENT_ID = "patient_001";
+const CAREGIVER_ID = "caregiver-001";
 
 export default function AssessmentWelcome() {
   const router = useRouter();
@@ -13,14 +13,12 @@ export default function AssessmentWelcome() {
 
   const handleStart = async () => {
     await startSession();
-    router.replace('/patient/cognitive/assessment/0');
+    router.replace("/patient/cognitive/assessment/0");
   };
 
   return (
     <SafeAreaView className="flex-1 bg-blue-50">
       <View className="flex-1 justify-center items-center px-8">
-
-        {/* Icon group matching your Figma */}
         <View className="flex-row gap-4 mb-10">
           <View className="w-16 h-16 rounded-2xl bg-blue-100 items-center justify-center">
             <Text className="text-2xl">✓</Text>
@@ -34,8 +32,8 @@ export default function AssessmentWelcome() {
           Let us Begin a Quick Check
         </Text>
         <Text className="text-base text-gray-500 text-center leading-relaxed mb-12">
-          We will ask you a few simple questions to understand how we can best support you.
-          This will only take a few minutes.
+          We will ask you a few simple questions to understand how we can best
+          support you. This will only take a few minutes.
         </Text>
 
         <TouchableOpacity
@@ -44,7 +42,6 @@ export default function AssessmentWelcome() {
         >
           <Text className="text-white font-semibold text-base">Start Test</Text>
         </TouchableOpacity>
-
       </View>
     </SafeAreaView>
   );

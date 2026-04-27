@@ -18,6 +18,10 @@ export default function Index() {
     router.push("/role/select")
   }
 
+  const handleAssessmentPage = () => {
+    router.push("/patient/cognitive/assessment")
+  }
+
   return (
     <View className="flex-1 justify-center items-center">
       <Text className="text-4xl font-bold p-3">
@@ -31,6 +35,10 @@ export default function Index() {
       </Button>
       <Button onPressIn={handleRoleSelect} className="bg-white text-white">
         Go to Role Selector Page
+      </Button>
+       <Button onPressIn={handleAssessmentPage} className="bg-white text-white">
+        Go to Assessment Page
+        
       </Button>
     </View>
   );

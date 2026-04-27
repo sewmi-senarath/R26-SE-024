@@ -1,8 +1,4 @@
-import {
-  MMSE_QUESTIONS,
-  TOTAL_QUESTIONS,
-} from "@/src/constants/questions";
-import { MMSESession } from "@/src/types/assessment.types";
+import { MMSESession, Question } from "@/src/types/assessment.types";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   completeSession as completeSessionApi,
@@ -15,10 +11,11 @@ import { loadSession, saveSession } from "../utils/sessionStorage";
 function buildInitialSession(
   patientId: string,
   caregiverId: string,
+  totalQuestions: number,
 ): MMSESession {
   return {
     currentQuestionIndex: 0,
-    totalQuestions: TOTAL_QUESTIONS,
+    totalQuestions,
     status: "idle",
     answers: {},
     answeredAt: {},
@@ -57,24 +54,68 @@ function buildInitialSession(
 
 export function useAssessmentSession(patientId: string, caregiverId: string) {
   const [session, setSession] = useState<MMSESession | null>(null);
+  const [questions, setQuestions] = useState<Question[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const questionStartRef = useRef<number>(Date.now());
 
-  // ── Load session from storage on mount ──────────────────────
+  // 1. Fetch questions from API on mount
   useEffect(() => {
-    const initSession = async () => {
-      const stored = await loadSession(patientId, caregiverId);
+    const fetchQuestions = async () => {
+      try {
+        const url = `${process.env.EXPO_PUBLIC_API_URL}/api/cognitive/questions`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`Failed to fetch questions: ${res.status}`);
 
-      if (stored) {
-        setSession(stored);
-      } else {
-        setSession(buildInitialSession(patientId, caregiverId));
+        const json = await res.json();
+
+        // Handle both: data: []  OR  data: { questions: [] }
+        const rawQuestions =
+          Array.isArray(json?.data)
+            ? json.data
+            : Array.isArray(json?.data?.questions)
+            ? json.data.questions
+            : [];
+
+        // Normalize backend shape -> frontend shape
+        const normalized = rawQuestions.map((q: any) => ({
+          ...q,
+          id: q.id ?? q.questionId,
+        }));
+
+        setQuestions(normalized);
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Unknown error");
+        setQuestions([]);
       }
-      setIsLoading(false);
     };
 
+    fetchQuestions();
+  }, []);
+
+  // 2. Initialize session after questions are loaded
+  useEffect(() => {
+    if (questions.length === 0) return;
+
+    const initSession = async () => {
+      try {
+        const stored = await loadSession(patientId, caregiverId);
+        setSession(
+          stored ||
+            buildInitialSession(patientId, caregiverId, questions.length),
+        );
+      } catch (err) {
+        console.error("Error loading session:", err);
+        setSession(
+          buildInitialSession(patientId, caregiverId, questions.length),
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    };
     initSession();
-  }, [patientId, caregiverId]);
+  }, [questions, patientId, caregiverId]);
 
   const startSession = useCallback(async () => {
     const started = await startSessionApi({
@@ -91,11 +132,10 @@ export function useAssessmentSession(patientId: string, caregiverId: string) {
   const submitAnswer = useCallback(
     async (questionId: string, answer: any) => {
       if (!session) return;
-      const timeSpent = Date.now() - questionStartRef.current;
       const updated = await submitAnswerApi(session.sessionId, {
         questionId,
         answer,
-        timeSpentMs: timeSpent,
+        timeSpentMs: Date.now() - questionStartRef.current,
         answeredAt: Date.now(),
       });
       setSession(updated);
@@ -104,87 +144,79 @@ export function useAssessmentSession(patientId: string, caregiverId: string) {
     [session],
   );
 
-  const goToNext = useCallback(() => {
+  const goToNext = useCallback(async () => {
     if (!session) return;
-    const run = async () => {
-      const nextIndex = session.currentQuestionIndex + 1;
-      const isDone = nextIndex >= session.totalQuestions;
-      questionStartRef.current = Date.now();
 
-      if (isDone) {
-        const completed = await completeSessionApi(session.sessionId);
-        setSession(completed);
-        return completed;
-      }
+    const nextIndex = session.currentQuestionIndex + 1;
+    const isDone = nextIndex >= session.totalQuestions;
+    questionStartRef.current = Date.now();
 
-      const progressed = await updateSessionProgress(session.sessionId, {
-        currentQuestionIndex: nextIndex,
-        questionStartTime: Date.now(),
-        timeLimit: MMSE_QUESTIONS[nextIndex]?.timeLimit ?? null,
-        timeExpired: false,
-      });
-      setSession(progressed);
-      return progressed;
-    };
-    return run();
-  }, [session]);
+    if (isDone) {
+      const completed = await completeSessionApi(session.sessionId);
+      setSession(completed);
+      return completed;
+    }
 
-  const goToPrev = useCallback(() => {
+    const nextQuestion = questions[nextIndex];
+    const progressed = await updateSessionProgress(session.sessionId, {
+      currentQuestionIndex: nextIndex,
+      questionStartTime: Date.now(),
+      timeLimit: nextQuestion?.timeLimit ?? null,
+      timeExpired: false,
+    });
+    setSession(progressed);
+    return progressed;
+  }, [session, questions]);
+
+  const goToPrev = useCallback(async () => {
+    if (!session || session.currentQuestionIndex === 0) return;
+
+    const prevIndex = session.currentQuestionIndex - 1;
+    questionStartRef.current = Date.now();
+
+    const prevQuestion = questions[prevIndex];
+    const progressed = await updateSessionProgress(session.sessionId, {
+      currentQuestionIndex: prevIndex,
+      questionStartTime: Date.now(),
+      timeLimit: prevQuestion?.timeLimit ?? null,
+      timeExpired: false,
+    });
+    setSession(progressed);
+    return progressed;
+  }, [session, questions]);
+
+  const markTimeExpired = useCallback(async () => {
     if (!session) return;
-    if (session.currentQuestionIndex === 0) return;
-    const run = async () => {
-      const prevIndex = session.currentQuestionIndex - 1;
-      questionStartRef.current = Date.now();
-      const progressed = await updateSessionProgress(session.sessionId, {
-        currentQuestionIndex: prevIndex,
-        questionStartTime: Date.now(),
-        timeLimit: MMSE_QUESTIONS[prevIndex]?.timeLimit ?? null,
-        timeExpired: false,
-      });
-      setSession(progressed);
-      return progressed;
-    };
-    return run();
-  }, [session]);
-
-  const markTimeExpired = useCallback(() => {
-    if (!session) return;
-    const run = async () => {
-      const progressed = await updateSessionProgress(session.sessionId, {
-        timeExpired: true,
-      });
-      setSession(progressed);
-      return progressed;
-    };
-    return run();
+    const progressed = await updateSessionProgress(session.sessionId, {
+      timeExpired: true,
+    });
+    setSession(progressed);
+    return progressed;
   }, [session]);
 
   const skipQuestion = useCallback(
-    (questionId: string) => {
+    async (questionId: string) => {
       if (!session) return;
-      const run = async () => {
-        const updated = await submitAnswerApi(session.sessionId, {
-          questionId,
-          answer: null,
-          skipped: true,
-          answeredAt: Date.now(),
-        });
-        setSession(updated);
-        return updated;
-      };
-      return run();
+      const updated = await submitAnswerApi(session.sessionId, {
+        questionId,
+        answer: null,
+        skipped: true,
+        answeredAt: Date.now(),
+      });
+      setSession(updated);
+      return updated;
     },
     [session],
   );
 
-  // ── Auto-persist every time session changes ──────────────────
   useEffect(() => {
     if (!session || session.status === "idle") return;
     saveSession(session);
   }, [session]);
 
+  // Get current question from fetched questions array
   const currentQuestion = session
-    ? MMSE_QUESTIONS[session.currentQuestionIndex]
+    ? questions[session.currentQuestionIndex]
     : null;
   const progressPercent = session
     ? (session.currentQuestionIndex / session.totalQuestions) * 100
@@ -192,11 +224,14 @@ export function useAssessmentSession(patientId: string, caregiverId: string) {
   const isAnswered = (id: string) => (session ? id in session.answers : false);
 
   return {
-    session: session || buildInitialSession(patientId, caregiverId),
+    session:
+      session || buildInitialSession(patientId, caregiverId, questions.length),
     currentQuestion,
     progressPercent,
     isAnswered,
     isLoading,
+    error,
+    questions, // expose questions if needed
     startSession,
     submitAnswer,
     goToNext,
