@@ -1,96 +1,199 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
-import { Image, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Image, Text, TextInput, TouchableOpacity, View, StyleSheet, Alert, SafeAreaView } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { Colors } from "../../src/constants/colors";
 
 export default function Login() {
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
+  const handleLogin = () => {
+    if (username === "admin" && password === "123") {
+      router.push("/caregiver");
+    } else {
+      Alert.alert("Login Failed", "Invalid credentials. Please use admin / 123");
+    }
+  };
+
   return (
-    <View className="flex-1 bg-gradient-to-b from-blue-50 to-white px-6 py-12">
-      {/* MemoCare Logo */}
-      <View className="items-center mb-12">
-        <Image
-          source={require("../../assets/images/logo.png")}
-          style={{ width: 150, height: 150 }}
-          resizeMode="contain"
-        />
-      </View>
+    <SafeAreaView style={styles.container}>
+      <View style={styles.content}>
+        {/* MemoCare Logo */}
+        <View style={styles.logoSection}>
+          <View style={styles.logoCircle}>
+             <Ionicons name="heart" size={40} color={Colors.primary} />
+          </View>
+          <Text style={styles.logoText}>MemoCare</Text>
+        </View>
 
-      {/* Header */}
-      <View className="mb-8 items-center">
-        <Text className="text-3xl font-bold text-gray-800 mb-2">
-          Welcome Back!
-        </Text>
-        <Text className="text-gray-600 text-base">
-          Sign in to your account
-        </Text>
-      </View>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.title}>Welcome Back!</Text>
+          <Text style={styles.subtitle}>Sign in to your dashboard</Text>
+        </View>
 
-      {/* Username Field */}
-      <View className="mb-4">
-        <Text className="text-gray-700 font-semibold mb-2">Username</Text>
-        <TextInput
-          className="border border-gray-300 rounded-lg px-4 py-3 text-gray-800"
-          placeholder="Enter your username"
-          placeholderTextColor="#999"
-          value={username}
-          onChangeText={setUsername}
-        />
-      </View>
+        {/* Form */}
+        <View style={styles.form}>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Username</Text>
+            <View style={styles.inputWrapper}>
+              <Ionicons name="person-outline" size={20} color="#94A3B8" style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Enter your username"
+                placeholderTextColor="#94A3B8"
+                value={username}
+                onChangeText={setUsername}
+              />
+            </View>
+          </View>
 
-      {/* Password Field */}
-      <View className="mb-6">
-        <Text className="text-gray-700 font-semibold mb-2">Password</Text>
-        <TextInput
-          className="border border-gray-300 rounded-lg px-4 py-3 text-gray-800"
-          placeholder="Enter your password"
-          placeholderTextColor="#999"
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-        />
-      </View>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Password</Text>
+            <View style={styles.inputWrapper}>
+              <Ionicons name="lock-closed-outline" size={20} color="#94A3B8" style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Enter your password"
+                placeholderTextColor="#94A3B8"
+                secureTextEntry
+                value={password}
+                onChangeText={setPassword}
+              />
+            </View>
+          </View>
 
-      {/* Login Button */}
-      <TouchableOpacity className="bg-blue-600 rounded-lg py-3 mb-4">
-        <Text className="text-white text-center font-bold text-lg">
-          Sign In
-        </Text>
-      </TouchableOpacity>
+          <TouchableOpacity style={styles.loginBtn} onPress={handleLogin}>
+            <Text style={styles.loginBtnText}>Sign In</Text>
+          </TouchableOpacity>
+        </View>
 
-      {/* Divider */}
-      <View className="flex-row items-center mb-4">
-        <View className="flex-1 h-px bg-gray-300" />
-        <Text className="mx-2 text-gray-600">Or</Text>
-        <View className="flex-1 h-px bg-gray-300" />
-      </View>
+        {/* Footer */}
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>Don't have an account? </Text>
+          <TouchableOpacity onPress={() => router.push("/role/select")}>
+            <Text style={styles.signUpText}>Sign Up</Text>
+          </TouchableOpacity>
+        </View>
 
-      {/* Google Sign In */}
-      <TouchableOpacity className="border border-gray-300 rounded-lg py-3 mb-6 flex-row items-center justify-center">
-        <Image
-          source={{ uri: "https://www.gstatic.com/firebasejs/ui/2.0.0/images/logo_googleg.png" }}
-          style={{ width: 20, height: 20, marginRight: 8 }}
-        />
-        <Text className="text-gray-800 font-semibold">Sign up with Google</Text>
-      </TouchableOpacity>
-
-      {/* Register Link */}
-      <View className="flex-row justify-center">
-        <Text className="text-gray-700">Do not have an account? </Text>
-        <TouchableOpacity onPress={() => router.push("/role/select")}>
-          <Text className="text-blue-600 font-bold">Sign Up</Text>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <Text style={styles.backBtnText}>← Go back</Text>
         </TouchableOpacity>
       </View>
+    </SafeAreaView>
+  );
+}
 
-      {/* Go Back Button */}
-      <TouchableOpacity
-        onPress={() => router.back()}
-        className="mt-8"
-      >
-        <Text className="text-gray-600 text-center">← Go back</Text>
-      </TouchableOpacity>
-    </View>
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: 30,
+    justifyContent: 'center',
+  },
+  logoSection: {
+    alignItems: 'center',
+    marginBottom: 40,
+  },
+  logoCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#F1F5F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  logoText: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: Colors.primary,
+  },
+  header: {
+    marginBottom: 40,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: '#0F172A',
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#64748B',
+  },
+  form: {
+    width: '100%',
+  },
+  inputGroup: {
+    marginBottom: 20,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#475569',
+    marginBottom: 10,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 15,
+  },
+  inputIcon: {
+    marginRight: 10,
+  },
+  input: {
+    flex: 1,
+    paddingVertical: 15,
+    fontSize: 15,
+    color: '#1E293B',
+  },
+  loginBtn: {
+    backgroundColor: Colors.primary,
+    borderRadius: 16,
+    paddingVertical: 18,
+    alignItems: 'center',
+    marginTop: 10,
+    shadowColor: Colors.primary,
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 5,
+  },
+  loginBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 30,
+  },
+  footerText: {
+    color: '#64748B',
+  },
+  signUpText: {
+    color: Colors.primary,
+    fontWeight: '800',
+  },
+  backBtn: {
+    marginTop: 40,
+    alignSelf: 'center',
+  },
+  backBtnText: {
+    color: '#94A3B8',
+    fontWeight: '600',
+  }
+});
   );
 }

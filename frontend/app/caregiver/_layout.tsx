@@ -138,6 +138,63 @@ export default function CaregiverLayout() {
         }}
       />
 
+      {/* ── Life-Logging Components ── */}
+      <Tabs.Screen
+        name="hardware-hub"
+        options={{
+          title: 'Hard...',
+          tabBarIcon: ({ color, size, focused }) => (
+            <TabBarIcon
+              name={focused ? 'glasses' : 'glasses-outline'}
+              color={color}
+              size={size}
+            />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="behavior-logs"
+        options={{
+          title: 'Beha...',
+          tabBarIcon: ({ color, size, focused }) => (
+            <TabBarIcon
+              name={focused ? 'pulse' : 'pulse-outline'}
+              color={color}
+              size={size}
+            />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="data-ingestion"
+        options={{
+          title: 'Insig...',
+          tabBarIcon: ({ color, size, focused }) => (
+            <TabBarIcon
+              name={focused ? 'cloud-upload' : 'cloud-upload-outline'}
+              color={color}
+              size={size}
+            />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="object-tracker"
+        options={{
+          title: 'Obje...',
+          tabBarIcon: ({ color, size, focused }) => (
+            <TabBarIcon
+              name={focused ? 'search' : 'search-outline'}
+              color={color}
+              size={size}
+            />
+          ),
+        }}
+      />
+
       {/* ── Hidden from tab bar (navigated from More page) ── */}
       <Tabs.Screen
         name="medications"
