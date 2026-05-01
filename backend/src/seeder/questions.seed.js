@@ -1,8 +1,4 @@
-// the question bank
-
-import { Question } from '@/src/types/assessment.types';
-
-export const MMSE_QUESTIONS: Question[] = [
+const MMSE_QUESTIONS = [
   //  ORIENTATION (10 pts)
   {
     id: 'orientation_time',
@@ -55,9 +51,9 @@ export const MMSE_QUESTIONS: Question[] = [
     id: 'attention_serial7',
     section: 'Attention',
     type: 'serial_subtraction',
-    prompt: 'Subtract 10 from 100',
-    subPrompt: 'Keep subtracting 10 from each answer',
-    expectedAnswers: ['90', '80', '70', '60', '50'],
+    prompt: 'Subtract 7 from 100',
+    subPrompt: 'Keep subtracting 7 from each answer',
+    expectedAnswers: ['93', '86', '79', '72', '65'],
     timeLimit: 60,
     maxScore: 5,
   },
@@ -143,5 +139,6 @@ export const MMSE_QUESTIONS: Question[] = [
   },
 ];
 
-export const TOTAL_QUESTIONS = MMSE_QUESTIONS.length;
-export const IMPAIRMENT_THRESHOLD = 23;
+module.exports = {
+  MMSE_QUESTIONS,
+};

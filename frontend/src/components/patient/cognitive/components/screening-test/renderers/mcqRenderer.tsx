@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
-import { Question } from '@/src/types/assessment.types';
+import React, { useEffect, useState } from "react";
+import { View, Text, TouchableOpacity } from "react-native";
+import { Question } from "@/src/types/assessment.types";
 
 interface Props {
   question: Question;
@@ -10,6 +10,11 @@ interface Props {
 export function MCQRenderer({ question, onAnswer }: Props) {
   const [selected, setSelected] = useState<string | null>(null);
 
+  // Prevent stale selected state when moving between questions.
+  useEffect(() => {
+    setSelected(null);
+  }, [question.id]);
+
   const handleSelect = (optionLabel: string) => {
     setSelected(optionLabel);
     onAnswer(optionLabel);
@@ -17,7 +22,7 @@ export function MCQRenderer({ question, onAnswer }: Props) {
 
   return (
     <View className="px-6 gap-3">
-      {question.options?.map(opt => {
+      {question.options?.map((opt) => {
         const isSelected = selected === opt.label;
         return (
           <TouchableOpacity
@@ -25,12 +30,16 @@ export function MCQRenderer({ question, onAnswer }: Props) {
             onPress={() => handleSelect(opt.label)}
             className={`p-4 rounded-2xl border ${
               isSelected
-                ? 'bg-blue-500 border-blue-500'
-                : 'bg-white border-gray-200'
+                ? "bg-blue-500 border-blue-500"
+                : "bg-white border-gray-200"
             }`}
             activeOpacity={0.7}
           >
-            <Text className={`text-base font-medium ${isSelected ? 'text-white' : 'text-gray-800'}`}>
+            <Text
+              className={`text-base font-medium ${
+                isSelected ? "text-white" : "text-gray-800"
+              }`}
+            >
               {opt.label}
             </Text>
           </TouchableOpacity>

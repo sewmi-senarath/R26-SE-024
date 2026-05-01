@@ -3,12 +3,12 @@ import { getSeverityInfo } from '@/src/utils/scoring';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef } from 'react';
 import {
-    Animated,
-    SafeAreaView,
-    ScrollView,
-    Text,
-    TouchableOpacity,
-    View,
+  Animated,
+  SafeAreaView,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 // At the top of the file
@@ -68,6 +68,8 @@ const SECTION_MAX: Record<string, number> = {
   Language: 9,
 };
 
+const format3 = (value: number) => Number(value).toFixed(3);
+
 export default function ResultsScreen() {
   const router = useRouter();
   const { session } = useAssessmentSession(PATIENT_ID, CAREGIVER_ID);
@@ -113,10 +115,10 @@ export default function ResultsScreen() {
   const styles = SEVERITY_STYLES[severityInfo.level];
 
   // ── Animated score counter ────────────────────────────────────
-  const animatedScoreText = animatedScore.interpolate({
-    inputRange: [0, 30],
-    outputRange: ['0', '30'],
-  });
+  // const animatedScoreText = animatedScore.interpolate({
+  //   inputRange: [0, 30],
+  //   outputRange: ['0', '30'],
+  // });
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
@@ -178,13 +180,10 @@ export default function ResultsScreen() {
                   lineHeight: 72,
                 }}
               >
-                {animatedScore.interpolate({
-                  inputRange: [0, 30],
-                  outputRange: ['0', String(session.totalScore)],
-                })}
+                {format3(session.totalScore)}
               </Animated.Text>
               <Text className="text-2xl font-semibold text-gray-400 mb-3">
-                / 30
+                / {format3(30)}
               </Text>
             </View>
             <Text className="text-sm text-gray-500 text-center mt-1">
@@ -240,15 +239,13 @@ export default function ResultsScreen() {
                   className={`px-4 py-4 ${!isLast ? 'border-b border-gray-50' : ''}`}
                 >
                   <View className="flex-row justify-between items-center mb-2">
-                    <Text className="text-sm font-medium text-gray-800">
-                      {section}
-                    </Text>
+                    <Text className="text-sm font-medium text-gray-800">{section}</Text>
                     <View className="flex-row items-center gap-1">
                       <Text className="text-sm font-bold text-gray-900">
-                        {score}
+                        {format3(score)}
                       </Text>
                       <Text className="text-sm text-gray-400">
-                        / {max}
+                        / {format3(max)}
                       </Text>
                     </View>
                   </View>
@@ -272,12 +269,12 @@ export default function ResultsScreen() {
             MMSE Severity Scale
           </Text>
           <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-            {[
+            {([
               { range: '24 - 30', label: 'No Impairment', color: 'bg-green-400' },
               { range: '19 - 23', label: 'Mild Impairment', color: 'bg-amber-400' },
               { range: '10 - 18', label: 'Moderate Impairment', color: 'bg-orange-400' },
               { range: '0 - 9',  label: 'Severe Impairment', color: 'bg-red-400' },
-            ].map((band, index, arr) => {
+            ]).map((band, index, arr) => {
               const isActive = severityInfo.scoreRange === band.range;
               const isLast = index === arr.length - 1;
 
@@ -321,7 +318,7 @@ export default function ResultsScreen() {
             Session Details
           </Text>
           <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-            {[
+            {([
               { label: 'Patient ID', value: session.patientId },
               { label: 'Caregiver ID', value: session.caregiverId },
               { label: 'Session ID', value: session.sessionId.slice(0, 8) + '...' },
@@ -332,9 +329,8 @@ export default function ResultsScreen() {
                   ? `${Math.round((new Date(session.completedAt).getTime() - new Date(session.startedAt).getTime()) / 60000)} min`
                   : '—'
               },
-              { label: 'Attention Method', value: session.attentionMethod === 'serial7' ? 'Serial 7s' : 'WORLD spelling' },
               { label: 'Mode', value: session.administrationMode },
-            ].map((row, index, arr) => (
+            ]).map((row, index, arr) => (
               <View
                 key={row.label}
                 className={`flex-row justify-between px-4 py-3 ${index !== arr.length - 1 ? 'border-b border-gray-50' : ''}`}
@@ -369,7 +365,7 @@ export default function ResultsScreen() {
             onPress={() => router.replace('/patient/activity-selector')}
           >
             <Text className="text-gray-600 font-medium text-base">
-              Back to Dashboard
+              Go to Dashboard
             </Text>
           </TouchableOpacity>
 

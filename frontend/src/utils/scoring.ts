@@ -1,10 +1,6 @@
-// scoring logic, impairment flag
-// src/utils/scoring.ts
-import {
-  MMSE_QUESTIONS
-} from "@/src/constants/questions";
 import {
   MMSESession,
+  Question,
   ScoringLogEntry,
   SectionScores,
   Severity,
@@ -14,8 +10,8 @@ export function scoreAnswer(
   questionId: string,
   answer: any,
   session: MMSESession,
+  question: Question, // Pass question as parameter
 ): number {
-  const question = MMSE_QUESTIONS.find((q) => q.id === questionId);
   if (!question) return 0;
 
   switch (question.type) {
@@ -78,6 +74,7 @@ export function scoreAnswer(
 export function computeSectionScores(
   answers: Record<string, any>,
   session: MMSESession,
+  questions: Question[], // Add questions parameter
 ): SectionScores {
   const scores: SectionScores = {
     Orientation: 0,
@@ -87,9 +84,9 @@ export function computeSectionScores(
     Language: 0,
   };
 
-  MMSE_QUESTIONS.forEach((q) => {
+  questions.forEach((q) => {
     if (answers[q.id] !== undefined) {
-      scores[q.section] += scoreAnswer(q.id, answers[q.id], session);
+      scores[q.section] += scoreAnswer(q.id, answers[q.id], session, q);
     }
   });
 
@@ -110,12 +107,13 @@ export function computeSeverity(score: number): Severity {
 export function buildScoringLog(
   answers: Record<string, any>,
   session: MMSESession,
+  questions: Question[], // Add questions parameter
 ): ScoringLogEntry[] {
-  return MMSE_QUESTIONS.map((q) => ({
+  return questions.map((q) => ({
     questionId: q.id,
     earned:
       answers[q.id] !== undefined
-        ? scoreAnswer(q.id, answers[q.id], session)
+        ? scoreAnswer(q.id, answers[q.id], session, q)
         : 0,
     max: q.maxScore,
   }));
@@ -125,37 +123,43 @@ export interface SeverityInfo {
   level: Severity;
   label: string;
   description: string;
-  color: string;        // for UI styling
+  color: string; // for UI styling
   scoreRange: string;
 }
 
 export function getSeverityInfo(score: number): SeverityInfo {
-  if (score >= 24) return {
-    level: 'none',
-    label: 'No Impairment',
-    description: 'Score indicates no signs of cognitive impairment.',
-    color: 'green',
-    scoreRange: '24 – 30',
-  };
-  if (score >= 19) return {
-    level: 'mild',
-    label: 'Mild Impairment',
-    description: 'Score suggests mild cognitive impairment. Follow-up recommended.',
-    color: 'amber',
-    scoreRange: '19 – 23',
-  };
-  if (score >= 10) return {
-    level: 'moderate',
-    label: 'Moderate Impairment',
-    description: 'Score suggests moderate cognitive impairment. Clinical review required.',
-    color: 'orange',
-    scoreRange: '10 – 18',
-  };
+  if (score >= 24)
+    return {
+      level: "none",
+      label: "No Impairment",
+      description: "Score indicates no signs of cognitive impairment.",
+      color: "green",
+      scoreRange: "24 - 30",
+    };
+  if (score >= 19)
+    return {
+      level: "mild",
+      label: "Mild Impairment",
+      description:
+        "Score suggests mild cognitive impairment. Follow-up recommended.",
+      color: "amber",
+      scoreRange: "19 - 23",
+    };
+  if (score >= 10)
+    return {
+      level: "moderate",
+      label: "Moderate Impairment",
+      description:
+        "Score suggests moderate cognitive impairment. Clinical review required.",
+      color: "orange",
+      scoreRange: "10 - 18",
+    };
   return {
-    level: 'severe',
-    label: 'Severe Impairment',
-    description: 'Score suggests severe cognitive impairment. Immediate clinical attention needed.',
-    color: 'red',
-    scoreRange: '0 – 9',
+    level: "severe",
+    label: "Severe Impairment",
+    description:
+      "Score suggests severe cognitive impairment. Immediate clinical attention needed.",
+    color: "red",
+    scoreRange: "0 - 9",
   };
 }
