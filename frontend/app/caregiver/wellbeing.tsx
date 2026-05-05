@@ -1,100 +1,242 @@
+import { Ionicons } from '@expo/vector-icons';
+import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  View, Text, ScrollView, StatusBar,
-  TouchableOpacity, RefreshControl,
+  ScrollView, StatusBar,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import { Colors } from '../../src/constants/colors';
-import { WellbeingRecommendation } from '../../src/types/caregiver.types';
+import { CheckInResult, DailyCheckIn } from '../../src/types/caregiver.types';
+import {
+  generateRecommendations,
+  getSummaryMessage,
+  SmartRecommendation,
+} from '../../src/utils/recommendationEngine';
 
-// ── Route map ─────────────────────────────────────────────────────────────────
-const ACTION_ROUTES: Record<string, string> = {
-  'Start 15m Timer':  '/caregiver/timer',
-  'Start Exercise':   '/caregiver/breathing',
-  'Log Water':        '/caregiver/hydration',
-  'Start Stretching': '/caregiver/stretching',
+// ── Priority config ────────────────────────────────────────────────────────
+const PRIORITY_CONFIG = {
+  critical: { label: 'Critical',  color: '#EF4444', bg: '#FEF2F2' },
+  high:     { label: 'Important', color: '#F97316', bg: '#FFF7ED' },
+  medium:   { label: 'Helpful',   color: '#3B82F6', bg: '#EFF6FF' },
+  low:      { label: 'Bonus',     color: '#22C55E', bg: '#F0FDF4' },
 };
 
-// ── Lighter pastel colors ─────────────────────────────────────────────────────
-const RECOMMENDATIONS: WellbeingRecommendation[] = [
-  {
-    id: '1',
-    title: 'Time for a break',
-    description: "You've been active for 4 hours straight. Taking a break now can improve your focus for the rest of the shift.",
-    icon: 'cafe-outline',
-    color: '#FB923C',       // ← lighter orange
-    bgColor: '#FFF7ED',
-    actionLabel: 'Start 15m Timer',
-    duration: '15m',
-  },
-  {
-    id: '2',
-    title: 'Breathing Exercise',
-    description: 'Your task load has been high. Try this 3-minute guided box breathing exercise to lower cortisol levels.',
-    icon: 'leaf-outline',
-    color: '#22D3EE',       // ← lighter cyan
-    bgColor: '#ECFEFF',
-    actionLabel: 'Start Exercise',
-    duration: '3m',
-  },
-  {
-    id: '3',
-    title: 'Hydration Reminder',
-    description: "You haven't logged water intake today. Staying hydrated helps with focus and energy levels.",
-    icon: 'water-outline',
-    color: '#60A5FA',       // ← lighter blue
-    bgColor: '#EFF6FF',
-    actionLabel: 'Log Water',
-    duration: '1m',
-  },
-  {
-    id: '4',
-    title: 'Stretch Break',
-    description: 'Sitting or standing in one position too long? A quick 5-minute stretch can relieve tension.',
-    icon: 'fitness-outline',
-    color: '#A78BFA',       // ← lighter purple
-    bgColor: '#F5F3FF',
-    actionLabel: 'Start Stretching',
-    duration: '5m',
-  },
-];
+// ── Recommendation Card ────────────────────────────────────────────────────
+const SmartRecCard: React.FC<{
+  rec: SmartRecommendation;
+  index: number;
+  onAction: (rec: SmartRecommendation) => void;
+  onDismiss: (id: string) => void;
+}> = ({ rec, index, onAction, onDismiss }) => {
+  const pConfig = PRIORITY_CONFIG[rec.priority];
+  const [expanded, setExpanded] = useState(rec.priority === 'critical');
 
+  return (
+    <View style={{
+      backgroundColor: Colors.white, borderRadius: 20,
+      marginBottom: 12, overflow: 'hidden',
+      borderWidth: 1, borderColor: Colors.borderLight,
+      borderLeftWidth: 4, borderLeftColor: rec.color,
+      shadowColor: rec.color, shadowOffset: { width: 0, height: 3 },
+      shadowOpacity: 0.1, shadowRadius: 8, elevation: 2,
+    }}>
+      {/* Card Header — always visible */}
+      <TouchableOpacity
+        onPress={() => setExpanded(!expanded)}
+        activeOpacity={0.8}
+        style={{ padding: 14 }}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          {/* Icon */}
+          <View style={{
+            width: 44, height: 44, borderRadius: 14,
+            backgroundColor: rec.bg,
+            alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          }}>
+            <Ionicons name={rec.icon as any} size={22} color={rec.color} />
+          </View>
+
+          {/* Title + badges */}
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4, flexWrap: 'wrap' }}>
+              <Text style={{ fontSize: 13, fontWeight: '800', color: Colors.textPrimary, flex: 1 }}>
+                {rec.title}
+              </Text>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
+              <View style={{
+                backgroundColor: pConfig.bg, paddingHorizontal: 7,
+                paddingVertical: 2, borderRadius: 6,
+              }}>
+                <Text style={{ fontSize: 9, fontWeight: '700', color: pConfig.color }}>
+                  {pConfig.label.toUpperCase()}
+                </Text>
+              </View>
+              <View style={{
+                backgroundColor: rec.bg, paddingHorizontal: 7,
+                paddingVertical: 2, borderRadius: 6,
+              }}>
+                <Text style={{ fontSize: 9, fontWeight: '700', color: rec.color }}>
+                  {rec.duration}
+                </Text>
+              </View>
+              {rec.badge && (
+                <Text style={{ fontSize: 10 }}>{rec.badge}</Text>
+              )}
+            </View>
+          </View>
+
+          <Ionicons
+            name={expanded ? 'chevron-up' : 'chevron-down'}
+            size={16} color={Colors.textMuted}
+          />
+        </View>
+      </TouchableOpacity>
+
+      {/* Expanded content */}
+      {expanded && (
+        <View style={{
+          paddingHorizontal: 14, paddingBottom: 14,
+          borderTopWidth: 1, borderTopColor: Colors.borderLight,
+          paddingTop: 12,
+        }}>
+          {/* Personalized insight */}
+          <View style={{
+            backgroundColor: rec.bg + '80', borderRadius: 12,
+            padding: 12, marginBottom: 12,
+          }}>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 4 }}>
+              <Ionicons name="information-circle-outline" size={14} color={rec.color} />
+              <Text style={{ fontSize: 10, fontWeight: '700', color: rec.color }}>
+                WHY THIS MATTERS FOR YOU
+              </Text>
+            </View>
+            <Text style={{ fontSize: 12, color: Colors.textSecondary, lineHeight: 18 }}>
+              {rec.insight}
+            </Text>
+          </View>
+
+          {/* Specific action */}
+          <View style={{ marginBottom: 12 }}>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 4 }}>
+              <Ionicons name="arrow-forward-circle-outline" size={14} color={rec.color} />
+              <Text style={{ fontSize: 10, fontWeight: '700', color: rec.color }}>
+                WHAT TO DO NOW
+              </Text>
+            </View>
+            <Text style={{ fontSize: 12, color: Colors.textPrimary, lineHeight: 18, fontWeight: '500' }}>
+              {rec.action}
+            </Text>
+          </View>
+
+          {/* Action buttons */}
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <TouchableOpacity
+              onPress={() => onAction(rec)}
+              style={{
+                flex: 1, backgroundColor: rec.color, borderRadius: 10,
+                paddingVertical: 10, alignItems: 'center',
+                flexDirection: 'row', justifyContent: 'center', gap: 6,
+              }}
+            >
+              <Ionicons name="play-outline" size={14} color={Colors.white} />
+              <Text style={{ fontSize: 12, fontWeight: '700', color: Colors.white }}>
+                Start Now
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => onDismiss(rec.id)}
+              style={{
+                paddingHorizontal: 14, backgroundColor: Colors.borderLight,
+                borderRadius: 10, paddingVertical: 10,
+                alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              <Text style={{ fontSize: 12, fontWeight: '600', color: Colors.textMuted }}>
+                Done ✓
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+    </View>
+  );
+};
+
+// ── MAIN SCREEN ────────────────────────────────────────────────────────────
 export default function WellbeingScreen() {
-  const [refreshing, setRefreshing] = useState(false);
+  const params = useLocalSearchParams();
 
-  const handleAction = (actionLabel: string) => {
-    const route = ACTION_ROUTES[actionLabel];
-    if (route) router.push(route as any);
+  // Get data passed from insights page
+  const stressLevel = (params.stressLevel as string) || 'Moderate';
+  const stressScore = params.stressScore ? Number(params.stressScore) : 6;
+  const formData    = params.formData ? JSON.parse(params.formData as string) as DailyCheckIn : null;
+
+  const result: CheckInResult = {
+    stressLevel:  stressLevel as 'Low' | 'Moderate' | 'High',
+    stressScore,
+    confidence:   0.85,
+    message:      '',
+    tips:         [],
+    submittedAt:  new Date().toISOString(),
+  };
+
+  // Generate smart recommendations
+  const defaultForm: DailyCheckIn = {
+    sleepHours: 6, physicalTiredness: 3, mood: 3,
+    emotionalOverwhelm: 3, hoursCaregiving: 8,
+    tasksAssigned: 10, tasksCompleted: 8,
+    difficultSituations: 2, breaksTaken: 1,
+    mentallyExhausted: 3, difficultyManaging: 3, emotionallyDrained: 3,
+  };
+
+  const form = formData || defaultForm;
+  const [recs, setRecs] = useState(generateRecommendations(form, result));
+  const summaryMessage  = getSummaryMessage(form, result);
+
+  const stressConfig = {
+    High:     { color: '#EF4444', bg: '#FEF2F2', emoji: '😟' },
+    Moderate: { color: '#F97316', bg: '#FFF7ED', emoji: '😐' },
+    Low:      { color: '#22C55E', bg: '#F0FDF4', emoji: '😊' },
+  }[stressLevel] || { color: '#F97316', bg: '#FFF7ED', emoji: '😐' };
+
+  const handleAction = (rec: SmartRecommendation) => {
+    if (rec.route) router.push(rec.route as any);
+  };
+
+  const handleDismiss = (id: string) => {
+    setRecs((prev) => prev.filter((r) => r.id !== id));
   };
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
-      <StatusBar barStyle="dark-content" />
+      <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
 
       {/* Header */}
       <View style={{
         backgroundColor: Colors.background,
         paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16,
+        borderBottomWidth: 1, borderBottomColor: Colors.borderLight,
       }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <TouchableOpacity
             onPress={() => router.back()}
             style={{
-              width: 38, height: 38, borderRadius: 13,
-              backgroundColor: Colors.white,
+              width: 36, height: 36, borderRadius: 18,
+              backgroundColor: Colors.borderLight,
               alignItems: 'center', justifyContent: 'center',
-              borderWidth: 1, borderColor: Colors.borderLight,
             }}
           >
-            <Ionicons name="arrow-back" size={18} color={Colors.textPrimary} />
+            <Ionicons name="chevron-back" size={20} color={Colors.textPrimary} />
           </TouchableOpacity>
           <View>
             <Text style={{ fontSize: 22, fontWeight: '800', color: Colors.textPrimary }}>
-              Well-being
+              Smart Care Coach
             </Text>
-            <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 2 }}>
-              Personalised recommendations for your self-care
+            <Text style={{ fontSize: 12, color: Colors.textMuted }}>
+              Personalised for your check-in today
             </Text>
           </View>
         </View>
@@ -102,103 +244,115 @@ export default function WellbeingScreen() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => { setRefreshing(true); setTimeout(() => setRefreshing(false), 1000); }}
-            tintColor={Colors.primary}
-          />
-        }
-        contentContainerStyle={{ padding: 20, paddingBottom: 60 }}
+        contentContainerStyle={{ padding: 20, paddingBottom: 120 }}
       >
-        <Text style={{
-          fontSize: 16, fontWeight: '800',
-          color: Colors.textPrimary, marginBottom: 14,
+        {/* Status banner */}
+        <View style={{
+          backgroundColor: stressConfig.bg, borderRadius: 20,
+          padding: 16, marginBottom: 16,
+          borderWidth: 1.5, borderColor: stressConfig.color + '30',
+          flexDirection: 'row', alignItems: 'center', gap: 14,
         }}>
-          Recommended for You
-        </Text>
-
-        {RECOMMENDATIONS.map((rec) => (
-          <View
-            key={rec.id}
-            style={{
-              backgroundColor: Colors.white,
-              borderRadius: 20, padding: 16,
-              marginBottom: 12,
-              borderWidth: 1, borderColor: Colors.borderLight,
-              borderLeftWidth: 4, borderLeftColor: rec.color,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.04, shadowRadius: 8, elevation: 1,
-            }}
-          >
-            {/* Icon + title + duration */}
-            <View style={{
-              flexDirection: 'row', alignItems: 'center',
-              gap: 12, marginBottom: 12,
-            }}>
-              <View style={{
-                width: 44, height: 44, borderRadius: 14,
-                backgroundColor: rec.bgColor,
-                alignItems: 'center', justifyContent: 'center',
-              }}>
-                <Ionicons
-                  name={rec.icon as keyof typeof Ionicons.glyphMap}
-                  size={20} color={rec.color}
-                />
-              </View>
-
-              <View style={{ flex: 1 }}>
-                <View style={{
-                  flexDirection: 'row', alignItems: 'center',
-                  justifyContent: 'space-between', marginBottom: 4,
-                }}>
-                  <Text style={{
-                    fontSize: 15, fontWeight: '800',
-                    color: Colors.textPrimary,
-                  }}>
-                    {rec.title}
-                  </Text>
-                  <View style={{
-                    paddingHorizontal: 8, paddingVertical: 3,
-                    borderRadius: 10, backgroundColor: rec.bgColor,
-                  }}>
-                    <Text style={{
-                      fontSize: 11, fontWeight: '700', color: rec.color,
-                    }}>
-                      {rec.duration}
-                    </Text>
-                  </View>
-                </View>
-                <Text style={{
-                  fontSize: 12, color: Colors.textSecondary, lineHeight: 17,
-                }}>
-                  {rec.description}
-                </Text>
-              </View>
-            </View>
-
-            {/* Action button — lighter, outlined style */}
-            <TouchableOpacity
-              onPress={() => handleAction(rec.actionLabel)}
-              style={{
-                flexDirection: 'row', alignItems: 'center',
-                justifyContent: 'center', gap: 6,
-                height: 42, borderRadius: 12,
-                backgroundColor: rec.bgColor,
-                borderWidth: 1.5,
-                borderColor: rec.color + '60',
-              }}
-            >
-              <Text style={{
-                fontSize: 13, fontWeight: '700', color: rec.color,
-              }}>
-                {rec.actionLabel}
-              </Text>
-              <Ionicons name="arrow-forward" size={14} color={rec.color} />
-            </TouchableOpacity>
+          <Text style={{ fontSize: 36 }}>{stressConfig.emoji}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 11, color: stressConfig.color, fontWeight: '700' }}>
+              TODAY'S STRESS LEVEL
+            </Text>
+            <Text style={{ fontSize: 22, fontWeight: '900', color: stressConfig.color }}>
+              {stressLevel}
+            </Text>
+            <Text style={{ fontSize: 11, color: Colors.textSecondary }}>
+              Score: {stressScore}/10
+            </Text>
           </View>
-        ))}
+          {/* Quick stats */}
+          <View style={{ alignItems: 'flex-end', gap: 4 }}>
+            <Text style={{ fontSize: 10, color: Colors.textMuted }}>
+              Tasks: {form.tasksCompleted}/{form.tasksAssigned}
+            </Text>
+            <Text style={{ fontSize: 10, color: Colors.textMuted }}>
+              Sleep: {form.sleepHours}h
+            </Text>
+            <Text style={{ fontSize: 10, color: Colors.textMuted }}>
+              Breaks: {form.breaksTaken}
+            </Text>
+          </View>
+        </View>
+
+        {/* Summary message */}
+        <View style={{
+          backgroundColor: Colors.white, borderRadius: 16,
+          padding: 14, marginBottom: 20,
+          borderWidth: 1, borderColor: Colors.borderLight,
+        }}>
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 6 }}>
+            <Ionicons name="analytics-outline" size={16} color={Colors.primary} />
+            <Text style={{ fontSize: 11, fontWeight: '700', color: Colors.primary }}>
+              PERSONALISED ANALYSIS
+            </Text>
+          </View>
+          <Text style={{ fontSize: 13, color: Colors.textSecondary, lineHeight: 20 }}>
+            {summaryMessage}
+          </Text>
+        </View>
+
+        {/* Recommendation count */}
+        <View style={{
+          flexDirection: 'row', alignItems: 'center',
+          justifyContent: 'space-between', marginBottom: 14,
+        }}>
+          <Text style={{ fontSize: 16, fontWeight: '800', color: Colors.textPrimary }}>
+            Your Action Plan
+          </Text>
+          <View style={{
+            backgroundColor: Colors.primaryLight, paddingHorizontal: 10,
+            paddingVertical: 4, borderRadius: 12,
+          }}>
+            <Text style={{ fontSize: 11, fontWeight: '700', color: Colors.primary }}>
+              {recs.length} actions
+            </Text>
+          </View>
+        </View>
+
+        {/* Recommendations */}
+        {recs.length === 0 ? (
+          <View style={{
+            backgroundColor: Colors.successSoft, borderRadius: 20,
+            padding: 24, alignItems: 'center',
+          }}>
+            <Text style={{ fontSize: 40, marginBottom: 8 }}>🎉</Text>
+            <Text style={{ fontSize: 16, fontWeight: '800', color: Colors.success }}>
+              All done!
+            </Text>
+            <Text style={{ fontSize: 13, color: Colors.textSecondary, textAlign: 'center', marginTop: 4 }}>
+              You have completed all your recommended actions for today.
+            </Text>
+          </View>
+        ) : (
+          recs.map((rec, index) => (
+            <SmartRecCard
+              key={rec.id}
+              rec={rec}
+              index={index}
+              onAction={handleAction}
+              onDismiss={handleDismiss}
+            />
+          ))
+        )}
+
+        {/* Back button */}
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={{
+            backgroundColor: Colors.primaryLight, borderRadius: 14,
+            paddingVertical: 14, alignItems: 'center', marginTop: 8,
+            borderWidth: 1, borderColor: Colors.primary + '40',
+          }}
+        >
+          <Text style={{ fontSize: 14, fontWeight: '700', color: Colors.primary }}>
+            Back to Insights
+          </Text>
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );

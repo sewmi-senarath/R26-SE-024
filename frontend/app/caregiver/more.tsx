@@ -1,70 +1,72 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View,
-  Text,
-  ScrollView,
-  StatusBar,
-  RefreshControl,
+  View, Text, ScrollView, StatusBar,
+  RefreshControl, Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Colors } from '../../src/constants/colors';
-import { ProfileCard } from '../../src/components/caregiver/more/ProfileCard';
-import { MenuSection } from '../../src/components/caregiver/more/MenuSection';
-import { LogoutButton } from '../../src/components/caregiver/more/LogoutButton';
+import { ProfileCard }      from '../../src/components/caregiver/more/ProfileCard';
+import { MenuSection }      from '../../src/components/caregiver/more/MenuSection';
+import { LogoutButton }     from '../../src/components/caregiver/more/LogoutButton';
 import { EditProfileModal } from '../../src/components/caregiver/more/profile/EditProfileModal';
 import {
   CaregiverProfile,
   MenuItem,
   MenuSection as MenuSectionType,
 } from '../../src/types/caregiver.types';
+import { fetchProfile, updateProfile } from '../../src/services/caregiver/profileService';
 
-// ── Mock Data ─────────────────────────────────────────────────────────────────
-const INITIAL_PROFILE: CaregiverProfile = {
-  name: 'Sarah Jenkins',
-  role: 'Lead Caregiver',
-  email: 'sarah.j@memocare.com',
-  initials: 'SJ',
-  avatarColor: Colors.primary,
-  isOnline: true,
-  shiftsCompleted: 124,
+
+const CAREGIVER_ID = '69ee63f8e63b93df23e01fda';
+
+// ── Default profile shown while real data loads ────────────────────────────
+const DEFAULT_PROFILE: CaregiverProfile = {
+  name:             'Sarah Jenkins',
+  role:             'Lead Caregiver',
+  email:            'sarah.j@memocare.com',
+  initials:         'SJ',
+  avatarColor:      Colors.primary,
+  isOnline:         true,
+  shiftsCompleted:  124,
   patientsAssigned: 4,
-  hoursThisWeek: 38,
+  hoursThisWeek:    38,
 };
 
+// ── Menu Data ──────────────────────────────────────────────────────────────
 const MENU_SECTIONS: MenuSectionType[] = [
   {
     title: 'Care Tools',
     items: [
       {
-        id: 'medications',
-        label: 'Medications',
-        icon: 'medical-outline',
+        id:        'medications',
+        label:     'Medications',
+        icon:      'medical-outline',
         iconColor: '#EF4444',
-        iconBg: '#FEF2F2',
+        iconBg:    '#FEF2F2',
       },
       {
-        id: 'wellbeing',
-        label: 'Well-being',
-        icon: 'heart-outline',
+        id:        'wellbeing',
+        label:     'Well-being',
+        icon:      'heart-outline',
         iconColor: Colors.danger,
-        iconBg: Colors.dangerSoft,
+        iconBg:    Colors.dangerSoft,
       },
       {
-        id: 'alerts',
-        label: 'Alerts & Notifications',
-        icon: 'notifications-outline',
-        iconColor: Colors.warning,
-        iconBg: Colors.warningSoft,
-        badge: 3,
+        id:         'alerts',
+        label:      'Alerts & Notifications',
+        icon:       'notifications-outline',
+        iconColor:  Colors.warning,
+        iconBg:     Colors.warningSoft,
+        badge:      3,
         badgeColor: Colors.danger,
       },
       {
-        id: 'reports',
-        label: 'Reports',
-        icon: 'document-text-outline',
+        id:        'reports',
+        label:     'Reports',
+        icon:      'document-text-outline',
         iconColor: '#06B6D4',
-        iconBg: '#ECFEFF',
+        iconBg:    '#ECFEFF',
       },
     ],
   },
@@ -72,37 +74,64 @@ const MENU_SECTIONS: MenuSectionType[] = [
     title: 'Account',
     items: [
       {
-        id: 'settings',
-        label: 'Settings',
-        icon: 'settings-outline',
+        id:        'settings',
+        label:     'Settings',
+        icon:      'settings-outline',
         iconColor: Colors.textSecondary,
-        iconBg: Colors.borderLight,
+        iconBg:    Colors.borderLight,
       },
       {
-        id: 'privacy',
-        label: 'Privacy & Security',
-        icon: 'shield-checkmark-outline',
+        id:        'privacy',
+        label:     'Privacy & Security',
+        icon:      'shield-checkmark-outline',
         iconColor: Colors.success,
-        iconBg: Colors.successSoft,
+        iconBg:    Colors.successSoft,
       },
       {
-        id: 'help',
-        label: 'Help & Support',
-        icon: 'help-circle-outline',
+        id:        'help',
+        label:     'Help & Support',
+        icon:      'help-circle-outline',
         iconColor: '#8B5CF6',
-        iconBg: '#F5F3FF',
+        iconBg:    '#F5F3FF',
       },
     ],
   },
 ];
-// ─────────────────────────────────────────────────────────────────────────────
 
+// ── Component ──────────────────────────────────────────────────────────────
 export default function MoreScreen() {
-  const [profile, setProfile]           = useState<CaregiverProfile>(INITIAL_PROFILE);
+  const [profile, setProfile]               = useState<CaregiverProfile>(DEFAULT_PROFILE);
   const [editModalVisible, setEditModalVisible] = useState(false);
-  const [refreshing, setRefreshing]     = useState(false);
+  const [refreshing, setRefreshing]         = useState(false);
 
-  // ── Navigate to sub-pages ───────────────────────────────────────────────────
+  // ── Load profile from backend ──────────────────────────────────────────
+  const loadProfile = useCallback(async () => {
+    try {
+      const data = await fetchProfile(CAREGIVER_ID);
+      setProfile(data);
+    } catch (error) {
+      console.log('Could not load profile from backend:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadProfile();
+  }, []);
+
+  // ── Save updated profile to backend ───────────────────────────────────
+  const handleSaveProfile = async (
+    updated: Partial<CaregiverProfile> & { profileImage?: string }
+  ) => {
+    try {
+      const savedProfile = await updateProfile(CAREGIVER_ID, updated);
+      setProfile(savedProfile);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to update profile. Please try again.');
+      throw error; // ← re-throw so modal stays open on failure
+    }
+  };
+
+  // ── Navigate ───────────────────────────────────────────────────────────
   const handleMenuItemPress = (item: MenuItem) => {
     const routes: Record<string, string> = {
       medications: '/caregiver/medications',
@@ -110,81 +139,60 @@ export default function MoreScreen() {
       alerts:      '/caregiver/alerts',
       reports:     '/caregiver/reports',
     };
-
     if (routes[item.id]) {
       router.push(routes[item.id] as any);
     } else {
-      // Settings, Privacy, Help — placeholder for now
       console.log('Navigate to:', item.id);
     }
   };
 
-  // ── Open edit profile modal ─────────────────────────────────────────────────
-  const handleEditProfile = () => {
-    setEditModalVisible(true);
-  };
-
-  // ── Save updated profile ────────────────────────────────────────────────────
-  const handleSaveProfile = (updated: Partial<CaregiverProfile>) => {
-    setProfile((prev) => ({ ...prev, ...updated }));
-  };
-
-  // ── Logout ──────────────────────────────────────────────────────────────────
+  // ── Logout ─────────────────────────────────────────────────────────────
   const handleLogout = () => {
     console.log('Logged out');
-    // TODO: clear auth token then:
-    // router.replace('/auth/login');
+    // TODO: router.replace('/auth/login');
   };
 
-  // ── Pull-to-refresh ─────────────────────────────────────────────────────────
-  const handleRefresh = () => {
+  // ── Refresh ────────────────────────────────────────────────────────────
+  const handleRefresh = async () => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 1000);
+    await loadProfile();
+    setRefreshing(false);
   };
 
-  // ── Render ───────────────────────────────────────────────────────────────────
+  // ── Render ─────────────────────────────────────────────────────────────
   return (
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
 
-      {/* ── Fixed Header ── */}
-      <View
-        style={{
-          backgroundColor: Colors.background,
-          paddingTop: 56,
-          paddingHorizontal: 20,
-          paddingBottom: 16,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        <Text
-          style={{
-            fontSize: 24,
-            fontWeight: '800',
-            color: Colors.textPrimary,
-          }}
-        >
+      {/* Fixed Header */}
+      <View style={{
+        backgroundColor:   Colors.background,
+        paddingTop:        56,
+        paddingHorizontal: 20,
+        paddingBottom:     16,
+        flexDirection:     'row',
+        alignItems:        'center',
+        justifyContent:    'space-between',
+      }}>
+        <Text style={{
+          fontSize:   24,
+          fontWeight: '800',
+          color:      Colors.textPrimary,
+        }}>
           More
         </Text>
 
-        {/* App version badge */}
-        <View
-          style={{
-            paddingHorizontal: 10,
-            paddingVertical: 4,
-            borderRadius: 10,
-            backgroundColor: Colors.borderLight,
-          }}
-        >
-          <Text
-            style={{
-              fontSize: 11,
-              fontWeight: '600',
-              color: Colors.textMuted,
-            }}
-          >
+        <View style={{
+          paddingHorizontal: 10,
+          paddingVertical:   4,
+          borderRadius:      10,
+          backgroundColor:   Colors.borderLight,
+        }}>
+          <Text style={{
+            fontSize:   11,
+            fontWeight: '600',
+            color:      Colors.textMuted,
+          }}>
             v1.0.0
           </Text>
         </View>
@@ -201,13 +209,13 @@ export default function MoreScreen() {
         }
         contentContainerStyle={{ paddingBottom: 120 }}
       >
-        {/* ── Profile Card ── */}
+        {/* Profile Card — always visible */}
         <ProfileCard
           profile={profile}
-          onEditPress={handleEditProfile}
+          onEditPress={() => setEditModalVisible(true)}
         />
 
-        {/* ── Menu Sections ── */}
+        {/* Menu Sections */}
         {MENU_SECTIONS.map((section) => (
           <MenuSection
             key={section.title}
@@ -216,27 +224,23 @@ export default function MoreScreen() {
           />
         ))}
 
-        {/* ── Logout ── */}
+        {/* Logout */}
         <LogoutButton onLogout={handleLogout} />
 
-        {/* ── Footer ── */}
+        {/* Footer */}
         <View style={{ alignItems: 'center', paddingBottom: 10 }}>
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 5,
-              marginBottom: 4,
-            }}
-          >
+          <View style={{
+            flexDirection: 'row',
+            alignItems:    'center',
+            gap:           5,
+            marginBottom:  4,
+          }}>
             <Ionicons name="heart" size={12} color={Colors.danger} />
-            <Text
-              style={{
-                fontSize: 12,
-                fontWeight: '700',
-                color: Colors.textMuted,
-              }}
-            >
+            <Text style={{
+              fontSize:   12,
+              fontWeight: '700',
+              color:      Colors.textMuted,
+            }}>
               MemoCare
             </Text>
           </View>
@@ -246,7 +250,7 @@ export default function MoreScreen() {
         </View>
       </ScrollView>
 
-      {/* ── Edit Profile Modal ── */}
+      {/* Edit Profile Modal */}
       <EditProfileModal
         visible={editModalVisible}
         profile={profile}
