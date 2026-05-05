@@ -1,7 +1,7 @@
-import { DailyCheckIn, CheckInResult } from '../../types/caregiver.types';
+import { CheckInResult, DailyCheckIn } from '../../types/caregiver.types';
 
 const BASE_URL     = `${process.env.EXPO_PUBLIC_API_URL}/api/caregiver/insights`;
-const CAREGIVER_ID = '69ee63f8e63b93df23e01fda'; // ← same ID as patientService
+const CAREGIVER_ID = '69ee5d4c6290eb858483e9f3'; 
 
 export const submitCheckIn = async (
   data: DailyCheckIn

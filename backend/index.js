@@ -9,6 +9,7 @@ const patientRoutes = require('./src/routes/caregiver/patientRoutes');
 const caregiverRoutes = require('./src/routes/caregiver/caregiverRoutes');
 const cognitiveRoutes = require('./src/routes/cognitive');
 const { notFoundHandler, errorHandler } = require('./src/middleware/errorHandler');
+const insightRoutes = require('./src/routes/caregiver/insightRoutes');
 
 connectDB();
 const app = express();
@@ -21,6 +22,8 @@ app.use(cors());
 app.use('/api/caregiver/tasks', taskRoutes);
 app.use('/api/caregiver/patients', patientRoutes);
 app.use('/api/caregiver/profile', caregiverRoutes);
+app.use('/api/caregiver/insights', insightRoutes);
+
 // Cognitive Assessment routes
 app.use('/api/cognitive', cognitiveRoutes);
 

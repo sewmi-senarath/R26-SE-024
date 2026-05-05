@@ -1,22 +1,23 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState, useEffect } from 'react';
+import { router } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator, Alert, Modal, RefreshControl,
   ScrollView, StatusBar, Text, TouchableOpacity, View,
 } from 'react-native';
-import { MoodChecker }        from '../../src/components/caregiver/insights/MoodChecker';
+import { MoodChecker } from '../../src/components/caregiver/insights/MoodChecker';
 import { RecommendationCard } from '../../src/components/caregiver/insights/RecommendationCard';
-import { StressGauge }        from '../../src/components/caregiver/insights/StressGauge';
-import { WeeklyChart }        from '../../src/components/caregiver/insights/WeeklyChart';
-import { WellbeingStats }     from '../../src/components/caregiver/insights/WellbeingStats';
-import { Colors }             from '../../src/constants/colors';
+import { StressGauge } from '../../src/components/caregiver/insights/StressGauge';
+import { WeeklyChart } from '../../src/components/caregiver/insights/WeeklyChart';
+import { WellbeingStats } from '../../src/components/caregiver/insights/WellbeingStats';
+import { Colors } from '../../src/constants/colors';
+import { getLatestResult, submitCheckIn } from '../../src/services/caregiver/insightService';
 import {
   CheckInResult, DailyCheckIn,
   MoodType, Recommendation,
   StressLevel, WeeklyData,
   WellbeingStats as WellbeingStatsType,
 } from '../../src/types/caregiver.types';
-import { submitCheckIn, getLatestResult } from '../../src/services/caregiver/insightService';
 
 // ── Mock Data ─────────────────────────────────────────────────────────────
 const MOCK_STATS: WellbeingStatsType = {
@@ -158,14 +159,26 @@ const NumberStepper: React.FC<{
 
 // ── Result Banner ─────────────────────────────────────────────────────────
 const ResultBanner: React.FC<{
-  result: CheckInResult;
+  result:       CheckInResult;
+  form:         DailyCheckIn;
   onNewCheckIn: () => void;
-}> = ({ result, onNewCheckIn }) => {
+}> = ({ result, form, onNewCheckIn }) => {
   const config = {
     Low:      { color: Colors.success, bg: Colors.successSoft, emoji: '😊' },
     Moderate: { color: Colors.warning, bg: Colors.warningSoft, emoji: '😐' },
     High:     { color: Colors.danger,  bg: Colors.dangerSoft,  emoji: '😟' },
   }[result.stressLevel];
+
+  const handleViewPlan = () => {
+    router.push({
+      pathname: '/caregiver/wellbeing',
+      params: {
+        stressLevel: result.stressLevel,
+        stressScore: String(result.stressScore),
+        formData:    JSON.stringify(form),
+      },
+    } as any);
+  };
 
   return (
     <View style={{
@@ -173,6 +186,7 @@ const ResultBanner: React.FC<{
       backgroundColor: config.bg, borderRadius: 20, padding: 16,
       borderWidth: 1.5, borderColor: config.color + '30',
     }}>
+      {/* Top row */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 }}>
         <Text style={{ fontSize: 36 }}>{config.emoji}</Text>
         <View style={{ flex: 1 }}>
@@ -186,6 +200,7 @@ const ResultBanner: React.FC<{
             Score: {result.stressScore}/10 · Confidence: {Math.round(result.confidence * 100)}%
           </Text>
         </View>
+        {/* Refresh button */}
         <TouchableOpacity
           onPress={onNewCheckIn}
           style={{
@@ -197,15 +212,38 @@ const ResultBanner: React.FC<{
           <Ionicons name="refresh-outline" size={18} color={config.color} />
         </TouchableOpacity>
       </View>
+
+      {/* Message */}
       <Text style={{ fontSize: 12, color: Colors.textSecondary, marginBottom: 8 }}>
         {result.message}
       </Text>
+
+      {/* Quick tips */}
       {result.tips.slice(0, 2).map((tip, i) => (
         <View key={i} style={{ flexDirection: 'row', gap: 8, marginBottom: 4 }}>
           <Text style={{ color: config.color, fontWeight: '700' }}>•</Text>
           <Text style={{ fontSize: 12, color: Colors.textSecondary, flex: 1 }}>{tip}</Text>
         </View>
       ))}
+
+      {/* View Action Plan button */}
+      <TouchableOpacity
+        onPress={handleViewPlan}
+        style={{
+          backgroundColor: config.color,
+          borderRadius: 12, paddingVertical: 11,
+          alignItems: 'center', marginTop: 14,
+          flexDirection: 'row', justifyContent: 'center', gap: 6,
+          shadowColor: config.color,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
+        }}
+      >
+        <Ionicons name="heart-outline" size={16} color={Colors.white} />
+        <Text style={{ fontSize: 13, fontWeight: '800', color: Colors.white }}>
+          View My Action Plan →
+        </Text>
+      </TouchableOpacity>
     </View>
   );
 };
@@ -214,7 +252,7 @@ const ResultBanner: React.FC<{
 const CheckInModal: React.FC<{
   visible: boolean;
   onClose: () => void;
-  onResult: (result: CheckInResult) => void;
+  onResult: (result: CheckInResult, form: DailyCheckIn) => void;
 }> = ({ visible, onClose, onResult }) => {
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState<DailyCheckIn>({
@@ -237,10 +275,10 @@ const CheckInModal: React.FC<{
     setLoading(true);
     try {
       const result = await submitCheckIn(form);
-      onResult(result);
+      onResult(result, form); // ← pass form along with result
       onClose();
     } catch (error) {
-      Alert.alert('Error', 'Could not connect. Make sure backend is running.');
+      Alert.alert('Error', 'Could not connect. Make sure backend and Flask are running.');
     } finally {
       setLoading(false);
     }
@@ -266,28 +304,24 @@ const CheckInModal: React.FC<{
           overflow: 'hidden',
         }}>
 
-          {/* ── Modal Header ── */}
+          {/* Modal Header */}
           <View style={{
             backgroundColor: Colors.white,
             paddingTop: 12, paddingHorizontal: 20, paddingBottom: 16,
             borderBottomWidth: 1, borderBottomColor: Colors.borderLight,
           }}>
-            {/* Handle bar */}
             <View style={{
               width: 36, height: 4, borderRadius: 2,
               backgroundColor: Colors.border,
               alignSelf: 'center', marginBottom: 14,
             }} />
-
             <View style={{
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'space-between',
             }}>
               <View>
-                <Text style={{
-                  fontSize: 18, fontWeight: '800', color: Colors.textPrimary,
-                }}>
+                <Text style={{ fontSize: 18, fontWeight: '800', color: Colors.textPrimary }}>
                   Daily Check-in
                 </Text>
                 <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 2 }}>
@@ -307,12 +341,11 @@ const CheckInModal: React.FC<{
             </View>
           </View>
 
-          {/* ── Scrollable Form ── */}
+          {/* Scrollable Form */}
           <ScrollView
             contentContainerStyle={{ padding: 20, paddingBottom: 110 }}
             showsVerticalScrollIndicator={false}
           >
-
             {/* Sleep & Energy */}
             <SectionLabel title="Sleep & Energy" />
             <View style={{
@@ -359,13 +392,11 @@ const CheckInModal: React.FC<{
                 value={form.difficultSituations} min={0} max={10}
                 onChange={set('difficultSituations')}
               />
-              <View style={{ borderBottomWidth: 0 }}>
-                <NumberStepper
-                  label="Breaks taken"
-                  value={form.breaksTaken} min={0} max={5}
-                  onChange={set('breaksTaken')}
-                />
-              </View>
+              <NumberStepper
+                label="Breaks taken"
+                value={form.breaksTaken} min={0} max={5}
+                onChange={set('breaksTaken')}
+              />
             </View>
 
             {/* Emotional Wellbeing */}
@@ -407,7 +438,7 @@ const CheckInModal: React.FC<{
             </View>
           </ScrollView>
 
-          {/* ── Fixed Submit Button ── */}
+          {/* Fixed Submit Button */}
           <View style={{
             position: 'absolute', bottom: 0, left: 0, right: 0,
             backgroundColor: Colors.white,
@@ -452,6 +483,7 @@ export default function InsightsScreen() {
   const [stressLevel, setStressLevel]         = useState<StressLevel>('Moderate');
   const [stressScore, setStressScore]         = useState(65);
   const [checkInResult, setCheckInResult]     = useState<CheckInResult | null>(null);
+  const [lastForm, setLastForm]               = useState<DailyCheckIn | null>(null);
   const [showCheckIn, setShowCheckIn]         = useState(false);
   const [recommendations, setRecommendations] = useState<Recommendation[]>(MOCK_RECOMMENDATIONS);
   const [refreshing, setRefreshing]           = useState(false);
@@ -468,8 +500,10 @@ export default function InsightsScreen() {
     setStressScore(result.stressScore * 10);
   };
 
-  const handleCheckInResult = (result: CheckInResult) => {
+  // ← Updated: now receives form too
+  const handleCheckInResult = (result: CheckInResult, form: DailyCheckIn) => {
     applyResult(result);
+    setLastForm(form);
   };
 
   const handleMoodSelect = (mood: MoodType) => {
@@ -492,7 +526,7 @@ export default function InsightsScreen() {
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
 
-      {/* ── Fixed Header ── */}
+      {/* Fixed Header */}
       <View style={{
         backgroundColor: Colors.background,
         paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16,
@@ -503,7 +537,6 @@ export default function InsightsScreen() {
           alignItems: 'center',
           justifyContent: 'space-between',
         }}>
-          {/* Title */}
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 24, fontWeight: '800', color: Colors.textPrimary }}>
               Your Wellbeing
@@ -513,7 +546,7 @@ export default function InsightsScreen() {
             </Text>
           </View>
 
-          {/* Check-in button — right side */}
+          {/* Check-in button */}
           <TouchableOpacity
             onPress={() => setShowCheckIn(true)}
             style={{
@@ -536,7 +569,7 @@ export default function InsightsScreen() {
         </View>
       </View>
 
-      {/* ── Scrollable Content ── */}
+      {/* Scrollable Content */}
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -548,10 +581,11 @@ export default function InsightsScreen() {
         }
         contentContainerStyle={{ paddingBottom: 120 }}
       >
-        {/* Result Banner — appears after check-in */}
-        {checkInResult && (
+        {/* Result Banner — shows after check-in */}
+        {checkInResult && lastForm && (
           <ResultBanner
             result={checkInResult}
+            form={lastForm}
             onNewCheckIn={() => setShowCheckIn(true)}
           />
         )}
