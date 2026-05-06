@@ -3,12 +3,12 @@ import { getSeverityInfo } from '@/src/utils/scoring';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef } from 'react';
 import {
-  Animated,
-  SafeAreaView,
-  ScrollView,
-  Text,
-  TouchableOpacity,
-  View,
+    Animated,
+    SafeAreaView,
+    ScrollView,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 // At the top of the file
@@ -362,7 +362,7 @@ export default function ResultsScreen() {
           {/* Secondary — go back to patient dashboard */}
           <TouchableOpacity
             className="border border-gray-200 py-4 rounded-2xl items-center"
-            onPress={() => router.replace('/patient/activity-selector')}
+            onPress={() => router.replace('/patient')}
           >
             <Text className="text-gray-600 font-medium text-base">
               Go to Dashboard

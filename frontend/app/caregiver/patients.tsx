@@ -325,10 +325,10 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
-import { PatientSearchBar }  from '../../src/components/caregiver/patients/PatientSearchBar';
-import { PatientListItem }   from '../../src/components/caregiver/patients/PatientListItem';
-import { AddPatientModal }   from '../../src/components/caregiver/patients/AddPatientModal';
-import { AddRoutineModal }   from '../../src/components/caregiver/patients/AddRoutineModal';
+import { PatientSearchBar } from '../../src/components/caregiver/patients/PatientSearchBar';
+import { PatientListItem } from '../../src/components/caregiver/patients/PatientListItem';
+import { AddPatientModal } from '../../src/components/caregiver/patients/AddPatientModal';
+import { AddRoutineModal } from '../../src/components/caregiver/patients/AddRoutineModal';
 import { PatientDetail, Routine } from '../../src/types/caregiver.types';
 import {
   fetchPatients,
@@ -338,11 +338,11 @@ import {
 } from '../../src/services/caregiver/patientService';
 
 export default function PatientsScreen() {
-  const [patients, setPatients]       = useState<PatientDetail[]>([]);
-  const [loading, setLoading]         = useState(true);
+  const [patients, setPatients] = useState<PatientDetail[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [expandedId, setExpandedId]   = useState<string | null>(null);
-  const [refreshing, setRefreshing]   = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [patientModalVisible, setPatientModalVisible] = useState(false);
   const [routineModal, setRoutineModal] = useState<{
     visible: boolean;
@@ -458,14 +458,17 @@ export default function PatientsScreen() {
     newPatientData: Omit<PatientDetail, 'id' | 'emoji' | 'lastChecked' | 'routines'>
   ) => {
     try {
+      console.log('Submitting patient:', newPatientData); // ← debug
       const savedPatient = await createPatient(newPatientData);
-      // Prepend saved patient (with real _id) to list
+      console.log('Saved patient:', savedPatient); // ← debug
       setPatients((prev) => [savedPatient, ...prev]);
+      Alert.alert('Success', 'Patient added successfully!');
     } catch (error) {
-      Alert.alert('Error', 'Failed to add patient.');
+      console.log('Add patient error:', error); // ← debug
+      Alert.alert('Error', 'Failed to add patient. Check your connection.');
+      throw error; // ← re-throw so modal stays open
     }
   };
-
   // ── Refresh ────────────────────────────────────────────────────────────────
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -534,7 +537,7 @@ export default function PatientsScreen() {
             </Text>
           </View>
 
-        /* Empty state */
+          /* Empty state */
         ) : filteredPatients.length === 0 ? (
           <View style={{ alignItems: 'center', justifyContent: 'center', marginTop: 80 }}>
             <Text style={{ fontSize: 40, marginBottom: 12 }}>
@@ -550,7 +553,7 @@ export default function PatientsScreen() {
             </Text>
           </View>
 
-        /* Patient list */
+          /* Patient list */
         ) : (
           filteredPatients.map((patient, index) => (
             <PatientListItem

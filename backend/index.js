@@ -11,12 +11,16 @@ const cognitiveRoutes = require('./src/routes/cognitive');
 const { notFoundHandler, errorHandler } = require('./src/middleware/errorHandler');
 const insightRoutes = require('./src/routes/caregiver/insightRoutes');
 
+const authRoutes = require('./src/routes/auth/authRoutes');
+
 connectDB();
 const app = express();
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 app.use(cors());
+
+app.use('/api/auth', authRoutes);
 
 // Caregiver Portal routes ...
 app.use('/api/caregiver/tasks', taskRoutes);
@@ -26,6 +30,14 @@ app.use('/api/caregiver/insights', insightRoutes);
 
 // Cognitive Assessment routes
 app.use('/api/cognitive', cognitiveRoutes);
+
+const protectedRoutes = require('./src/routes/auth/protectedRoutes');
+app.use('/api', protectedRoutes);
+
+// Health check
+app.get('/health', (req, res) => {
+  res.json({ status: 'MemoCare API is running ✅' });
+});
 
 // Error handling
 app.use(notFoundHandler);

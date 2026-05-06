@@ -1,96 +1,142 @@
-import { useRouter } from "expo-router";
-import { useState } from "react";
-import { Image, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { loginUser } from '@/src/api/authApi';
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
+import {
+    ActivityIndicator,
+    Alert,
+    Image,
+    ScrollView,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 
 export default function Login() {
   const router = useRouter();
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert('Error', 'Please enter email and password');
+      return;
+    }
+    setLoading(true);
+    try {
+      const result = await loginUser(email, password);
+      if (result.success) {
+        const role = result.data.user.role;
+        if (role === 'patient') router.replace('/patient');
+        else if (role === 'caregiver') router.replace('/caregiver');
+        else if (role === 'family') router.replace('/family');
+      } else {
+        Alert.alert('Login Failed', result.message);
+      }
+    } catch {
+      Alert.alert('Error', 'Cannot connect to server.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <View className="flex-1 bg-gradient-to-b from-blue-50 to-white px-6 py-12">
-      {/* MemoCare Logo */}
-      <View className="items-center mb-12">
+    <ScrollView
+      style={{ flex: 1, backgroundColor: '#fff' }}
+      contentContainerStyle={{ padding: 24, paddingTop: 48 }}
+    >
+      {/* Back */}
+      <TouchableOpacity onPress={() => router.back()} style={{ marginBottom: 16 }}>
+        <Text style={{ color: '#6b7280', fontSize: 16 }}>← Back</Text>
+      </TouchableOpacity>
+
+      {/* Logo */}
+      <View style={{ alignItems: 'center', marginBottom: 32 }}>
         <Image
-          source={require("../../assets/images/logo.png")}
-          style={{ width: 150, height: 150 }}
+          source={require('../../assets/images/logo.png')}
+          style={{ width: 120, height: 120 }}
           resizeMode="contain"
         />
-      </View>
-
-      {/* Header */}
-      <View className="mb-8 items-center">
-        <Text className="text-3xl font-bold text-gray-800 mb-2">
+        <Text style={{ fontSize: 28, fontWeight: 'bold', color: '#1f2937', marginTop: 16 }}>
           Welcome Back!
         </Text>
-        <Text className="text-gray-600 text-base">
+        <Text style={{ color: '#6b7280', marginTop: 4, fontSize: 15 }}>
           Sign in to your account
         </Text>
       </View>
 
-      {/* Username Field */}
-      <View className="mb-4">
-        <Text className="text-gray-700 font-semibold mb-2">Username</Text>
-        <TextInput
-          className="border border-gray-300 rounded-lg px-4 py-3 text-gray-800"
-          placeholder="Enter your username"
-          placeholderTextColor="#999"
-          value={username}
-          onChangeText={setUsername}
-        />
-      </View>
+      {/* Email */}
+      <Text style={{ fontWeight: '600', color: '#374151', marginBottom: 8 }}>
+        Email
+      </Text>
+      <TextInput
+        style={{
+          borderWidth: 1, borderColor: '#d1d5db', borderRadius: 10,
+          paddingHorizontal: 16, paddingVertical: 12,
+          fontSize: 16, marginBottom: 16, backgroundColor: '#f9fafb',
+        }}
+        placeholder="Enter your email"
+        placeholderTextColor="#9ca3af"
+        value={email}
+        onChangeText={setEmail}
+        keyboardType="email-address"
+        autoCapitalize="none"
+      />
 
-      {/* Password Field */}
-      <View className="mb-6">
-        <Text className="text-gray-700 font-semibold mb-2">Password</Text>
+      {/* Password */}
+      <Text style={{ fontWeight: '600', color: '#374151', marginBottom: 8 }}>
+        Password
+      </Text>
+      <View style={{
+        borderWidth: 1, borderColor: '#d1d5db', borderRadius: 10,
+        flexDirection: 'row', alignItems: 'center',
+        marginBottom: 24, backgroundColor: '#f9fafb',
+      }}>
         <TextInput
-          className="border border-gray-300 rounded-lg px-4 py-3 text-gray-800"
+          style={{ flex: 1, paddingHorizontal: 16, paddingVertical: 12, fontSize: 16 }}
           placeholder="Enter your password"
-          placeholderTextColor="#999"
-          secureTextEntry
+          placeholderTextColor="#9ca3af"
           value={password}
           onChangeText={setPassword}
+          secureTextEntry={!showPassword}
         />
-      </View>
-
-      {/* Login Button */}
-      <TouchableOpacity className="bg-blue-600 rounded-lg py-3 mb-4">
-        <Text className="text-white text-center font-bold text-lg">
-          Sign In
-        </Text>
-      </TouchableOpacity>
-
-      {/* Divider */}
-      <View className="flex-row items-center mb-4">
-        <View className="flex-1 h-px bg-gray-300" />
-        <Text className="mx-2 text-gray-600">Or</Text>
-        <View className="flex-1 h-px bg-gray-300" />
-      </View>
-
-      {/* Google Sign In */}
-      <TouchableOpacity className="border border-gray-300 rounded-lg py-3 mb-6 flex-row items-center justify-center">
-        <Image
-          source={{ uri: "https://www.gstatic.com/firebasejs/ui/2.0.0/images/logo_googleg.png" }}
-          style={{ width: 20, height: 20, marginRight: 8 }}
-        />
-        <Text className="text-gray-800 font-semibold">Sign up with Google</Text>
-      </TouchableOpacity>
-
-      {/* Register Link */}
-      <View className="flex-row justify-center">
-        <Text className="text-gray-700">Do not have an account? </Text>
-        <TouchableOpacity onPress={() => router.push("/role/select")}>
-          <Text className="text-blue-600 font-bold">Sign Up</Text>
+        <TouchableOpacity
+          onPress={() => setShowPassword(!showPassword)}
+          style={{ paddingHorizontal: 16 }}
+        >
+          <Text style={{ color: '#6b7280', fontSize: 14 }}>
+            {showPassword ? 'Hide' : 'Show'}
+          </Text>
         </TouchableOpacity>
       </View>
 
-      {/* Go Back Button */}
+      {/* Login Button */}
       <TouchableOpacity
-        onPress={() => router.back()}
-        className="mt-8"
+        onPress={handleLogin}
+        disabled={loading}
+        style={{
+          backgroundColor: '#2563eb', paddingVertical: 16,
+          borderRadius: 12, alignItems: 'center', marginBottom: 16,
+          shadowColor: '#2563eb', shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.3, shadowRadius: 8, elevation: 5,
+        }}
       >
-        <Text className="text-gray-600 text-center">← Go back</Text>
+        {loading
+          ? <ActivityIndicator color="white" />
+          : <Text style={{ color: 'white', fontSize: 18, fontWeight: 'bold' }}>Sign In</Text>
+        }
       </TouchableOpacity>
-    </View>
+
+      {/* Register Link */}
+      <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 8 }}>
+        <Text style={{ color: '#6b7280' }}>Don't have an account? </Text>
+        <TouchableOpacity onPress={() => router.push('/role/select')}>
+          <Text style={{ color: '#2563eb', fontWeight: 'bold' }}>Sign Up</Text>
+        </TouchableOpacity>
+      </View>
+
+    </ScrollView>
   );
 }
