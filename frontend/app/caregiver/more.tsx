@@ -147,10 +147,15 @@ export default function MoreScreen() {
   };
 
   // ── Logout ─────────────────────────────────────────────────────────────
-  const handleLogout = () => {
-    console.log('Logged out');
-    // TODO: router.replace('/auth/login');
-  };
+const handleLogout = () => {
+  if (typeof window !== 'undefined') {
+    const confirmed = window.confirm('Are you sure you want to logout?');
+    if (confirmed) {
+      localStorage.clear();
+      window.location.href = '/auth/login';
+    }
+  }
+};
 
   // ── Refresh ────────────────────────────────────────────────────────────
   const handleRefresh = async () => {

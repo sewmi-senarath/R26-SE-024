@@ -1,64 +1,106 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { authFetch } from '@/src/api/authApi';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useState } from 'react';
+import { ActivityIndicator, Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-export default function Onboarding3() {
+export default function OnboardingStep3() {
   const router = useRouter();
+  const params = useLocalSearchParams();
+  const [favoritePlaces, setFavoritePlaces] = useState('');
+  const [festivals, setFestivals] = useState('');
+  const [foods, setFoods] = useState('');
+  const [sports, setSports] = useState('');
+  const [languages, setLanguages] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleGetStarted = () => {
-    router.push('/role/select');
-  };
+  const handleComplete = async () => {
+    setLoading(true);
+    try {
+      const profileData = {
+        fullName: params.fullName,
+        age: params.age,
+        gender: params.gender,
+        countriesLived: params.countriesLived,
+        occupations: params.occupations,
+        favoritePlaces,
+        festivalsCelebrated: festivals,
+        foodsPreferred: foods,
+        preferredSports: sports,
+        languagesPreferred: languages,
+      };
 
-  const handleSkip = () => {
-    router.push('/auth/login');
+      const result = await authFetch('/patient/profile', {
+        method: 'POST',
+        body: JSON.stringify(profileData),
+      });
+
+      if (result.success) {
+        Alert.alert('Success', 'Profile completed!', [
+          { text: 'OK', onPress: () => router.replace('/auth/login') },
+        ]);
+      } else {
+        // Even if profile save fails, go to login
+        router.replace('/auth/login');
+      }
+    } catch (error) {
+      router.replace('/auth/login');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <View className="flex-1 bg-blue-50">
-      <View className="flex-1 px-6 py-8 justify-between">
-        {/* Skip Button */}
-        <TouchableOpacity onPress={handleSkip} className="self-end">
-          <Text className="text-blue-600 font-medium text-base">Skip</Text>
-        </TouchableOpacity>
+    <ScrollView style={{ flex: 1, backgroundColor: '#fff' }} contentContainerStyle={{ padding: 24, paddingTop: 48 }}>
 
-        {/* People Icon */}
-        <View className="items-center mt-12">
-          <View className="w-32 h-32 rounded-full bg-blue-500 justify-center items-center shadow-lg">
-            <Ionicons name="people" size={80} color="white" />
-          </View>
+      {/* Progress Bar */}
+      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+        <View style={{ flex: 1, height: 4, backgroundColor: '#2563eb', borderRadius: 2 }} />
+        <View style={{ flex: 1, height: 4, backgroundColor: '#2563eb', borderRadius: 2 }} />
+        <View style={{ flex: 1, height: 4, backgroundColor: '#2563eb', borderRadius: 2 }} />
+      </View>
+      <Text style={{ color: '#6b7280', textAlign: 'center', marginBottom: 32 }}>Step 3 of 3</Text>
+
+      <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#1f2937', marginBottom: 4 }}>Your Preferences</Text>
+      <Text style={{ color: '#6b7280', marginBottom: 32 }}>Tell us what you love</Text>
+
+      {[
+        { label: 'Favorite Places', placeholder: 'e.g. Beach, Mountains', value: favoritePlaces, setter: setFavoritePlaces },
+        { label: 'Festivals Celebrated', placeholder: 'e.g. Sinhala New Year, Christmas', value: festivals, setter: setFestivals },
+        { label: 'Foods Preferred', placeholder: 'e.g. Rice, Curry', value: foods, setter: setFoods },
+        { label: 'Preferred Sports', placeholder: 'e.g. Cricket, Swimming', value: sports, setter: setSports },
+        { label: 'Languages Preferred', placeholder: 'e.g. Sinhala, English', value: languages, setter: setLanguages },
+      ].map((field) => (
+        <View key={field.label}>
+          <Text style={{ fontWeight: '600', color: '#374151', marginBottom: 8 }}>{field.label}</Text>
+          <TextInput
+            style={{ borderWidth: 1, borderColor: '#d1d5db', borderRadius: 10, paddingHorizontal: 16, paddingVertical: 12, fontSize: 16, marginBottom: 20 }}
+            placeholder={field.placeholder}
+            value={field.value}
+            onChangeText={field.setter}
+          />
         </View>
+      ))}
 
-        {/* Title */}
-        <View className="items-center mt-8">
-          <Text className="text-2xl font-bold text-gray-800 text-center">
-            Caregiver & Family{'\n'}Collaboration
-          </Text>
-        </View>
-
-        {/* Subtitle */}
-        <View className="items-center mt-4">
-          <Text className="text-center text-gray-600 text-base">
-            Caregivers manage, patients{'\n'}engage, families stay{'\n'}connected
-          </Text>
-        </View>
-
-        {/* Dot Indicators */}
-        <View className="flex-row justify-center gap-2 mt-6">
-          <View className="w-2 h-2 rounded-full bg-gray-300" />
-          <View className="w-2 h-2 rounded-full bg-gray-300" />
-          <View className="w-2 h-2 rounded-full bg-blue-600" />
-        </View>
-
-        {/* Get Started Button */}
+      {/* Buttons */}
+      <View style={{ flexDirection: 'row', gap: 12, marginTop: 20, marginBottom: 40 }}>
         <TouchableOpacity
-          onPress={handleGetStarted}
-          className="bg-blue-600 rounded-lg py-4 px-6 flex-row items-center justify-center mt-12 mb-4"
+          onPress={() => router.back()}
+          style={{ flex: 1, paddingVertical: 16, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#d1d5db' }}
         >
-          <Text className="text-white font-semibold text-base">Get Started</Text>
-          <Ionicons name="chevron-forward" size={20} color="white" className="ml-2" />
+          <Text style={{ color: '#374151', fontWeight: '600', fontSize: 16 }}>Previous</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={handleComplete}
+          disabled={loading}
+          style={{ flex: 1, paddingVertical: 16, borderRadius: 12, alignItems: 'center', backgroundColor: '#2563eb' }}
+        >
+          {loading
+            ? <ActivityIndicator color="white" />
+            : <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>Complete</Text>
+          }
         </TouchableOpacity>
       </View>
-    </View>
+
+    </ScrollView>
   );
 }

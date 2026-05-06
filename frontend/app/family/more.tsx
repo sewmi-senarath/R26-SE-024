@@ -1,3 +1,4 @@
+import { logoutUser } from '@/src/api/authApi';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React from 'react';
@@ -96,22 +97,22 @@ export default function MoreScreen() {
           {
             title: 'ACCOUNT',
             rows: [
-              { icon: 'person-outline' as const, label: 'Edit Profile', iconColor: Colors.primary, iconBg: Colors.primaryLight, onPress: () => {} },
-              { icon: 'lock-closed-outline' as const, label: 'Change Password', iconColor: Colors.purple, iconBg: Colors.purpleSoft, onPress: () => {} },
+              { icon: 'person-outline' as const, label: 'Edit Profile', iconColor: Colors.primary, iconBg: Colors.primaryLight, onPress: () => { } },
+              { icon: 'lock-closed-outline' as const, label: 'Change Password', iconColor: Colors.purple, iconBg: Colors.purpleSoft, onPress: () => { } },
             ],
           },
           {
             title: 'LINKED PATIENT',
             rows: [
               { icon: 'heart-outline' as const, label: 'View Patient Profile', iconColor: Colors.danger, iconBg: Colors.dangerSoft, onPress: () => router.push('/family/patient') },
-              { icon: 'call-outline' as const, label: 'Emergency Contacts', iconColor: Colors.success, iconBg: Colors.successSoft, onPress: () => {} },
+              { icon: 'call-outline' as const, label: 'Emergency Contacts', iconColor: Colors.success, iconBg: Colors.successSoft, onPress: () => { } },
             ],
           },
           {
             title: 'SUPPORT',
             rows: [
-              { icon: 'help-circle-outline' as const, label: 'Help & FAQ', iconColor: Colors.accent, iconBg: Colors.accentSoft, onPress: () => {} },
-              { icon: 'chatbox-outline' as const, label: 'Send Feedback', iconColor: Colors.primary, iconBg: Colors.primaryLight, onPress: () => {} },
+              { icon: 'help-circle-outline' as const, label: 'Help & FAQ', iconColor: Colors.accent, iconBg: Colors.accentSoft, onPress: () => { } },
+              { icon: 'chatbox-outline' as const, label: 'Send Feedback', iconColor: Colors.primary, iconBg: Colors.primaryLight, onPress: () => { } },
             ],
           },
         ].map((section) => (
@@ -129,16 +130,19 @@ export default function MoreScreen() {
         ))}
 
         {/* Log Out */}
+        {/* Log Out */}
         <View style={{ marginHorizontal: 20, marginTop: 4 }}>
           <TouchableOpacity
-            onPress={() => router.replace('/auth/login')}
+            onPress={async () => {
+              await logoutUser();
+              router.replace('/');
+            }}
             style={{ backgroundColor: Colors.dangerSoft, borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12 }}
           >
             <Ionicons name="log-out-outline" size={20} color={Colors.danger} />
             <Text style={{ fontSize: 15, fontWeight: '700', color: Colors.danger }}>Log Out</Text>
           </TouchableOpacity>
         </View>
-
       </ScrollView>
     </View>
   );

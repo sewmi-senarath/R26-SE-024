@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router';
-import React from 'react';
-import { Platform, Text, View } from 'react-native';
+import { Tabs, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Platform, Text, View } from 'react-native';
+import { getStoredRole } from '../../src/api/authApi';
 import { Colors } from '../../src/constants/colors';
 
 interface TabIconProps {
@@ -35,6 +36,35 @@ const TabBarIcon: React.FC<TabIconProps> = ({ name, color, size, badge }) => (
 );
 
 export default function FamilyLayout() {
+  const router = useRouter();
+  const [isChecking, setIsChecking] = useState(true);
+
+  useEffect(() => {
+    const checkRole = async () => {
+      try {
+        const role = await getStoredRole();
+        if (!role) { router.replace('/auth/login'); return; }
+        if (role !== 'family') {
+          if (role === 'patient') router.replace('/patient');
+          else if (role === 'caregiver') router.replace('/caregiver');
+          return;
+        }
+      } catch (error) {
+        router.replace('/auth/login');
+      } finally {
+        setIsChecking(false);
+      }
+    };
+    checkRole();
+  }, []);
+
+  if (isChecking) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </View>
+    );
+  }
   return (
     <Tabs
       screenOptions={{

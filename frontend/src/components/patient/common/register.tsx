@@ -4,9 +4,9 @@ import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 import { FamilyMember, FoodItem, Step1Data, Step2Data, Step3Data } from '@/src/types/PatientRegisterTypes';
-import Step3Preferences from './step3';
 import Step1BasicInfo from './step1';
 import Step2PersonalMemories from './step2';
+import Step3Preferences from './step3';
 
 export default function PatientRegistration() {
     const router = useRouter();
@@ -56,7 +56,7 @@ export default function PatientRegistration() {
         const payload = { ...step1Data, ...step2Data, ...step3Data };
         console.log('Submit patient registration', payload);
         // Add submission logic here
-        router.push('/patient/activity-selector');
+        router.push('/patient');
     };
 
     const renderProgressBar = () => (
