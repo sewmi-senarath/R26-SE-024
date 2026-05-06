@@ -219,7 +219,7 @@ export function GameResultScreen({ result, onPlayAgain }: Props) {
 
         {/* Back to Games */}
         <TouchableOpacity
-          onPress={() => router.replace('/patient/cognitive/games')}
+          onPress={() => router.replace('/patient/games')}
           style={{
             borderWidth: 1.5,
             borderColor: '#e5e7eb',

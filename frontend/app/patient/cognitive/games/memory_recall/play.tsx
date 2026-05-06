@@ -3,8 +3,9 @@ import { GameResultScreen } from '@/src/components/patient/cognitive/components/
 import { InstructionScreen } from '@/src/components/patient/cognitive/components/games/shared/InstructionScreen';
 import { getGameContent } from '@/src/constants/gameContent';
 import { useQuestionTimer } from '@/src/hooks/useQuestionTimer';
+import { useSoundEffects } from '@/src/hooks/useSoundEffects';
 import { Difficulty, GameSessionResult, MemoryRecallConfig } from '@/src/types/games.types';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Speech from 'expo-speech';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { SafeAreaView, Text, TouchableOpacity, View } from 'react-native';
@@ -13,6 +14,8 @@ type Phase = 'instruction' | 'showing' | 'recall' | 'result';
 
 export default function MemoryRecallGame() {
   const { difficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
+  const router = useRouter();
+  const { playSound } = useSoundEffects();
   const config = getGameContent<MemoryRecallConfig>('memory_recall', difficulty);
 
   const [phase, setPhase] = useState<Phase>('instruction');
@@ -39,12 +42,12 @@ export default function MemoryRecallGame() {
   });
 
   const handleStart = () => {
+    playSound('click');
     setPhase('showing');
     setCurrentShowIndex(0);
     setStartTime(Date.now());
   };
 
-  // Keep option positions stable across renders so cards do NOT rearrange.
   const ALL_OPTIONS = useMemo(() => {
     const extras = [
       { id: 'd1', emoji: '🎸', label: 'Guitar', category: 'Music' },
@@ -52,7 +55,6 @@ export default function MemoryRecallGame() {
       { id: 'd3', emoji: '🍕', label: 'Pizza', category: 'Food' },
     ];
     const base = [...config.items, ...extras];
-    // shuffle once per config change
     for (let i = base.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [base[i], base[j]] = [base[j], base[i]];
@@ -61,6 +63,7 @@ export default function MemoryRecallGame() {
   }, [config.items]);
 
   const toggleSelect = useCallback((id: string) => {
+    playSound('click');
     setSelectedIds(prev => {
       const isSelected = prev.includes(id);
       const next = isSelected ? prev.filter(x => x !== id) : [...prev, id];
@@ -70,9 +73,8 @@ export default function MemoryRecallGame() {
       }
       return next;
     });
-  }, [ALL_OPTIONS]);
+  }, [ALL_OPTIONS, playSound]);
 
-  // Speak instructions when entering recall phase
   useEffect(() => {
     if (phase === 'recall') {
       Speech.speak(`Select all ${config.items.length} items you remember. Tap to select or deselect. Take your time.`);
@@ -83,6 +85,15 @@ export default function MemoryRecallGame() {
     const correct = config.items.filter(item => selectedIds.includes(item.id)).length;
     const timeTaken = Math.round((Date.now() - startTime) / 1000);
     setScore(correct);
+    
+    if (correct === config.items.length) {
+      playSound('success');
+    } else if (correct === 0) {
+      playSound('error');
+    } else {
+      playSound('click');
+    }
+
     setResult({
       gameId: 'memory_recall',
       difficulty,
@@ -95,14 +106,20 @@ export default function MemoryRecallGame() {
     });
     Speech.speak(`You scored ${correct} out of ${config.items.length}.`);
     setPhase('result');
-  }, [selectedIds, config, startTime, difficulty]);
+  }, [selectedIds, config, startTime, difficulty, playSound]);
 
   const handleReset = () => {
+    playSound('click');
     setPhase('instruction');
     setCurrentShowIndex(0);
     setSelectedIds([]);
     setScore(0);
     setResult(null);
+  };
+
+  const handleGoBack = () => {
+    playSound('back');
+    router.back();
   };
 
   if (phase === 'instruction') {
@@ -117,12 +134,13 @@ export default function MemoryRecallGame() {
           ...(config.showHints ? [{ icon: '💡', text: 'Category hints are shown to help you' }] : []),
         ]}
         onStart={handleStart}
+        onBack={handleGoBack}
       />
     );
   }
 
   if (phase === 'result' && result) {
-    return <GameResultScreen result={result} onPlayAgain={handleReset} />;
+    return <GameResultScreen result={result} onPlayAgain={handleReset} onBack={handleGoBack} />;
   }
 
   return (
@@ -131,6 +149,7 @@ export default function MemoryRecallGame() {
         title="Memory Recall"
         difficulty={difficulty}
         timeLeft={phase === 'recall' ? timer.secondsLeft : null}
+        onBack={handleGoBack}
       />
 
       <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 16 }}>

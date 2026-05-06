@@ -1,5 +1,3 @@
-// app/patient/cognitive/games/_layout.tsx
-
 import { Stack } from 'expo-router';
 import { AssessmentProvider } from '../../../../src/context/AssessmentContext';
 
@@ -16,7 +14,7 @@ export default function GamesLayout() {
         }}
       >
         <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="[gameId]/index" options={{ headerShown: false }} />
+        {/* <Stack.Screen name="[gameId]/index" options={{ headerShown: false }} /> */}
         <Stack.Screen name="memory_recall/play" options={{ headerShown: false }} />
         <Stack.Screen name="object_recall/play" options={{ headerShown: false }} />
         <Stack.Screen name="attention_game/play" options={{ headerShown: false }} />

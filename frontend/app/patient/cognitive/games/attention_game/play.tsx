@@ -3,8 +3,9 @@ import { GameResultScreen } from '@/src/components/patient/cognitive/components/
 import { InstructionScreen } from '@/src/components/patient/cognitive/components/games/shared/InstructionScreen';
 import { getGameContent } from '@/src/constants/gameContent';
 import { useQuestionTimer } from '@/src/hooks/useQuestionTimer';
+import { useSoundEffects } from '@/src/hooks/useSoundEffects';
 import { AttentionGameConfig, Difficulty, GameSessionResult } from '@/src/types/games.types';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { SafeAreaView, Text, TouchableOpacity, View } from 'react-native';
 
@@ -30,6 +31,8 @@ function buildGrid(config: AttentionGameConfig): string[] {
 
 export default function AttentionGame() {
   const { difficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
+  const router = useRouter();
+  const { playSound } = useSoundEffects();
   const config = getGameContent<AttentionGameConfig>('attention_game', difficulty);
 
   const [phase, setPhase] = useState<Phase>('instruction');
@@ -55,6 +58,7 @@ export default function AttentionGame() {
   });
 
   const handleTap = (index: number) => {
+    playSound('click');
     const tapped = grid[index];
     setFlashIndex(index);
     setTimeout(() => setFlashIndex(null), 200);
@@ -65,6 +69,15 @@ export default function AttentionGame() {
   };
 
   const finishGame = useCallback(() => {
+    const accuracy = score / taps;
+    if (accuracy > 0.7) {
+      playSound('success');
+    } else if (accuracy < 0.3) {
+      playSound('error');
+    } else {
+      playSound('click');
+    }
+
     setResult({
       gameId: 'attention_game',
       difficulty,
@@ -76,13 +89,19 @@ export default function AttentionGame() {
       totalAnswers: taps,
     });
     setPhase('result');
-  }, [score, taps, config, difficulty]);
+  }, [score, taps, config, difficulty, playSound]);
 
   const handleReset = () => {
+    playSound('click');
     setPhase('instruction');
     setScore(0);
     setTaps(0);
     setResult(null);
+  };
+
+  const handleGoBack = () => {
+    playSound('back');
+    router.back();
   };
 
   if (phase === 'instruction') {
@@ -97,6 +116,7 @@ export default function AttentionGame() {
           { icon: '📊', text: `Grid is ${config.gridSize}×${config.gridSize} with ${config.targetCount} targets hidden` },
         ]}
         onStart={() => {
+          playSound('click');
           setGrid(buildGrid(config));
           setStartTime(Date.now());
           setPhase('playing');

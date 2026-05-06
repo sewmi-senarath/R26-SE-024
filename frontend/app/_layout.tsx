@@ -9,6 +9,7 @@ export default function RootLayout() {
           headerTitle: "MemoCare",
         }}
       >
+        <Stack.Screen name="patient" options={{ headerShown: false }} />
       </Stack>
     </GestureHandlerRootView>
   );
