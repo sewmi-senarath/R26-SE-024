@@ -1,64 +1,63 @@
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import React from 'react';
-import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useState } from 'react';
+import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-export default function Onboarding2() {
+export default function OnboardingStep2() {
   const router = useRouter();
+  const params = useLocalSearchParams();
+  const [countriesLived, setCountriesLived] = useState('');
+  const [occupations, setOccupations] = useState('');
 
   const handleNext = () => {
-    router.push('/onboarding/3');
-  };
-
-  const handleSkip = () => {
-    router.push('/auth/login');
+    router.push({ pathname: '/onboarding/3', params: { ...params, countriesLived, occupations } });
   };
 
   return (
-    <View className="flex-1 bg-blue-50">
-      <View className="flex-1 px-6 py-8 justify-between">
-        {/* Skip Button */}
-        <TouchableOpacity onPress={handleSkip} className="self-end">
-          <Text className="text-blue-600 font-medium text-base">Skip</Text>
+    <ScrollView style={{ flex: 1, backgroundColor: '#fff' }} contentContainerStyle={{ padding: 24, paddingTop: 48 }}>
+
+      {/* Progress Bar */}
+      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+        <View style={{ flex: 1, height: 4, backgroundColor: '#2563eb', borderRadius: 2 }} />
+        <View style={{ flex: 1, height: 4, backgroundColor: '#2563eb', borderRadius: 2 }} />
+        <View style={{ flex: 1, height: 4, backgroundColor: '#e5e7eb', borderRadius: 2 }} />
+      </View>
+      <Text style={{ color: '#6b7280', textAlign: 'center', marginBottom: 32 }}>Step 2 of 3</Text>
+
+      <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#1f2937', marginBottom: 4 }}>Personal Memories</Text>
+      <Text style={{ color: '#6b7280', marginBottom: 32 }}>Share your cherished moments</Text>
+
+      <Text style={{ fontWeight: '600', color: '#374151', marginBottom: 8 }}>Countries Lived</Text>
+      <TextInput
+        style={{ borderWidth: 1, borderColor: '#d1d5db', borderRadius: 10, paddingHorizontal: 16, paddingVertical: 12, fontSize: 16, marginBottom: 20 }}
+        placeholder="e.g. Sri Lanka, UK"
+        value={countriesLived}
+        onChangeText={setCountriesLived}
+      />
+
+      <Text style={{ fontWeight: '600', color: '#374151', marginBottom: 8 }}>Occupation(s)</Text>
+      <TextInput
+        style={{ borderWidth: 1, borderColor: '#d1d5db', borderRadius: 10, paddingHorizontal: 16, paddingVertical: 12, fontSize: 16, marginBottom: 40 }}
+        placeholder="e.g. Teacher, Farmer, Engineer"
+        value={occupations}
+        onChangeText={setOccupations}
+      />
+
+      {/* Buttons */}
+      <View style={{ flexDirection: 'row', gap: 12 }}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={{ flex: 1, paddingVertical: 16, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#d1d5db' }}
+        >
+          <Text style={{ color: '#374151', fontWeight: '600', fontSize: 16 }}>Previous</Text>
         </TouchableOpacity>
-
-        {/* Heartbeat Icon */}
-        <View className="items-center mt-12">
-          <View className="w-32 h-32 rounded-full bg-blue-500 justify-center items-center shadow-lg">
-            <Ionicons name="pulse" size={80} color="white" />
-          </View>
-        </View>
-
-        {/* Title */}
-        <View className="items-center mt-8">
-          <Text className="text-2xl font-bold text-gray-800 text-center">
-            Personalized{'\n'}Memory & Cognitive{'\n'}Support
-          </Text>
-        </View>
-
-        {/* Subtitle */}
-        <View className="items-center mt-4">
-          <Text className="text-center text-gray-600 text-base">
-            Daily Reminders and Cognitive Activities{'\n'}adapted to each user
-          </Text>
-        </View>
-
-        {/* Dot Indicators */}
-        <View className="flex-row justify-center gap-2 mt-6">
-          <View className="w-2 h-2 rounded-full bg-gray-300" />
-          <View className="w-2 h-2 rounded-full bg-blue-600" />
-          <View className="w-2 h-2 rounded-full bg-gray-300" />
-        </View>
-
-        {/* Next Button */}
         <TouchableOpacity
           onPress={handleNext}
-          className="bg-blue-600 rounded-lg py-4 px-6 flex-row items-center justify-center mt-12 mb-4"
+          style={{ flex: 1, paddingVertical: 16, borderRadius: 12, alignItems: 'center', backgroundColor: '#2563eb' }}
         >
-          <Text className="text-white font-semibold text-base">Next</Text>
-          <Ionicons name="chevron-forward" size={20} color="white" className="ml-2" />
+          <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>Next</Text>
         </TouchableOpacity>
       </View>
-    </View>
+
+    </ScrollView>
   );
 }

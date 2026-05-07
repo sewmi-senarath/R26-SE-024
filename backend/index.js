@@ -3,11 +3,16 @@ const express = require("express");
 const path = require("path");
 const cors = require("cors");
 const connectDB = require("./src/config/db");
+const medicationRoutes = require('./src/routes/caregiver/medicationRoutes');
 
 const taskRoutes = require('./src/routes/caregiver/taskRoutes');
 const patientRoutes = require('./src/routes/caregiver/patientRoutes');
+const caregiverRoutes = require('./src/routes/caregiver/caregiverRoutes');
 const cognitiveRoutes = require('./src/routes/cognitive');
 const { notFoundHandler, errorHandler } = require('./src/middleware/errorHandler');
+const insightRoutes = require('./src/routes/caregiver/insightRoutes');
+
+const authRoutes = require('./src/routes/auth/authRoutes');
 
 connectDB();
 const app = express();
@@ -16,11 +21,25 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 app.use(cors());
 
+app.use('/api/auth', authRoutes);
+
 // Caregiver Portal routes ...
 app.use('/api/caregiver/tasks', taskRoutes);
 app.use('/api/caregiver/patients', patientRoutes);
+app.use('/api/caregiver/profile', caregiverRoutes);
+app.use('/api/caregiver/insights', insightRoutes);
+app.use('/api/caregiver/medications', medicationRoutes);
+
 // Cognitive Assessment routes
 app.use('/api/cognitive', cognitiveRoutes);
+
+const protectedRoutes = require('./src/routes/auth/protectedRoutes');
+app.use('/api', protectedRoutes);
+
+// Health check
+app.get('/health', (req, res) => {
+  res.json({ status: 'MemoCare API is running ✅' });
+});
 
 // Error handling
 app.use(notFoundHandler);

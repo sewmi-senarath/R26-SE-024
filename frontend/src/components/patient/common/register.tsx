@@ -1,19 +1,31 @@
+import { registerUser } from '@/src/api/authApi';
+import { FamilyMember, FoodItem, Step1Data, Step2Data, Step3Data } from '@/src/types/PatientRegisterTypes';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, Text, TouchableOpacity, View } from 'react-native';
-
-import { FamilyMember, FoodItem, Step1Data, Step2Data, Step3Data } from '@/src/types/PatientRegisterTypes';
-import Step3Preferences from './step3';
+import {
+    ActivityIndicator,
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    Text,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 import Step1BasicInfo from './step1';
 import Step2PersonalMemories from './step2';
+import Step3Preferences from './step3';
 
 export default function PatientRegistration() {
     const router = useRouter();
     const [currentStep, setCurrentStep] = useState<number>(1);
+    const [loading, setLoading] = useState(false);
 
     const [step1Data, setStep1Data] = useState<Step1Data>({
         fullName: '',
+        email: '',
+        password: '',
         age: '',
         gender: '',
     });
@@ -36,6 +48,40 @@ export default function PatientRegistration() {
         languagesPreferred: '',
     });
 
+    // ── Step 1 validation ──────────────────────────────────────────────────
+    const validateStep1 = (): boolean => {
+        if (!step1Data.fullName.trim()) {
+            Alert.alert('Error', 'Please enter your full name');
+            return false;
+        }
+        if (!step1Data.email.trim()) {
+            Alert.alert('Error', 'Please enter your email');
+            return false;
+        }
+        if (!step1Data.email.includes('@')) {
+            Alert.alert('Error', 'Please enter a valid email');
+            return false;
+        }
+        if (!step1Data.password.trim()) {
+            Alert.alert('Error', 'Please enter a password');
+            return false;
+        }
+        if (step1Data.password.length < 6) {
+            Alert.alert('Error', 'Password must be at least 6 characters');
+            return false;
+        }
+        if (!step1Data.age.trim()) {
+            Alert.alert('Error', 'Please enter your age');
+            return false;
+        }
+        if (!step1Data.gender) {
+            Alert.alert('Error', 'Please select your gender');
+            return false;
+        }
+        return true;
+    };
+
+    // ── Navigation ─────────────────────────────────────────────────────────
     const handleBackPress = () => {
         if (currentStep > 1) {
             setCurrentStep(currentStep - 1);
@@ -45,6 +91,9 @@ export default function PatientRegistration() {
     };
 
     const handleNextStep = () => {
+        // Validate step 1 before proceeding
+        if (currentStep === 1 && !validateStep1()) return;
+
         if (currentStep < 3) {
             setCurrentStep(currentStep + 1);
         } else {
@@ -52,27 +101,70 @@ export default function PatientRegistration() {
         }
     };
 
-    const handleSubmit = () => {
-        const payload = { ...step1Data, ...step2Data, ...step3Data };
-        console.log('Submit patient registration', payload);
-        // Add submission logic here
-        router.push('/patient/activity-selector');
+    // ── Submit to backend ──────────────────────────────────────────────────
+    const handleSubmit = async () => {
+        setLoading(true);
+        try {
+            const result = await registerUser(
+                step1Data.fullName,
+                step1Data.email,
+                step1Data.password,
+                'patient',
+                {
+                    // Step 1 extra
+                    age: Number(step1Data.age),
+                    gender: step1Data.gender,
+
+                    // Step 2
+                    familyMembers: JSON.stringify(step2Data.familyMembers),
+                    lifeEvents: JSON.stringify(step2Data.lifeEvents),
+                    countriesLived: step2Data.countriesLived,
+                    occupations: step2Data.occupations,
+
+                    // Step 3
+                    favoritePlaces: step3Data.favoritePlaces,
+                    favoritePlacesText: step3Data.favoritePlacesText,
+                    festivalsCelebrated: step3Data.festivalsCelebrated,
+                    foodsPreferred: JSON.stringify(step3Data.foodsPreferred),
+                    preferredSports: step3Data.preferredSports,
+                    preferredSportsText: step3Data.preferredSportsText,
+                    languagesPreferred: step3Data.languagesPreferred,
+                }
+            );
+
+            if (result.success) {
+                Alert.alert('Success! 🎉', 'Patient profile created successfully! Redirecting to login...');
+                setTimeout(() => {
+                    router.replace('/auth/login');
+                }, 1500);
+            } else {
+                // ✅ Show exact error from backend
+                console.log('Registration failed:', result);
+                Alert.alert('Registration Failed', result.message || 'Please try again.');
+            }
+        } catch (error) {
+            console.log('Registration error:', error);
+            Alert.alert('Error', 'Cannot connect to server. Please try again.');
+        } finally {
+            setLoading(false);
+        }
     };
 
+    // ── Progress bar ───────────────────────────────────────────────────────
     const renderProgressBar = () => (
         <View className="px-6 py-4">
             <View className="flex-row gap-2 mb-2">
                 {[1, 2, 3].map((step) => (
                     <View key={step} className="flex-1">
-                        <View
-                            className={`h-1 rounded-full ${
-                                currentStep >= step ? 'bg-blue-600' : 'bg-gray-300'
-                            }`}
-                        />
+                        <View className={`h-1 rounded-full ${currentStep >= step ? 'bg-blue-600' : 'bg-gray-300'
+                            }`} />
                     </View>
                 ))}
             </View>
-            <Text className="text-sm text-gray-600 text-center">Step {currentStep} of 3</Text>
+            <Text className="text-sm text-gray-600 text-center">
+                Step {currentStep} of 3 —{' '}
+                {currentStep === 1 ? 'Basic Info' : currentStep === 2 ? 'Personal Memories' : 'Preferences'}
+            </Text>
         </View>
     );
 
@@ -134,17 +226,23 @@ export default function PatientRegistration() {
                         <TouchableOpacity
                             onPress={() => setCurrentStep(currentStep - 1)}
                             className="flex-1 bg-gray-300 rounded-lg py-4 items-center"
+                            disabled={loading}
                         >
                             <Text className="text-gray-700 font-semibold">Previous</Text>
                         </TouchableOpacity>
                     )}
                     <TouchableOpacity
                         onPress={handleNextStep}
+                        disabled={loading}
                         className="flex-1 bg-blue-600 rounded-lg py-4 items-center"
                     >
-                        <Text className="text-white font-semibold">
-                            {currentStep === 3 ? 'Complete' : 'Next'}
-                        </Text>
+                        {loading ? (
+                            <ActivityIndicator color="white" />
+                        ) : (
+                            <Text className="text-white font-semibold">
+                                {currentStep === 3 ? 'Complete Registration' : 'Next'}
+                            </Text>
+                        )}
                     </TouchableOpacity>
                 </View>
             </ScrollView>

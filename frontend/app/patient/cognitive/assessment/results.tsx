@@ -3,12 +3,12 @@ import { getSeverityInfo } from '@/src/utils/scoring';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef } from 'react';
 import {
-  Animated,
-  SafeAreaView,
-  ScrollView,
-  Text,
-  TouchableOpacity,
-  View,
+    Animated,
+    SafeAreaView,
+    ScrollView,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 
 // At the top of the file

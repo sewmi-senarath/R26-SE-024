@@ -1,11 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function FamilyRegistration() {
     const router = useRouter();
     const [fullName, setFullName] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -18,6 +20,20 @@ export default function FamilyRegistration() {
 
     const handleBackPress = () => {
         router.back();
+    };
+
+    const handleRegister = async () => {
+        setError('');
+        if (!fullName.trim()) { setError('Please enter your full name.'); return; }
+        if (!email.trim() || !email.includes('@')) { setError('Please enter a valid email address.'); return; }
+        if (password.length < 6) { setError('Password must be at least 6 characters.'); return; }
+        if (password !== confirmPassword) { setError('Passwords do not match.'); return; }
+
+        setLoading(true);
+        // TODO: replace with real API call
+        await new Promise((res) => setTimeout(res, 1000));
+        setLoading(false);
+        router.replace('/family' as any);
     };
 
     return (
@@ -139,11 +155,25 @@ export default function FamilyRegistration() {
                         </View>
                     </View>
 
+                    {/* Error message */}
+                    {error ? (
+                        <View className="mt-4 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+                            <Text className="text-red-600 text-sm text-center">{error}</Text>
+                        </View>
+                    ) : null}
+
                     {/* Register Button */}
                     <TouchableOpacity
-                        className="bg-blue-600 rounded-lg py-4 px-6 items-center justify-center mt-8 shadow-md"
+                        onPress={handleRegister}
+                        disabled={loading}
+                        className="bg-blue-600 rounded-lg py-4 px-6 items-center justify-center mt-6 shadow-md"
+                        style={{ opacity: loading ? 0.75 : 1 }}
                     >
-                        <Text className="text-white font-semibold text-base">Register</Text>
+                        {loading ? (
+                            <ActivityIndicator color="#fff" />
+                        ) : (
+                            <Text className="text-white font-semibold text-base">Register</Text>
+                        )}
                     </TouchableOpacity>
 
                     {/* Login Link */}

@@ -1,9 +1,6 @@
+import { authFetch } from '@/src/api/authApi';
 import { PatientDetail, Routine } from '../../types/caregiver.types';
 
-const BASE_URL = `${process.env.EXPO_PUBLIC_API_URL}/api/caregiver/patients`;
-const CAREGIVER_ID = '664f1a2b3c4d5e6f7a8b9c0d'; // replace with your real MongoDB ID
-
-// ── Helper: map backend _id to frontend id ────────────────────────────────
 const mapRoutine = (raw: any): Routine => ({
   id:        raw._id,
   title:     raw.title,
@@ -23,66 +20,60 @@ const mapPatient = (raw: any): PatientDetail => ({
   lastChecked:           raw.lastChecked,
   condition_notes:       raw.condition_notes,
   condition_description: raw.condition_description,
-  routines:              raw.routines.map(mapRoutine),
+  routines:              (raw.routines || []).map(mapRoutine),
 });
 
-// ── GET all patients ───────────────────────────────────────────────────────
 export const fetchPatients = async (): Promise<PatientDetail[]> => {
-  const res  = await fetch(`${BASE_URL}?caregiverId=${CAREGIVER_ID}`);
-  const data = await res.json();
+  const data = await authFetch('/caregiver/patients');
   if (!data.success) throw new Error(data.message);
   return data.patients.map(mapPatient);
 };
 
-// ── CREATE patient ─────────────────────────────────────────────────────────
 export const createPatient = async (
   patient: Omit<PatientDetail, 'id' | 'emoji' | 'lastChecked' | 'routines'>
 ): Promise<PatientDetail> => {
-  const res = await fetch(BASE_URL, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      ...patient,
-      caregiverId: CAREGIVER_ID,
-    }),
+  const data = await authFetch('/caregiver/patients', {
+    method: 'POST',
+    body: JSON.stringify(patient),
   });
-  const data = await res.json();
   if (!data.success) throw new Error(data.message);
   return mapPatient(data.patient);
 };
 
-// ── ADD routine ────────────────────────────────────────────────────────────
 export const addRoutine = async (
   patientId: string,
   routine: Omit<Routine, 'id'>
 ): Promise<Routine> => {
-  const res = await fetch(`${BASE_URL}/${patientId}/routines`, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
+  const data = await authFetch(`/caregiver/patients/${patientId}/routines`, {
+    method: 'POST',
     body: JSON.stringify(routine),
   });
-  const data = await res.json();
   if (!data.success) throw new Error(data.message);
   return mapRoutine(data.routine);
 };
 
-// ── TOGGLE routine ─────────────────────────────────────────────────────────
 export const toggleRoutine = async (
   patientId: string,
   routineId: string
 ): Promise<Routine> => {
-  const res = await fetch(
-    `${BASE_URL}/${patientId}/routines/${routineId}/toggle`,
+  const data = await authFetch(
+    `/caregiver/patients/${patientId}/routines/${routineId}/toggle`,
     { method: 'PATCH' }
   );
-  const data = await res.json();
   if (!data.success) throw new Error(data.message);
   return mapRoutine(data.routine);
 };
 
-// ── DELETE patient ─────────────────────────────────────────────────────────
 export const deletePatient = async (patientId: string): Promise<void> => {
-  const res  = await fetch(`${BASE_URL}/${patientId}`, { method: 'DELETE' });
-  const data = await res.json();
+  const data = await authFetch(`/caregiver/patients/${patientId}`, {
+    method: 'DELETE',
+  });
   if (!data.success) throw new Error(data.message);
+  
+};
+
+export const fetchRegisteredPatients = async (): Promise<{id: string, fullName: string, email: string}[]> => {
+  const data = await authFetch('/patients/registered');
+  if (!data.success) throw new Error(data.message);
+  return data.patients;
 };

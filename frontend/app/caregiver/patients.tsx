@@ -345,8 +345,8 @@ export default function PatientsScreen() {
   const [refreshing, setRefreshing]   = useState(false);
   const [patientModalVisible, setPatientModalVisible] = useState(false);
   const [routineModal, setRoutineModal] = useState<{
-    visible: boolean;
-    patientId: string | null;
+    visible:     boolean;
+    patientId:   string | null;
     patientName: string;
   }>({ visible: false, patientId: null, patientName: '' });
 
@@ -383,9 +383,8 @@ export default function PatientsScreen() {
   const handleToggleExpand = (id: string) =>
     setExpandedId((prev) => (prev === id ? null : id));
 
-  // ── Toggle routine — optimistic update + backend sync ─────────────────────
+  // ── Toggle routine ─────────────────────────────────────────────────────────
   const handleRoutineToggle = async (patientId: string, routineId: string) => {
-    // 1. Update UI immediately
     setPatients((prev) =>
       prev.map((p) =>
         p.id !== patientId ? p : {
@@ -398,9 +397,7 @@ export default function PatientsScreen() {
     );
 
     try {
-      // 2. Sync with backend
       const updated = await toggleRoutine(patientId, routineId);
-      // 3. Confirm with server response
       setPatients((prev) =>
         prev.map((p) =>
           p.id !== patientId ? p : {
@@ -412,7 +409,6 @@ export default function PatientsScreen() {
         )
       );
     } catch (error) {
-      // 4. Revert on failure
       setPatients((prev) =>
         prev.map((p) =>
           p.id !== patientId ? p : {
@@ -439,7 +435,6 @@ export default function PatientsScreen() {
     if (!routineModal.patientId) return;
     try {
       const savedRoutine = await addRoutine(routineModal.patientId, routine);
-      // Add saved routine (with real _id) to the patient
       setPatients((prev) =>
         prev.map((p) =>
           p.id !== routineModal.patientId ? p : {
@@ -458,11 +453,15 @@ export default function PatientsScreen() {
     newPatientData: Omit<PatientDetail, 'id' | 'emoji' | 'lastChecked' | 'routines'>
   ) => {
     try {
+      console.log('Submitting patient:', newPatientData);
       const savedPatient = await createPatient(newPatientData);
-      // Prepend saved patient (with real _id) to list
+      console.log('Saved patient:', savedPatient);
       setPatients((prev) => [savedPatient, ...prev]);
+      Alert.alert('Success', 'Patient added successfully!');
     } catch (error) {
-      Alert.alert('Error', 'Failed to add patient.');
+      console.log('Add patient error:', error);
+      Alert.alert('Error', 'Failed to add patient. Check your connection.');
+      throw error;
     }
   };
 
@@ -526,7 +525,6 @@ export default function PatientsScreen() {
         }
         contentContainerStyle={{ paddingBottom: 120, paddingTop: 4 }}
       >
-        {/* Loading state */}
         {loading ? (
           <View style={{ alignItems: 'center', paddingTop: 80 }}>
             <Text style={{ color: Colors.textMuted, fontSize: 14 }}>
@@ -534,7 +532,6 @@ export default function PatientsScreen() {
             </Text>
           </View>
 
-        /* Empty state */
         ) : filteredPatients.length === 0 ? (
           <View style={{ alignItems: 'center', justifyContent: 'center', marginTop: 80 }}>
             <Text style={{ fontSize: 40, marginBottom: 12 }}>
@@ -550,7 +547,6 @@ export default function PatientsScreen() {
             </Text>
           </View>
 
-        /* Patient list */
         ) : (
           filteredPatients.map((patient, index) => (
             <PatientListItem
@@ -573,9 +569,14 @@ export default function PatientsScreen() {
         onSubmit={handleAddPatient}
       />
 
+      {/* ✅ ONLY CHANGE - added patientId and patientColor props */}
       <AddRoutineModal
         visible={routineModal.visible}
         patientName={routineModal.patientName}
+        patientId={routineModal.patientId || ''}
+        patientColor={
+          patients.find(p => p.id === routineModal.patientId)?.avatarColor || '#4F8EF7'
+        }
         onClose={() => setRoutineModal({ visible: false, patientId: null, patientName: '' })}
         onSubmit={handleRoutineSubmit}
       />
