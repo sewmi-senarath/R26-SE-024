@@ -1,15 +1,47 @@
+import { GAME_CONFIGS } from '@/src/constants/games';
+import { useAssessment } from '@/src/context/AssessmentContext';
+import { generateGamePlan } from '@/src/utils/difficultyEngine';
+import { Audio } from 'expo-av';
 import { useRouter } from 'expo-router';
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { Platform, SafeAreaView, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
-import { GAME_CONFIGS } from '../../../../../constants/games';
-import { useAssessment } from '../../../../../context/AssessmentContext';
-import { generateGamePlan } from '../../../../../utils/difficultyEngine';
 import { DifficultyBadge } from './DifficultyBadge';
 
 export default function BrainGamesScreen() {
   const router = useRouter();
   const { session } = useAssessment();
   const gamePlan = useMemo(() => generateGamePlan(session), [session]);
+
+  // --- Sound effect setup ---
+  const soundRef = useRef<Audio.Sound | null>(null);
+
+  React.useEffect(() => {
+    // Load sound on mount
+    (async () => {
+      const { sound } = await Audio.Sound.createAsync(
+        require('@/assets/audio/click.wav')
+      );
+      soundRef.current = sound;
+    })();
+
+    // Unload sound on unmount
+    return () => {
+      if (soundRef.current) {
+        soundRef.current.unloadAsync();
+      }
+    };
+  }, []);
+
+  const playSound = async () => {
+    try {
+      if (soundRef.current) {
+        await soundRef.current.replayAsync();
+      }
+    } catch (e) {
+      // ignore sound errors
+    }
+  };
+  // --- end sound effect setup ---
 
   const easyCount = gamePlan.assignments.filter(assignment => assignment.difficulty === 'easy').length;
   const mediumCount = gamePlan.assignments.filter(assignment => assignment.difficulty === 'medium').length;
@@ -61,7 +93,10 @@ export default function BrainGamesScreen() {
               return (
                 <TouchableOpacity
                   key={assignment.gameId}
-                  onPress={() => router.push(`/patient/cognitive/games/${assignment.gameId}/play`)}
+                  onPress={async () => {
+                    await playSound();
+                    router.push(`/patient/cognitive/games/${assignment.gameId}/play`);
+                  }}
                   activeOpacity={0.7}
                   className={`rounded-3xl border p-5 ${colors.bg} ${colors.border}`}
                 >

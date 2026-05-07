@@ -6,7 +6,7 @@ import { useQuestionTimer } from '@/src/hooks/useQuestionTimer';
 import { useSoundEffects } from '@/src/hooks/useSoundEffects';
 import { AttentionGameConfig, Difficulty, GameSessionResult } from '@/src/types/games.types';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { SafeAreaView, Text, TouchableOpacity, View } from 'react-native';
 
 type Phase = 'instruction' | 'playing' | 'result';
@@ -15,9 +15,11 @@ function buildGrid(config: AttentionGameConfig): string[] {
   const total = config.gridSize * config.gridSize;
   const grid: string[] = [];
   const targetIndices = new Set<number>();
+
   while (targetIndices.size < config.targetCount) {
     targetIndices.add(Math.floor(Math.random() * total));
   }
+
   for (let i = 0; i < total; i++) {
     if (targetIndices.has(i)) {
       grid.push(config.targetEmoji);
@@ -26,6 +28,7 @@ function buildGrid(config: AttentionGameConfig): string[] {
       grid.push(d);
     }
   }
+
   return grid;
 }
 
@@ -40,16 +43,69 @@ export default function AttentionGame() {
   const [score, setScore] = useState(0);
   const [taps, setTaps] = useState(0);
   const [startTime, setStartTime] = useState(0);
+  const [totalStarsShown, setTotalStarsShown] = useState(0);
   const [result, setResult] = useState<GameSessionResult | null>(null);
   const [flashIndex, setFlashIndex] = useState<number | null>(null);
+
+  const scoreRef = useRef(score);
+  const tapsRef = useRef(taps);
+  const startTimeRef = useRef(startTime);
+  const totalStarsShownRef = useRef(totalStarsShown);
+  const tappedCellsRef = useRef<Set<number>>(new Set());
+
+  useEffect(() => { scoreRef.current = score; }, [score]);
+  useEffect(() => { tapsRef.current = taps; }, [taps]);
+  useEffect(() => { startTimeRef.current = startTime; }, [startTime]);
+  useEffect(() => { totalStarsShownRef.current = totalStarsShown; }, [totalStarsShown]);
+
+  const createNewRound = useCallback(() => {
+    setGrid(buildGrid(config));
+    tappedCellsRef.current = new Set();
+    setTotalStarsShown((n) => {
+      const next = n + config.targetCount;
+      totalStarsShownRef.current = next;
+      return next;
+    });
+  }, [config]);
 
   useEffect(() => {
     if (phase !== 'playing') return;
     const t = setInterval(() => {
-      setGrid(buildGrid(config));
+      createNewRound();
     }, config.intervalMs);
     return () => clearInterval(t);
-  }, [phase, config]);
+  }, [phase, config, createNewRound]);
+
+  const finishGame = useCallback(() => {
+    const finalScore = scoreRef.current;
+    const finalTaps = tapsRef.current;
+    const maxScore = totalStarsShownRef.current;
+    const accuracy = finalTaps > 0 ? finalScore / finalTaps : 0;
+
+    if (accuracy > 0.7) {
+      playSound('success');
+    } else if (accuracy < 0.3) {
+      playSound('error');
+    } else {
+      playSound('click');
+    }
+
+    const elapsedSec = startTimeRef.current
+      ? Math.round((Date.now() - startTimeRef.current) / 1000)
+      : config.timeLimitSeconds;
+
+    setResult({
+      gameId: 'attention_game',
+      difficulty,
+      score: finalScore,
+      maxScore: maxScore || config.targetCount,
+      timeTakenSeconds: elapsedSec,
+      completedAt: new Date().toISOString(),
+      correctAnswers: finalScore,
+      totalAnswers: finalTaps,
+    });
+    setPhase('result');
+  }, [config, difficulty, playSound]);
 
   const timer = useQuestionTimer({
     limitSeconds: phase === 'playing' ? config.timeLimitSeconds : null,
@@ -59,44 +115,41 @@ export default function AttentionGame() {
 
   const handleTap = (index: number) => {
     playSound('click');
+
     const tapped = grid[index];
     setFlashIndex(index);
     setTimeout(() => setFlashIndex(null), 200);
-    setTaps(t => t + 1);
-    if (tapped === config.targetEmoji) {
-      setScore(s => s + 1);
+
+    setTaps((t) => {
+      const nt = t + 1;
+      tapsRef.current = nt;
+      return nt;
+    });
+
+    // Count each target only once per round
+    if (tapped === config.targetEmoji && !tappedCellsRef.current.has(index)) {
+      tappedCellsRef.current.add(index);
+      setScore((s) => {
+        const ns = s + 1;
+        scoreRef.current = ns;
+        return ns;
+      });
     }
   };
-
-  const finishGame = useCallback(() => {
-    const accuracy = score / taps;
-    if (accuracy > 0.7) {
-      playSound('success');
-    } else if (accuracy < 0.3) {
-      playSound('error');
-    } else {
-      playSound('click');
-    }
-
-    setResult({
-      gameId: 'attention_game',
-      difficulty,
-      score,
-      maxScore: config.targetCount * 5,
-      timeTakenSeconds: config.timeLimitSeconds,
-      completedAt: new Date().toISOString(),
-      correctAnswers: score,
-      totalAnswers: taps,
-    });
-    setPhase('result');
-  }, [score, taps, config, difficulty, playSound]);
 
   const handleReset = () => {
     playSound('click');
     setPhase('instruction');
     setScore(0);
+    scoreRef.current = 0;
     setTaps(0);
+    tapsRef.current = 0;
     setResult(null);
+    setStartTime(0);
+    startTimeRef.current = 0;
+    setTotalStarsShown(0);
+    totalStarsShownRef.current = 0;
+    tappedCellsRef.current = new Set();
   };
 
   const handleGoBack = () => {
@@ -117,8 +170,19 @@ export default function AttentionGame() {
         ]}
         onStart={() => {
           playSound('click');
-          setGrid(buildGrid(config));
-          setStartTime(Date.now());
+          setScore(0);
+          scoreRef.current = 0;
+          setTaps(0);
+          tapsRef.current = 0;
+          setTotalStarsShown(0);
+          totalStarsShownRef.current = 0;
+          tappedCellsRef.current = new Set();
+
+          createNewRound();
+
+          const now = Date.now();
+          setStartTime(now);
+          startTimeRef.current = now;
           setPhase('playing');
         }}
       />
@@ -140,7 +204,6 @@ export default function AttentionGame() {
       />
 
       <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 16, alignItems: 'center' }}>
-        {/* Score display */}
         <View className="flex-row gap-6 mb-4">
           <View className="items-center">
             <Text className="text-2xl font-bold text-blue-600">{score}</Text>
@@ -152,13 +215,11 @@ export default function AttentionGame() {
           </View>
         </View>
 
-        {/* Target reminder */}
         <View className="flex-row items-center gap-2 bg-blue-50 rounded-xl px-4 py-2 mb-4">
           <Text className="text-xs text-blue-600">Tap this →</Text>
           <Text style={{ fontSize: 24 }}>{config.targetEmoji}</Text>
         </View>
 
-        {/* Timer bar */}
         <View className="w-full h-2 bg-gray-200 rounded-full overflow-hidden mb-6">
           <View
             className={`h-full rounded-full ${timer.isWarning ? 'bg-red-400' : 'bg-blue-400'}`}
@@ -166,7 +227,6 @@ export default function AttentionGame() {
           />
         </View>
 
-        {/* Grid */}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', width: config.gridSize * (cellSize + 6), justifyContent: 'center', gap: 3 }}>
           {grid.map((emoji, i) => (
             <TouchableOpacity

@@ -5,8 +5,9 @@ import { GameResultScreen } from '@/src/components/patient/cognitive/components/
 import { InstructionScreen } from '@/src/components/patient/cognitive/components/games/shared/InstructionScreen';
 import { getGameContent } from '@/src/constants/gameContent';
 import { useQuestionTimer } from '@/src/hooks/useQuestionTimer';
+import { useSoundEffects } from '@/src/hooks/useSoundEffects';
 import { Difficulty, GameSessionResult, ObjectRecallConfig } from '@/src/types/games.types';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Speech from 'expo-speech';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -25,6 +26,8 @@ type Phase = 'instruction' | 'study' | 'recall' | 'result';
 
 export default function ObjectRecallGame() {
   const { difficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
+  const router = useRouter();
+  const { playSound } = useSoundEffects();
   const config = getGameContent<ObjectRecallConfig>('object_recall', difficulty);
 
   const [phase, setPhase] = useState<Phase>('instruction');
@@ -74,6 +77,15 @@ export default function ObjectRecallGame() {
       correctAnswers: correct,
       totalAnswers: config.objectCount,
     };
+
+    if (correct === config.objectCount) {
+      playSound('success');
+    } else if (correct === 0) {
+      playSound('error');
+    } else {
+      playSound('click');
+    }
+
     setResult(nextResult);
     setShowConfetti(true);
     Speech.speak(`Great effort. You got ${correct} out of ${config.objectCount}.`);
@@ -81,13 +93,19 @@ export default function ObjectRecallGame() {
       setShowConfetti(false);
       setPhase('result');
     }, 1100);
-  }, [inputs, config, startTime, difficulty]);
+  }, [inputs, config, startTime, difficulty, playSound]);
 
   const handleReset = () => {
+    playSound('click');
     setPhase('instruction');
     setInputs(Array(config.objectCount).fill(''));
     setResult(null);
     setShowConfetti(false);
+  };
+
+  const handleGoBack = () => {
+    playSound('back');
+    router.back();
   };
 
   if (phase === 'instruction') {
@@ -101,16 +119,18 @@ export default function ObjectRecallGame() {
           { icon: '✍️', text: 'Then type the name of each object you remember' },
         ]}
         onStart={() => {
+          playSound('click');
           setPhase('study');
           setStartTime(Date.now());
           Speech.speak(`Study ${config.objectCount} objects carefully. They will disappear soon.`);
         }}
+        onBack={handleGoBack}
       />
     );
   }
 
   if (phase === 'result' && result) {
-    return <GameResultScreen result={result} onPlayAgain={handleReset} />;
+    return <GameResultScreen result={result} onPlayAgain={handleReset} onBack={handleGoBack} />;
   }
 
   return (

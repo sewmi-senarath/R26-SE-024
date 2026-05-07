@@ -3,8 +3,9 @@ import { GameResultScreen } from '@/src/components/patient/cognitive/components/
 import { InstructionScreen } from '@/src/components/patient/cognitive/components/games/shared/InstructionScreen';
 import { getGameContent } from '@/src/constants/gameContent';
 import { useQuestionTimer } from '@/src/hooks/useQuestionTimer';
+import { useSoundEffects } from '@/src/hooks/useSoundEffects';
 import { Difficulty, GameSessionResult, WordPuzzleConfig } from '@/src/types/games.types';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Speech from 'expo-speech';
 import React, { useCallback, useState } from 'react';
 import { Image, SafeAreaView, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -14,6 +15,8 @@ type Phase = 'instruction' | 'playing' | 'result';
 
 export default function WordPuzzleGame() {
   const { difficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
+  const router = useRouter();
+  const { playSound } = useSoundEffects();
   const config = getGameContent<WordPuzzleConfig>('word_puzzle', difficulty);
   
   const [phase, setPhase] = useState<Phase>('instruction');
@@ -23,17 +26,15 @@ export default function WordPuzzleGame() {
   const [startTime, setStartTime] = useState(0);
   const [result, setResult] = useState<GameSessionResult | null>(null);
   const [feedback, setFeedback] = useState<'correct' | 'incorrect' | null>(null);
-
-  // allow caregiver/player to toggle timer (relaxed pacing)
   const [timerEnabled, setTimerEnabled] = useState(true);
+  const [showConfetti, setShowConfetti] = useState(false);
+
   const timer = useQuestionTimer({
     limitSeconds: timerEnabled ? (config.timeLimitSeconds || null) : null,
     onExpire: () => handleNextWord(false),
     autoStart: phase === 'playing' && timerEnabled,
   });
   
-  const [showConfetti, setShowConfetti] = useState(false);
-
   const currentWord = config.words[currentWordIndex];
   const scrambledWord = currentWord ? scrambleWord(currentWord.word) : '';
 
@@ -41,10 +42,10 @@ export default function WordPuzzleGame() {
     const normalize = (s: string) => s.trim().toLowerCase().replace(/[^a-z]/g, '');
     const target = normalize(currentWord.word);
     const answer = normalize(userAnswer);
-    const isCorrect = answer === target || levenshtein(answer, target) <= 1; // forgiving
+    const isCorrect = answer === target || levenshtein(answer, target) <= 1;
 
     if (isCorrect) {
-      // positive reinforcement: score, feedback, spoken confirmation, confetti, then auto-advance
+      playSound('success');
       setScore(s => s + 1);
       setFeedback('correct');
       Speech.speak('Correct! Well done.');
@@ -55,15 +56,15 @@ export default function WordPuzzleGame() {
         handleNextWord(true);
       }, 900);
     } else {
-      // allow multiple attempts, spoken gentle hint
+      playSound('error');
       setFeedback('incorrect');
       Speech.speak('Try again. Take your time.');
-      // do not auto-advance — let user retry
     }
   };
 
   const handleNextWord = useCallback((wasCorrect: boolean) => {
     if (currentWordIndex < config.words.length - 1) {
+      playSound('click');
       setCurrentWordIndex(i => i + 1);
       setUserAnswer('');
       setFeedback(null);
@@ -71,9 +72,17 @@ export default function WordPuzzleGame() {
     } else {
       finishGame();
     }
-  }, [currentWordIndex, config.words.length, timer]);
+  }, [currentWordIndex, config.words.length, timer, playSound]);
 
   const finishGame = () => {
+    if (score === config.words.length) {
+      playSound('success');
+    } else if (score === 0) {
+      playSound('error');
+    } else {
+      playSound('click');
+    }
+    
     setResult({
       gameId: 'word_puzzle',
       difficulty,
@@ -88,12 +97,18 @@ export default function WordPuzzleGame() {
   };
 
   const handleReset = () => {
+    playSound('click');
     setPhase('instruction');
     setCurrentWordIndex(0);
     setUserAnswer('');
     setScore(0);
     setResult(null);
     setFeedback(null);
+  };
+
+  const handleGoBack = () => {
+    playSound('back');
+    router.back();
   };
 
   if (phase === 'instruction') {
@@ -108,16 +123,18 @@ export default function WordPuzzleGame() {
           { icon: '🔀', text: config.scrambled ? 'Letters are scrambled — rearrange them' : 'Type the word from the hint' },
         ]}
         onStart={() => {
+          playSound('click');
           setPhase('playing');
           setStartTime(Date.now());
           setCurrentWordIndex(0);
         }}
+        onBack={handleGoBack}
       />
     );
   }
 
   if (phase === 'result' && result) {
-    return <GameResultScreen result={result} onPlayAgain={handleReset} />;
+    return <GameResultScreen result={result} onPlayAgain={handleReset} onBack={handleGoBack} />;
   }
 
   return (

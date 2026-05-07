@@ -292,6 +292,26 @@ export default function PhotoPuzzleGame() {
     }
   }, [boardOrigin, trayOrigin, rootOrigin, phase]);
 
+  // ── Finish ────────────────────────────────────────────────
+  const finishGame = useCallback(() => {
+    const correct = pieces.filter(p => {
+      const s = snappedMap[p.id];
+      return s !== null && s !== undefined && s === p.correctPosition;
+    }).length;
+    setResult({
+      gameId: 'photo_puzzle',
+      difficulty,
+      score: correct,
+      maxScore: pieceCount,
+      timeTakenSeconds: Math.round((Date.now() - startTime) / 1000),
+      completedAt: new Date().toISOString(),
+      correctAnswers: correct,
+      totalAnswers: pieceCount,
+    });
+    Speech.speak(`You solved ${correct} of ${pieceCount} pieces.`);
+    setPhase('result');
+  }, [pieces, snappedMap, pieceCount, startTime, difficulty]);
+
   // ── Timer ─────────────────────────────────────────────────
   useEffect(() => {
     if (phase !== 'playing' || config.timeLimitSeconds === null) return;
@@ -374,26 +394,6 @@ export default function PhotoPuzzleGame() {
   const handleUnsnapped = useCallback((pieceId: number) => {
     setSnappedMap(prev => ({ ...prev, [pieceId]: null }));
   }, []);
-
-  // ── Finish ────────────────────────────────────────────────
-  const finishGame = useCallback(() => {
-    const correct = pieces.filter(p => {
-      const s = snappedMap[p.id];
-      return s !== null && s !== undefined && s === p.correctPosition;
-    }).length;
-    setResult({
-      gameId: 'photo_puzzle',
-      difficulty,
-      score: correct,
-      maxScore: pieceCount,
-      timeTakenSeconds: Math.round((Date.now() - startTime) / 1000),
-      completedAt: new Date().toISOString(),
-      correctAnswers: correct,
-      totalAnswers: pieceCount,
-    });
-    Speech.speak(`You solved ${correct} of ${pieceCount} pieces.`);
-    setPhase('result');
-  }, [pieces, snappedMap, pieceCount, startTime, difficulty]);
 
   const handleReset = () => {
     setPhase('instruction');
