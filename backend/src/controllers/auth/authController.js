@@ -5,14 +5,27 @@ const {
   verifyRefreshToken,
 } = require('../../utils/jwt');
 
-// ─────────────────────────────────────────────
-// 📌 REGISTER
-// POST /api/auth/register
-// Body: { fullName, email, password, role }
-// ─────────────────────────────────────────────
+// ── REGISTER ──────────────────────────────────────────────────────────────
 const register = async (req, res) => {
   try {
-    const { fullName, email, password, role } = req.body;
+    const {
+      fullName, email, password, role,
+
+      // Patient Step 1
+      age, gender, preferredLanguage,
+      cognitiveLevel, hometown,
+      hobbies, interests,
+
+      // Patient Step 2
+      familyMembers, lifeEvents,
+      countriesLived, occupations,
+
+      // Patient Step 3
+      favoritePlaces, favoritePlacesText,
+      festivalsCelebrated, foodsPreferred,
+      preferredSports, preferredSportsText,
+      languagesPreferred,
+    } = req.body;
 
     // Validate role
     const validRoles = ['patient', 'caregiver', 'family'];
@@ -32,14 +45,31 @@ const register = async (req, res) => {
       });
     }
 
-    // Create user (password auto-hashed by model pre-save hook)
-    const user = await User.create({ fullName, email, password, role });
+    // Create user with all fields
+    const user = await User.create({
+      fullName, email, password, role,
+
+      // Step 1
+      age, gender, preferredLanguage,
+      cognitiveLevel, hometown,
+      hobbies, interests,
+
+      // Step 2
+      familyMembers, lifeEvents,
+      countriesLived, occupations,
+
+      // Step 3
+      favoritePlaces, favoritePlacesText,
+      festivalsCelebrated, foodsPreferred,
+      preferredSports, preferredSportsText,
+      languagesPreferred,
+    });
 
     // Generate tokens
-    const accessToken = generateAccessToken(user._id, user.role);
+    const accessToken  = generateAccessToken(user._id, user.role);
     const refreshToken = generateRefreshToken(user._id);
 
-    // Save refresh token to DB
+    // Save refresh token
     user.refreshToken = refreshToken;
     await user.save({ validateBeforeSave: false });
 
@@ -48,10 +78,10 @@ const register = async (req, res) => {
       message: 'Registration successful.',
       data: {
         user: {
-          id: user._id,
+          id:       user._id,
           fullName: user.fullName,
-          email: user.email,
-          role: user.role,
+          email:    user.email,
+          role:     user.role,
         },
         accessToken,
         refreshToken,
@@ -67,11 +97,7 @@ const register = async (req, res) => {
   }
 };
 
-// ─────────────────────────────────────────────
-// 📌 LOGIN
-// POST /api/auth/login
-// Body: { email, password }
-// ─────────────────────────────────────────────
+// ── LOGIN ─────────────────────────────────────────────────────────────────
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -83,7 +109,6 @@ const login = async (req, res) => {
       });
     }
 
-    // Find user and include password for comparison
     const user = await User.findOne({ email }).select('+password +refreshToken');
     if (!user) {
       return res.status(401).json({
@@ -92,7 +117,6 @@ const login = async (req, res) => {
       });
     }
 
-    // Compare password
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
       return res.status(401).json({
@@ -101,7 +125,6 @@ const login = async (req, res) => {
       });
     }
 
-    // Check if active
     if (!user.isActive) {
       return res.status(403).json({
         success: false,
@@ -109,11 +132,9 @@ const login = async (req, res) => {
       });
     }
 
-    // Generate tokens
-    const accessToken = generateAccessToken(user._id, user.role);
+    const accessToken  = generateAccessToken(user._id, user.role);
     const refreshToken = generateRefreshToken(user._id);
 
-    // Update refresh token in DB
     user.refreshToken = refreshToken;
     await user.save({ validateBeforeSave: false });
 
@@ -122,10 +143,10 @@ const login = async (req, res) => {
       message: 'Login successful.',
       data: {
         user: {
-          id: user._id,
+          id:       user._id,
           fullName: user.fullName,
-          email: user.email,
-          role: user.role,
+          email:    user.email,
+          role:     user.role,
         },
         accessToken,
         refreshToken,
@@ -140,11 +161,7 @@ const login = async (req, res) => {
   }
 };
 
-// ─────────────────────────────────────────────
-// 📌 REFRESH TOKEN
-// POST /api/auth/refresh
-// Body: { refreshToken }
-// ─────────────────────────────────────────────
+// ── REFRESH TOKEN ─────────────────────────────────────────────────────────
 const refresh = async (req, res) => {
   try {
     const { refreshToken } = req.body;
@@ -156,11 +173,9 @@ const refresh = async (req, res) => {
       });
     }
 
-    // Verify refresh token
     const decoded = verifyRefreshToken(refreshToken);
+    const user    = await User.findById(decoded.userId).select('+refreshToken');
 
-    // Find user and match stored refresh token
-    const user = await User.findById(decoded.userId).select('+refreshToken');
     if (!user || user.refreshToken !== refreshToken) {
       return res.status(401).json({
         success: false,
@@ -168,7 +183,6 @@ const refresh = async (req, res) => {
       });
     }
 
-    // Generate new access token
     const newAccessToken = generateAccessToken(user._id, user.role);
 
     res.status(200).json({
@@ -183,16 +197,10 @@ const refresh = async (req, res) => {
   }
 };
 
-// ─────────────────────────────────────────────
-// 📌 LOGOUT
-// POST /api/auth/logout
-// Requires: Bearer token
-// ─────────────────────────────────────────────
+// ── LOGOUT ────────────────────────────────────────────────────────────────
 const logout = async (req, res) => {
   try {
-    // Clear refresh token from DB
     await User.findByIdAndUpdate(req.user.userId, { refreshToken: null });
-
     res.status(200).json({
       success: true,
       message: 'Logged out successfully.',
@@ -205,31 +213,62 @@ const logout = async (req, res) => {
   }
 };
 
-// ─────────────────────────────────────────────
-// 📌 GET CURRENT USER
-// GET /api/auth/me
-// Requires: Bearer token
-// ─────────────────────────────────────────────
+// ── GET CURRENT USER ──────────────────────────────────────────────────────
 const getMe = async (req, res) => {
   try {
-    const user = await User.findById(req.user.userId);
+    const user = await User.findById(req.user.userId).select(
+      'fullName email role ' +
+      'age gender preferredLanguage cognitiveLevel hometown hobbies interests ' +
+      'familyMembers lifeEvents countriesLived occupations ' +
+      'favoritePlaces favoritePlacesText festivalsCelebrated foodsPreferred preferredSports preferredSportsText languagesPreferred ' +
+      'avatarColor isOnline shiftsCompleted patientsAssigned hoursThisWeek profileImage'
+    );
 
     res.status(200).json({
       success: true,
       data: {
         user: {
-          id: user._id,
+          id:       user._id,
           fullName: user.fullName,
-          email: user.email,
-          role: user.role,
+          email:    user.email,
+          role:     user.role,
+
+          // Patient Step 1
+          age:               user.age,
+          gender:            user.gender,
+          preferredLanguage: user.preferredLanguage,
+          cognitiveLevel:    user.cognitiveLevel,
+          hometown:          user.hometown,
+          hobbies:           user.hobbies,
+          interests:         user.interests,
+
+          // Patient Step 2
+          familyMembers:  user.familyMembers,
+          lifeEvents:     user.lifeEvents,
+          countriesLived: user.countriesLived,
+          occupations:    user.occupations,
+
+          // Patient Step 3
+          favoritePlaces:      user.favoritePlaces,
+          favoritePlacesText:  user.favoritePlacesText,
+          festivalsCelebrated: user.festivalsCelebrated,
+          foodsPreferred:      user.foodsPreferred,
+          preferredSports:     user.preferredSports,
+          preferredSportsText: user.preferredSportsText,
+          languagesPreferred:  user.languagesPreferred,
+
+          // Caregiver
+          avatarColor:      user.avatarColor,
+          isOnline:         user.isOnline,
+          shiftsCompleted:  user.shiftsCompleted,
+          patientsAssigned: user.patientsAssigned,
+          hoursThisWeek:    user.hoursThisWeek,
+          profileImage:     user.profileImage,
         },
       },
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Server error.',
-    });
+    res.status(500).json({ success: false, message: 'Server error.' });
   }
 };
 

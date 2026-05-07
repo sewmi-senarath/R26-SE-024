@@ -69,4 +69,11 @@ export const deletePatient = async (patientId: string): Promise<void> => {
     method: 'DELETE',
   });
   if (!data.success) throw new Error(data.message);
+  
+};
+
+export const fetchRegisteredPatients = async (): Promise<{id: string, fullName: string, email: string}[]> => {
+  const data = await authFetch('/patients/registered');
+  if (!data.success) throw new Error(data.message);
+  return data.patients;
 };

@@ -149,17 +149,19 @@ const storage = {
   },
 };
 
+// ✅ Now accepts extraData for patient profile fields
 export const registerUser = async (
-  fullName: string,
-  email: string,
-  password: string,
-  role: 'patient' | 'caregiver' | 'family'
+  fullName:   string,
+  email:      string,
+  password:   string,
+  role:       'patient' | 'caregiver' | 'family',
+  extraData?: Record<string, any>
 ) => {
   try {
     const response = await fetch(`${BASE_URL}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fullName, email, password, role }),
+      body: JSON.stringify({ fullName, email, password, role, ...extraData }),
     });
     return await response.json();
   } catch (error) {
@@ -177,10 +179,10 @@ export const loginUser = async (email: string, password: string) => {
     const data = await response.json();
 
     if (data.success) {
-      await storage.setItem('accessToken', data.data.accessToken);
+      await storage.setItem('accessToken',  data.data.accessToken);
       await storage.setItem('refreshToken', data.data.refreshToken);
-      await storage.setItem('userRole', data.data.user.role);
-      await storage.setItem('userData', JSON.stringify(data.data.user));
+      await storage.setItem('userRole',     data.data.user.role);
+      await storage.setItem('userData',     JSON.stringify(data.data.user));
     }
     return data;
   } catch (error) {
