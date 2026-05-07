@@ -1,4 +1,3 @@
-// backend/src/models/caregiver/Caregiver.js
 const mongoose = require('mongoose');
 
 const caregiverSchema = new mongoose.Schema(

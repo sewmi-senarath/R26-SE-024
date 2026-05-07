@@ -1,11 +1,22 @@
 const mongoose = require("mongoose");
-const { SectionScoresSchema, ScoringLogEntrySchema } = require('./ScoringLog');
+const { SectionScoresSchema, ScoringLogEntrySchema } = require("./ScoringLog");
 
 const AssessmentSchema = new mongoose.Schema(
   {
     sessionId: { type: String, required: true, unique: true, index: true },
-    patientId: { type: String, required: true, index: true },
-    caregiverId: { type: String, required: true, index: true },
+
+    patientId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
+    },
+    caregiverId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
+    },
 
     status: {
       type: String,
@@ -26,10 +37,18 @@ const AssessmentSchema = new mongoose.Schema(
 
     sectionScores: { type: SectionScoresSchema, default: () => ({}) },
     totalScore: { type: Number, default: 0 },
-    attentionMethod: { type: String, enum: ["serial7", "world"], default: "serial7" },
+    attentionMethod: {
+      type: String,
+      enum: ["serial7", "world"],
+      default: "serial7",
+    },
     adjustedScore: { type: Number, default: null },
     impairmentFlag: { type: Boolean, default: false },
-    severity: { type: String, enum: ["none", "mild", "moderate", "severe"], default: "none" },
+    severity: {
+      type: String,
+      enum: ["none", "mild", "moderate", "severe"],
+      default: "none",
+    },
     scoringLog: { type: [ScoringLogEntrySchema], default: [] },
 
     serial7Attempted: { type: Boolean, default: false },
@@ -41,12 +60,16 @@ const AssessmentSchema = new mongoose.Schema(
     timeExpired: { type: Boolean, default: false },
 
     locale: { type: String, default: "en-AU" },
-    administrationMode: { type: String, enum: ["assisted", "self"], default: "assisted" },
+    administrationMode: {
+      type: String,
+      enum: ["assisted", "self"],
+      default: "assisted",
+    },
     startedAt: { type: Date, default: Date.now },
     completedAt: { type: Date, default: null },
     lastModified: { type: Date, default: Date.now },
   },
-  { timestamps: true, collection: "assessments" }
+  { timestamps: true, collection: "assessments" },
 );
 
 AssessmentSchema.index({ patientId: 1, createdAt: -1 });

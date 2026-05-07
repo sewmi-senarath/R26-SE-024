@@ -91,7 +91,7 @@
 //   try {
 //     const token = await getAccessToken();
 //     console.log('authFetch token:', token ? 'exists' : 'NULL'); // ← ADD THIS
-    
+
 //     const response = await fetch(`${BASE_URL}${endpoint}`, {
 //       ...options,
 //       headers: {
@@ -112,8 +112,8 @@
 //   await storage.multiRemove(['accessToken', 'refreshToken', 'userRole', 'userData']);
 // };
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform } from 'react-native';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Platform } from "react-native";
 
 const BASE_URL = `${process.env.EXPO_PUBLIC_API_URL}/api`;
 
@@ -121,7 +121,7 @@ const BASE_URL = `${process.env.EXPO_PUBLIC_API_URL}/api`;
 const storage = {
   getItem: async (key: string): Promise<string | null> => {
     try {
-      if (Platform.OS === 'web') {
+      if (Platform.OS === "web") {
         return window.localStorage.getItem(key);
       }
       return await AsyncStorage.getItem(key);
@@ -131,7 +131,7 @@ const storage = {
   },
   setItem: async (key: string, value: string): Promise<void> => {
     try {
-      if (Platform.OS === 'web') {
+      if (Platform.OS === "web") {
         window.localStorage.setItem(key, value);
         return;
       }
@@ -140,8 +140,8 @@ const storage = {
   },
   multiRemove: async (keys: string[]): Promise<void> => {
     try {
-      if (Platform.OS === 'web') {
-        keys.forEach(k => window.localStorage.removeItem(k));
+      if (Platform.OS === "web") {
+        keys.forEach((k) => window.localStorage.removeItem(k));
         return;
       }
       await AsyncStorage.multiRemove(keys);
@@ -151,52 +151,52 @@ const storage = {
 
 // ✅ Now accepts extraData for patient profile fields
 export const registerUser = async (
-  fullName:   string,
-  email:      string,
-  password:   string,
-  role:       'patient' | 'caregiver' | 'family',
-  extraData?: Record<string, any>
+  fullName: string,
+  email: string,
+  password: string,
+  role: "patient" | "caregiver" | "family",
+  extraData?: Record<string, any>,
 ) => {
   try {
     const response = await fetch(`${BASE_URL}/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ fullName, email, password, role, ...extraData }),
     });
     return await response.json();
   } catch (error) {
-    return { success: false, message: 'Cannot connect to server.' };
+    return { success: false, message: "Cannot connect to server." };
   }
 };
 
 export const loginUser = async (email: string, password: string) => {
   try {
     const response = await fetch(`${BASE_URL}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
     });
     const data = await response.json();
 
     if (data.success) {
-      await storage.setItem('accessToken',  data.data.accessToken);
-      await storage.setItem('refreshToken', data.data.refreshToken);
-      await storage.setItem('userRole',     data.data.user.role);
-      await storage.setItem('userData',     JSON.stringify(data.data.user));
+      await storage.setItem("accessToken", data.data.accessToken);
+      await storage.setItem("refreshToken", data.data.refreshToken);
+      await storage.setItem("userRole", data.data.user.role);
+      await storage.setItem("userData", JSON.stringify(data.data.user));
     }
     return data;
   } catch (error) {
-    return { success: false, message: 'Cannot connect to server.' };
+    return { success: false, message: "Cannot connect to server." };
   }
 };
 
 export const getAccessToken = async (): Promise<string | null> => {
-  return await storage.getItem('accessToken');
+  return await storage.getItem("accessToken");
 };
 
 export const getStoredUser = async () => {
   try {
-    const userData = await storage.getItem('userData');
+    const userData = await storage.getItem("userData");
     return userData ? JSON.parse(userData) : null;
   } catch {
     return null;
@@ -204,23 +204,26 @@ export const getStoredUser = async () => {
 };
 
 export const getStoredRole = async (): Promise<string | null> => {
-  return await storage.getItem('userRole');
+  return await storage.getItem("userRole");
 };
 
-export const authFetch = async (endpoint: string, options: RequestInit = {}) => {
+export const authFetch = async (
+  endpoint: string,
+  options: RequestInit = {},
+) => {
   try {
     // ✅ Read token directly from storage
     let token: string | null = null;
-    if (Platform.OS === 'web') {
-      token = window.localStorage.getItem('accessToken');
+    if (Platform.OS === "web") {
+      token = window.localStorage.getItem("accessToken");
     } else {
-      token = await AsyncStorage.getItem('accessToken');
+      token = await AsyncStorage.getItem("accessToken");
     }
 
     const response = await fetch(`${BASE_URL}${endpoint}`, {
       ...options,
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
         ...options.headers,
       },
@@ -229,49 +232,70 @@ export const authFetch = async (endpoint: string, options: RequestInit = {}) => 
     const data = await response.json();
 
     // ✅ Auto refresh if token expired
-    if (!data.success && data.message === 'Token expired. Please login again.') {
-      const refreshToken = Platform.OS === 'web'
-        ? window.localStorage.getItem('refreshToken')
-        : await AsyncStorage.getItem('refreshToken');
+    if (
+      !data.success &&
+      data.message === "Token expired. Please login again."
+    ) {
+      const refreshToken =
+        Platform.OS === "web"
+          ? window.localStorage.getItem("refreshToken")
+          : await AsyncStorage.getItem("refreshToken");
 
       if (refreshToken) {
         const refreshResponse = await fetch(`${BASE_URL}/auth/refresh`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ refreshToken }),
         });
         const refreshData = await refreshResponse.json();
 
         if (refreshData.success) {
           const newToken = refreshData.data.accessToken;
-          await storage.setItem('accessToken', newToken);
+          await storage.setItem("accessToken", newToken);
 
           // ✅ Retry with new token
           const retryResponse = await fetch(`${BASE_URL}${endpoint}`, {
             ...options,
             headers: {
-              'Content-Type': 'application/json',
+              "Content-Type": "application/json",
               Authorization: `Bearer ${newToken}`,
               ...options.headers,
             },
           });
           return await retryResponse.json();
         } else {
-          await storage.multiRemove(['accessToken', 'refreshToken', 'userRole', 'userData']);
-          return { success: false, message: 'Session expired. Please login again.' };
+          await storage.multiRemove([
+            "accessToken",
+            "refreshToken",
+            "userRole",
+            "userData",
+          ]);
+          return {
+            success: false,
+            message: "Session expired. Please login again.",
+          };
         }
       }
     }
 
     return data;
   } catch (error) {
-    return { success: false, message: 'Cannot connect to server.' };
+    return { success: false, message: "Cannot connect to server." };
   }
 };
 
 export const logoutUser = async () => {
   try {
-    await authFetch('/auth/logout', { method: 'POST' });
+    await authFetch("/auth/logout", { method: "POST" });
   } catch {}
-  await storage.multiRemove(['accessToken', 'refreshToken', 'userRole', 'userData']);
+  await storage.multiRemove([
+    "accessToken",
+    "refreshToken",
+    "userRole",
+    "userData",
+  ]);
+};
+
+export const getMe = async () => {
+  return await authFetch("/auth/me", { method: "GET" });
 };

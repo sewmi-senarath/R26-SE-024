@@ -6,7 +6,18 @@ import {
   submitAnswer as submitAnswerApi,
   updateSessionProgress,
 } from "../api/assessmentApi";
-import { loadSession, saveSession } from "../utils/sessionStorage";
+import {
+  loadActiveSession,
+  loadSession,
+  saveSession,
+} from "../utils/sessionStorage";
+
+type StartSessionOptions = {
+  patientId?: string;
+  caregiverId?: string;
+  locale?: string;
+  administrationMode?: "assisted" | "self";
+};
 
 function buildInitialSession(
   patientId: string,
@@ -52,7 +63,7 @@ function buildInitialSession(
   };
 }
 
-export function useAssessmentSession(patientId: string, caregiverId: string) {
+export function useAssessmentSession(patientId?: string, caregiverId?: string) {
   const [session, setSession] = useState<MMSESession | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -65,15 +76,15 @@ export function useAssessmentSession(patientId: string, caregiverId: string) {
       try {
         const url = `${process.env.EXPO_PUBLIC_API_URL}/api/cognitive/questions`;
         const res = await fetch(url);
-        if (!res.ok) throw new Error(`Failed to fetch questions: ${res.status}`);
+        if (!res.ok)
+          throw new Error(`Failed to fetch questions: ${res.status}`);
 
         const json = await res.json();
 
         // Handle both: data: []  OR  data: { questions: [] }
-        const rawQuestions =
-          Array.isArray(json?.data)
-            ? json.data
-            : Array.isArray(json?.data?.questions)
+        const rawQuestions = Array.isArray(json?.data)
+          ? json.data
+          : Array.isArray(json?.data?.questions)
             ? json.data.questions
             : [];
 
@@ -100,16 +111,32 @@ export function useAssessmentSession(patientId: string, caregiverId: string) {
 
     const initSession = async () => {
       try {
-        const stored = await loadSession(patientId, caregiverId);
-        setSession(
-          stored ||
-            buildInitialSession(patientId, caregiverId, questions.length),
-        );
+        if (patientId && caregiverId) {
+          const stored = await loadSession(patientId, caregiverId);
+          setSession(
+            stored ||
+              buildInitialSession(patientId, caregiverId, questions.length),
+          );
+        } else {
+          const active = await loadActiveSession();
+          if (!active) {
+            setError("No active assessment session found.");
+            setSession(null);
+            return;
+          }
+          setSession(active);
+        }
+        setError(null);
       } catch (err) {
         console.error("Error loading session:", err);
-        setSession(
-          buildInitialSession(patientId, caregiverId, questions.length),
-        );
+        if (patientId && caregiverId) {
+          setSession(
+            buildInitialSession(patientId, caregiverId, questions.length),
+          );
+        } else {
+          setSession(null);
+          setError("Failed to load assessment session.");
+        }
       } finally {
         setIsLoading(false);
       }
@@ -117,17 +144,30 @@ export function useAssessmentSession(patientId: string, caregiverId: string) {
     initSession();
   }, [questions, patientId, caregiverId]);
 
-  const startSession = useCallback(async () => {
-    const started = await startSessionApi({
-      patientId,
-      caregiverId,
-      locale: "en-AU",
-      administrationMode: "assisted",
-    });
-    questionStartRef.current = Date.now();
-    setSession(started);
-    return started;
-  }, [patientId, caregiverId]);
+  const startSession = useCallback(
+    async (options: StartSessionOptions = {}) => {
+      const effectivePatientId =
+        options.patientId || patientId || session?.patientId;
+      const effectiveCaregiverId =
+        options.caregiverId || caregiverId || session?.caregiverId;
+
+      if (!effectivePatientId || !effectiveCaregiverId) {
+        throw new Error("Missing patient or caregiver ID");
+      }
+
+      const started = await startSessionApi({
+        patientId: effectivePatientId,
+        caregiverId: effectiveCaregiverId,
+        locale: options.locale || "en-AU",
+        administrationMode: options.administrationMode || "assisted",
+      });
+      questionStartRef.current = Date.now();
+      setSession(started);
+      await saveSession(started);
+      return started;
+    },
+    [patientId, caregiverId, session?.patientId, session?.caregiverId],
+  );
 
   const submitAnswer = useCallback(
     async (questionId: string, answer: any) => {
@@ -139,6 +179,7 @@ export function useAssessmentSession(patientId: string, caregiverId: string) {
         answeredAt: Date.now(),
       });
       setSession(updated);
+      await saveSession(updated);
       return updated;
     },
     [session],
@@ -154,6 +195,7 @@ export function useAssessmentSession(patientId: string, caregiverId: string) {
     if (isDone) {
       const completed = await completeSessionApi(session.sessionId);
       setSession(completed);
+      await saveSession(completed);
       return completed;
     }
 
@@ -165,6 +207,7 @@ export function useAssessmentSession(patientId: string, caregiverId: string) {
       timeExpired: false,
     });
     setSession(progressed);
+    await saveSession(progressed);
     return progressed;
   }, [session, questions]);
 
@@ -182,6 +225,7 @@ export function useAssessmentSession(patientId: string, caregiverId: string) {
       timeExpired: false,
     });
     setSession(progressed);
+    await saveSession(progressed);
     return progressed;
   }, [session, questions]);
 
@@ -191,6 +235,7 @@ export function useAssessmentSession(patientId: string, caregiverId: string) {
       timeExpired: true,
     });
     setSession(progressed);
+    await saveSession(progressed);
     return progressed;
   }, [session]);
 
@@ -204,6 +249,7 @@ export function useAssessmentSession(patientId: string, caregiverId: string) {
         answeredAt: Date.now(),
       });
       setSession(updated);
+      await saveSession(updated);
       return updated;
     },
     [session],
@@ -225,7 +271,8 @@ export function useAssessmentSession(patientId: string, caregiverId: string) {
 
   return {
     session:
-      session || buildInitialSession(patientId, caregiverId, questions.length),
+      session ||
+      buildInitialSession(patientId || "", caregiverId || "", questions.length),
     currentQuestion,
     progressPercent,
     isAnswered,
