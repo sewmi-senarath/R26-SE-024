@@ -7,7 +7,7 @@ import { getGameContent } from '@/src/constants/gameContent';
 import { useQuestionTimer } from '@/src/hooks/useQuestionTimer';
 import { useSoundEffects } from '@/src/hooks/useSoundEffects';
 import { Difficulty, GameSessionResult, ObjectRecallConfig } from '@/src/types/games.types';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import * as Speech from 'expo-speech';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -26,7 +26,6 @@ type Phase = 'instruction' | 'study' | 'recall' | 'result';
 
 export default function ObjectRecallGame() {
   const { difficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
-  const router = useRouter();
   const { playSound } = useSoundEffects();
   const config = getGameContent<ObjectRecallConfig>('object_recall', difficulty);
 
@@ -101,11 +100,6 @@ export default function ObjectRecallGame() {
     setInputs(Array(config.objectCount).fill(''));
     setResult(null);
     setShowConfetti(false);
-  };
-
-  const handleGoBack = () => {
-    playSound('back');
-    router.back();
   };
 
   if (phase === 'instruction') {

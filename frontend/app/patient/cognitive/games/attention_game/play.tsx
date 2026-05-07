@@ -5,7 +5,7 @@ import { getGameContent } from '@/src/constants/gameContent';
 import { useQuestionTimer } from '@/src/hooks/useQuestionTimer';
 import { useSoundEffects } from '@/src/hooks/useSoundEffects';
 import { AttentionGameConfig, Difficulty, GameSessionResult } from '@/src/types/games.types';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { SafeAreaView, Text, TouchableOpacity, View } from 'react-native';
 
@@ -34,7 +34,6 @@ function buildGrid(config: AttentionGameConfig): string[] {
 
 export default function AttentionGame() {
   const { difficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
-  const router = useRouter();
   const { playSound } = useSoundEffects();
   const config = getGameContent<AttentionGameConfig>('attention_game', difficulty);
 
@@ -150,11 +149,6 @@ export default function AttentionGame() {
     setTotalStarsShown(0);
     totalStarsShownRef.current = 0;
     tappedCellsRef.current = new Set();
-  };
-
-  const handleGoBack = () => {
-    playSound('back');
-    router.back();
   };
 
   if (phase === 'instruction') {

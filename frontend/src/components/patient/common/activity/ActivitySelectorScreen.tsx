@@ -85,6 +85,15 @@ export default function ActivitySelectorScreen() {
           onPress={() => router.push('/patient/games')}
         />
 
+        <ActivityCard
+          title="Screening Test"
+          subtitle="Attempt Screening Test"
+          icon="medkit-outline"
+          iconColor="#3b82f6"
+          iconBackground="bg-blue-100"
+          onPress={() => router.push('/patient/cognitive/assessment')}
+        />
+
         <View className="mt-10">
           <ActivityCard
             title="Call for Help"

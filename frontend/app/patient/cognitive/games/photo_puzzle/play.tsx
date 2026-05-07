@@ -407,33 +407,7 @@ export default function PhotoPuzzleGame() {
     if (timerRef.current) clearInterval(timerRef.current);
   };
 
-  // Helper: get piece position in tray or board
-  function getPiecePosition(piece: PuzzlePiece, snappedSlot: number | null) {
-    if (snappedSlot !== null && snappedSlot !== undefined) {
-      // On board
-      const col = snappedSlot % config.gridSize;
-      const row = Math.floor(snappedSlot / config.gridSize);
-      return {
-        x: col * (cellSize) - PIECE_X_OFFSET, // <-- shift left
-        y: row * (cellSize),
-        container: 'board',
-      };
-    } else {
-      // In tray
-      const trayIndex = pieces.findIndex(p => p.id === piece.id);
-      const col = trayIndex % config.gridSize;
-      const row = Math.floor(trayIndex / config.gridSize);
-      return {
-        x: TRAY_PADDING + col * (cellSize + PIECE_GAP) - PIECE_X_OFFSET, // <-- shift left
-        y: 24 + TRAY_PADDING + row * (cellSize + PIECE_GAP),
-        container: 'tray',
-      };
-    }
-  }
-
-  // ─────────────────────────────────────────────────────────
   // RENDER
-  // ─────────────────────────────────────────────────────────
   if (phase === 'instruction') {
     return (
       <InstructionScreen

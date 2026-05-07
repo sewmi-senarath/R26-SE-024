@@ -2,14 +2,14 @@ import { loginUser } from '@/src/api/authApi';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 export default function Login() {
@@ -29,7 +29,7 @@ export default function Login() {
       const result = await loginUser(email, password);
       if (result.success) {
         const role = result.data.user.role;
-        if (role === 'patient') router.replace('/patient');
+        if (role === 'patient') router.replace('/patient/activity-selector');
         else if (role === 'caregiver') router.replace('/caregiver');
         else if (role === 'family') router.replace('/family');
       } else {
@@ -131,7 +131,7 @@ export default function Login() {
 
       {/* Register Link */}
       <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 8 }}>
-        <Text style={{ color: '#6b7280' }}>Don't have an account? </Text>
+        <Text style={{ color: '#6b7280' }}>Do not have an account? </Text>
         <TouchableOpacity onPress={() => router.push('/role/select')}>
           <Text style={{ color: '#2563eb', fontWeight: 'bold' }}>Sign Up</Text>
         </TouchableOpacity>
