@@ -362,10 +362,10 @@ export default function ResultsScreen() {
           {/* Secondary — go back to patient dashboard */}
           <TouchableOpacity
             className="border border-gray-200 py-4 rounded-2xl items-center"
-            onPress={() => router.replace('/patient')}
+            onPress={() => router.replace('/patient/games')}
           >
             <Text className="text-gray-600 font-medium text-base">
-              Go to Dashboard
+              Go to Games
             </Text>
           </TouchableOpacity>
 

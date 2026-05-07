@@ -5,7 +5,6 @@ const SectionScoresSchema = new mongoose.Schema(
       Orientation: { type: Number, default: 0 },
       Registration: { type: Number, default: 0 },
       Attention: { type: Number, default: 0 },
-    //   Recall: { type: Number, default: 0 },
       Language: { type: Number, default: 0 },
     },
     { _id: false }

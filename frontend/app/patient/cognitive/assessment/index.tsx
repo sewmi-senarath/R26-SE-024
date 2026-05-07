@@ -12,8 +12,13 @@ export default function AssessmentWelcome() {
   const { startSession } = useAssessmentSession(PATIENT_ID, CAREGIVER_ID);
 
   const handleStart = async () => {
-    await startSession();
-    router.replace("/patient/cognitive/assessment/0");
+    try {
+      await startSession();
+      router.replace("/patient/cognitive/assessment/0");
+    } catch (error) {
+      console.error("Session start failed:", error);
+      alert("Failed to start assessment. Please check your connection.");
+    }
   };
 
   return (
