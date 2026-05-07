@@ -124,13 +124,12 @@ export default function ObjectRecallGame() {
           setStartTime(Date.now());
           Speech.speak(`Study ${config.objectCount} objects carefully. They will disappear soon.`);
         }}
-        onBack={handleGoBack}
       />
     );
   }
 
   if (phase === 'result' && result) {
-    return <GameResultScreen result={result} onPlayAgain={handleReset} onBack={handleGoBack} />;
+    return <GameResultScreen result={result} onPlayAgain={handleReset} />;
   }
 
   return (
