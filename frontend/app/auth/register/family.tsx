@@ -19,34 +19,36 @@ export default function FamilyRegister() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleRegister = async () => {
-    if (!fullName || !email || !password || !confirmPassword) {
-      Alert.alert('Error', 'Please fill all fields'); return;
-    }
-    if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match'); return;
-    }
-    if (password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters'); return;
-    }
+const handleRegister = async () => {
+  if (!fullName || !email || !password || !confirmPassword) {
+    Alert.alert('Error', 'Please fill all fields'); return;
+  }
+  if (password !== confirmPassword) {
+    Alert.alert('Error', 'Passwords do not match'); return;
+  }
+  if (password.length < 6) {
+    Alert.alert('Error', 'Password must be at least 6 characters'); return;
+  }
 
-    setLoading(true);
-    try {
-      const result = await registerUser(fullName, email, password, 'family');
-      if (result.success) {
-        Alert.alert('Success', 'Registration successful! Please login.', [
-          { text: 'OK', onPress: () => router.replace('/auth/login') },
-        ]);
-      } else {
-        Alert.alert('Error', result.message);
-      }
-    } catch {
-      Alert.alert('Error', 'Cannot connect to server.');
-    } finally {
-      setLoading(false);
+  setLoading(true);
+  try {
+    const result = await registerUser(fullName, email, password, 'family');
+    if (result.success) {
+      // ✅ Show success then auto redirect
+      Alert.alert('Success ✅', 'Registration successful! Redirecting to login...');
+      setTimeout(() => {
+        router.replace('/auth/login');
+      }, 1500);
+    } else {
+      // ✅ Only shows error - no redirect
+      Alert.alert('Registration Failed', result.message);
     }
-  };
-
+  } catch {
+    Alert.alert('Error', 'Cannot connect to server.');
+  } finally {
+    setLoading(false);
+  }
+};
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: '#fff' }}
