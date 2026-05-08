@@ -33,8 +33,8 @@ export const GAME_CONFIGS: Record<GameId, GameConfigEntry> = {
       badgeText: "text-purple-700",
       border: "border-purple-200",
     },
-    targetSection: "Orientation",
-    sectionMax: 10,
+    targetSection: "Recall",
+    sectionMax: 3,
     difficultyThresholds: { hard: 80, medium: 50 },
     difficultyDescriptions: {
       easy: "Short sequences, extra time, visual hints provided",
@@ -99,8 +99,8 @@ export const GAME_CONFIGS: Record<GameId, GameConfigEntry> = {
       badgeText: "text-green-700",
       border: "border-green-200",
     },
-    targetSection: "Language",
-    sectionMax: 9,
+    targetSection: "Orientation",
+    sectionMax: 10,
     difficultyThresholds: { hard: 80, medium: 50 },
     difficultyDescriptions: {
       easy: "4-piece puzzle, ghost image guide shown",
@@ -121,8 +121,8 @@ export const GAME_CONFIGS: Record<GameId, GameConfigEntry> = {
       badgeText: "text-rose-700",
       border: "border-rose-200",
     },
-    targetSection: "Overall",
-    sectionMax: 30,
+    targetSection: "Language",
+    sectionMax: 9,
     difficultyThresholds: { hard: 80, medium: 50 },
     difficultyDescriptions: {
       easy: "3-letter words, letter hints shown",
