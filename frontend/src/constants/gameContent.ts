@@ -74,21 +74,21 @@ const MEMORY_RECALL: Record<Difficulty, MemoryRecallConfig> = {
 const OBJECT_RECALL: Record<Difficulty, ObjectRecallConfig> = {
   easy: {
     objectCount: 3,
-    displayTimeMs: 5000,
+    displayTimeMs: 8000,
     timeLimitSeconds: 60,
     showCategoryHints: true,
     objects: RECALL_OBJECTS.slice(0, 3),
   },
   medium: {
     objectCount: 5,
-    displayTimeMs: 3000,
+    displayTimeMs: 10000,
     timeLimitSeconds: 45,
     showCategoryHints: false,
     objects: RECALL_OBJECTS.slice(0, 5),
   },
   hard: {
     objectCount: 8,
-    displayTimeMs: 1500,
+    displayTimeMs: 15000,
     timeLimitSeconds: 30,
     showCategoryHints: false,
     objects: RECALL_OBJECTS,
