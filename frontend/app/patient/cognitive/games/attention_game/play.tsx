@@ -3,6 +3,7 @@ import { GameResultScreen } from '@/src/components/patient/cognitive/components/
 import { InstructionScreen } from '@/src/components/patient/cognitive/components/games/shared/InstructionScreen';
 import { getGameContent } from '@/src/constants/gameContent';
 import { useQuestionTimer } from '@/src/hooks/useQuestionTimer';
+import { useSaveGameSession } from '@/src/hooks/useSaveGameSession';
 import { useSoundEffects } from '@/src/hooks/useSoundEffects';
 import { AttentionGameConfig, Difficulty, GameSessionResult } from '@/src/types/games.types';
 import { useLocalSearchParams } from 'expo-router';
@@ -35,6 +36,7 @@ function buildGrid(config: AttentionGameConfig): string[] {
 export default function AttentionGame() {
   const { difficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
   const { playSound } = useSoundEffects();
+  const saveGameSession = useSaveGameSession();
   const config = getGameContent<AttentionGameConfig>('attention_game', difficulty);
 
   const [phase, setPhase] = useState<Phase>('instruction');
@@ -93,7 +95,7 @@ export default function AttentionGame() {
       ? Math.round((Date.now() - startTimeRef.current) / 1000)
       : config.timeLimitSeconds;
 
-    setResult({
+    const nextResult: GameSessionResult = {
       gameId: 'attention_game',
       difficulty,
       score: finalScore,
@@ -102,9 +104,11 @@ export default function AttentionGame() {
       completedAt: new Date().toISOString(),
       correctAnswers: finalScore,
       totalAnswers: finalTaps,
-    });
+    };
+    setResult(nextResult);
+    void saveGameSession(nextResult);
     setPhase('result');
-  }, [config, difficulty, playSound]);
+  }, [config, difficulty, playSound, saveGameSession]);
 
   const timer = useQuestionTimer({
     limitSeconds: phase === 'playing' ? config.timeLimitSeconds : null,
@@ -157,10 +161,9 @@ export default function AttentionGame() {
         gameId="attention_game"
         difficulty={difficulty}
         steps={[
-          { icon: '🎯', text: `Tap every ${config.targetEmoji} you see — ignore the other shapes` },
-          { icon: '⚡', text: 'The grid shuffles quickly — stay focused' },
+          { icon: '🎯', text: `Tap every ${config.targetEmoji} you see - ignore other shapes` },
           { icon: '⏱️', text: `You have ${config.timeLimitSeconds} seconds` },
-          { icon: '📊', text: `Grid is ${config.gridSize}×${config.gridSize} with ${config.targetCount} targets hidden` },
+          { icon: '📊', text: `Grid is ${config.gridSize} X ${config.gridSize} with ${config.targetCount} targets hidden` },
         ]}
         onStart={() => {
           playSound('click');

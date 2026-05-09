@@ -70,6 +70,7 @@ export interface PuzzleWord {
   word: string;
   hint: string;
   category: string;
+  image?: string;
 }
 
 // Union type — any game config
@@ -83,6 +84,7 @@ export type GameConfig =
 // Result tracked after each game session
 export interface GameSessionResult {
   gameId: GameId;
+  patientId?: string;
   difficulty: Difficulty;
   score: number;
   maxScore: number;

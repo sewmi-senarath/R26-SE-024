@@ -3,6 +3,7 @@ import { GameResultScreen } from '@/src/components/patient/cognitive/components/
 import { InstructionScreen } from '@/src/components/patient/cognitive/components/games/shared/InstructionScreen';
 import { getGameContent } from '@/src/constants/gameContent';
 import { getRandomPuzzleImage, PuzzleImage } from '@/src/constants/puzzleImages';
+import { useSaveGameSession } from '@/src/hooks/useSaveGameSession';
 import { Difficulty, GameSessionResult, PhotoPuzzleConfig } from '@/src/types/games.types';
 import { useLocalSearchParams } from 'expo-router';
 import * as Speech from 'expo-speech';
@@ -229,6 +230,7 @@ function DraggablePiece({
 export default function PhotoPuzzleGame() {
   const { difficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
   const config = getGameContent<PhotoPuzzleConfig>('photo_puzzle', difficulty);
+  const saveGameSession = useSaveGameSession();
 
   const [phase, setPhase] = useState<Phase>('instruction');
   const [pieces, setPieces] = useState<PuzzlePiece[]>([]);
@@ -248,7 +250,7 @@ export default function PhotoPuzzleGame() {
   const [timeLeft, setTimeLeft] = useState<number | null>(config.timeLimitSeconds);
   const [startTime, setStartTime] = useState(0);
   const [result, setResult] = useState<GameSessionResult | null>(null);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
   const celebratedRef = useRef(false);
   const warningSpokenRef = useRef(false);
@@ -298,7 +300,7 @@ export default function PhotoPuzzleGame() {
       const s = snappedMap[p.id];
       return s !== null && s !== undefined && s === p.correctPosition;
     }).length;
-    setResult({
+    const nextResult: GameSessionResult = {
       gameId: 'photo_puzzle',
       difficulty,
       score: correct,
@@ -307,10 +309,12 @@ export default function PhotoPuzzleGame() {
       completedAt: new Date().toISOString(),
       correctAnswers: correct,
       totalAnswers: pieceCount,
-    });
+    };
+    setResult(nextResult);
+    void saveGameSession(nextResult);
     Speech.speak(`You solved ${correct} of ${pieceCount} pieces.`);
     setPhase('result');
-  }, [pieces, snappedMap, pieceCount, startTime, difficulty]);
+  }, [pieces, snappedMap, pieceCount, startTime, difficulty, saveGameSession]);
 
   // ── Timer ─────────────────────────────────────────────────
   useEffect(() => {

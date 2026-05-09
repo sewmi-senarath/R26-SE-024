@@ -9,6 +9,7 @@ const taskRoutes = require("./src/routes/caregiver/taskRoutes");
 const patientRoutes = require("./src/routes/caregiver/patientRoutes");
 const caregiverRoutes = require("./src/routes/caregiver/caregiverRoutes");
 const cognitiveRoutes = require("./src/routes/cognitive");
+const gameRoutes = require("./src/routes/cognitive/gameSessionRoutes");
 const {
   notFoundHandler,
   errorHandler,

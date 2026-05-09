@@ -1,8 +1,8 @@
 const express = require("express");
 const { getQuestions } = require("../../controllers/cognitive/questionController");
 
-const router = express.Router();
+const questionRoutes = express.Router();
 
-router.get("/", getQuestions);
+questionRoutes.get("/", getQuestions);
 
-module.exports = router;
+module.exports = questionRoutes;

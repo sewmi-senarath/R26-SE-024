@@ -9,14 +9,17 @@ interface Props {
   difficulty: Difficulty;
   timeLeft?: number | null;
   onExit?: () => void;
+  onBack?: () => void;
 }
 
-export function GameHeader({ title, difficulty, timeLeft, onExit }: Props) {
+export function GameHeader({ title, difficulty, timeLeft, onExit, onBack }: Props) {
   const router = useRouter();
+  const handleBack = onExit ?? onBack ?? (() => router.back());
+
   return (
     <View className="flex-row items-center px-4 pt-4 pb-2 gap-3">
       <TouchableOpacity
-        onPress={onExit ?? (() => router.back())}
+        onPress={handleBack}
         className="w-9 h-9 rounded-full bg-gray-100 items-center justify-center"
       >
         <Text className="text-gray-500 text-sm">✕</Text>

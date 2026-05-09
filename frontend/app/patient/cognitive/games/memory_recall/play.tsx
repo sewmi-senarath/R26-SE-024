@@ -3,6 +3,7 @@ import { GameResultScreen } from '@/src/components/patient/cognitive/components/
 import { InstructionScreen } from '@/src/components/patient/cognitive/components/games/shared/InstructionScreen';
 import { getGameContent } from '@/src/constants/gameContent';
 import { useQuestionTimer } from '@/src/hooks/useQuestionTimer';
+import { useSaveGameSession } from '@/src/hooks/useSaveGameSession';
 import { useSoundEffects } from '@/src/hooks/useSoundEffects';
 import { Difficulty, GameSessionResult, MemoryRecallConfig } from '@/src/types/games.types';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -16,6 +17,7 @@ export default function MemoryRecallGame() {
   const { difficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
   const router = useRouter();
   const { playSound } = useSoundEffects();
+  const saveGameSession = useSaveGameSession();
   const config = getGameContent<MemoryRecallConfig>('memory_recall', difficulty);
 
   const [phase, setPhase] = useState<Phase>('instruction');
@@ -77,7 +79,7 @@ export default function MemoryRecallGame() {
 
   useEffect(() => {
     if (phase === 'recall') {
-      Speech.speak(`Select all ${config.items.length} items you remember. Tap to select or deselect. Take your time.`);
+      Speech.speak(`Select all ${config.items.length} items you remember.. Tap to select or deselect. Take your time.`);
     }
   }, [phase, config.items.length]);
 
@@ -94,7 +96,7 @@ export default function MemoryRecallGame() {
       playSound('click');
     }
 
-    setResult({
+    const nextResult: GameSessionResult = {
       gameId: 'memory_recall',
       difficulty,
       score: correct,
@@ -103,10 +105,12 @@ export default function MemoryRecallGame() {
       completedAt: new Date().toISOString(),
       correctAnswers: correct,
       totalAnswers: config.items.length,
-    });
+    };
+    setResult(nextResult);
+    void saveGameSession(nextResult);
     Speech.speak(`You scored ${correct} out of ${config.items.length}.`);
     setPhase('result');
-  }, [selectedIds, config, startTime, difficulty, playSound]);
+  }, [selectedIds, config, startTime, difficulty, playSound, saveGameSession]);
 
   const handleReset = () => {
     playSound('click');

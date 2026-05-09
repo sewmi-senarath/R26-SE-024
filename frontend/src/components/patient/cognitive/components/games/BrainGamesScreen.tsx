@@ -1,11 +1,9 @@
-import { getPatientAssessmentHistory } from "@/src/api/assessmentApi";
-import { getMe } from "@/src/api/authApi";
 import { GAME_CONFIGS } from "@/src/constants/games";
-import { loadActiveSession } from "@/src/utils/sessionStorage";
-import { generateGamePlan, SessionScores } from "@/src/utils/difficultyEngine";
+import { useAssessment } from "@/src/context/AssessmentContext";
+import { generateGamePlan } from "@/src/utils/difficultyEngine";
 import { Audio } from "expo-av";
 import { useRouter } from "expo-router";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useMemo, useRef } from "react";
 import {
   Platform,
   SafeAreaView,
@@ -17,22 +15,9 @@ import {
 } from "react-native";
 import { DifficultyBadge } from "./DifficultyBadge";
 
-const FALLBACK_SESSION: SessionScores = {
-  sessionId: "no-completed-assessment",
-  totalScore: 0,
-  sectionScores: {
-    Orientation: 0,
-    Registration: 0,
-    Attention: 0,
-    Recall: 0,
-    Language: 0,
-  },
-};
-
 export default function BrainGamesScreen() {
   const router = useRouter();
-  const [session, setSession] = useState<SessionScores>(FALLBACK_SESSION);
-  const [isLoadingSession, setIsLoadingSession] = useState(true);
+  const { session, isLoadingSession } = useAssessment();
   const gamePlan = useMemo(() => generateGamePlan(session), [session]);
 
   // --- Sound effect setup ---
@@ -52,51 +37,6 @@ export default function BrainGamesScreen() {
       if (soundRef.current) {
         soundRef.current.unloadAsync();
       }
-    };
-  }, []);
-
-  useEffect(() => {
-    let mounted = true;
-
-    const loadScreeningResult = async () => {
-      try {
-        const activeSession = await loadActiveSession();
-        if (!mounted) return;
-
-        if (activeSession?.status === "done") {
-          setSession({
-            sessionId: activeSession.sessionId,
-            totalScore: activeSession.totalScore,
-            sectionScores: activeSession.sectionScores,
-          });
-          return;
-        }
-
-        const meRes = await getMe();
-        const patientId =
-          meRes?.success && meRes.data.user.role === "patient"
-            ? meRes.data.user.id
-            : null;
-        if (!patientId) return;
-
-        const sessions = await getPatientAssessmentHistory(patientId);
-        const latestDone = sessions.find((item) => item.status === "done");
-        if (!latestDone || !mounted) return;
-
-        setSession({
-          sessionId: latestDone.sessionId,
-          totalScore: latestDone.totalScore,
-          sectionScores: latestDone.sectionScores,
-        });
-      } finally {
-        if (mounted) setIsLoadingSession(false);
-      }
-    };
-
-    loadScreeningResult();
-
-    return () => {
-      mounted = false;
     };
   }, []);
 
