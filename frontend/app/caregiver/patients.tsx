@@ -450,7 +450,9 @@ export default function PatientsScreen() {
 
   // ── Submit new patient to backend ──────────────────────────────────────────
   const handleAddPatient = async (
-    newPatientData: Omit<PatientDetail, 'id' | 'emoji' | 'lastChecked' | 'routines'>
+    newPatientData: Omit<PatientDetail, 'id' | 'emoji' | 'lastChecked' | 'routines'> & {
+      userId?: string;
+    }
   ) => {
     try {
       console.log('Submitting patient:', newPatientData);

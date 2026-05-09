@@ -66,6 +66,7 @@ const userSchema = new mongoose.Schema(
     occupations:    { type: [String], default: [] },
 
     // ── Patient Step 3 fields 
+    favoritePhotos: { type: [String], default: [] },
     favoritePlaces: { type: [String], default: [] },
     favoritePlacesText:  { type: String },
     festivalsCelebrated: { type: [String], default: [] },

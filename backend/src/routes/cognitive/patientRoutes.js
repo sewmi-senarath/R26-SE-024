@@ -2,15 +2,20 @@ const express = require("express");
 const {
   getAllPatients,
   getPatientById,
+  getPatientProfile,
+  getAllPatientData,
 } = require("../../controllers/cognitive/patientController");
 const { protect } = require("../../middleware/auth");
 
 const patientRoutes = express.Router();
 
-// Get all patients
-patientRoutes.get("/", protect, getAllPatients);
+// Get all patient profile data visible to the authenticated user
+patientRoutes.get("/", protect, getAllPatientData);
 
-// Get patient by ID
-patientRoutes.get("/:id", protect, getPatientById);
+// Get a protected personalization profile for one patient
+patientRoutes.get("/:patientId/profile", protect, getPatientProfile);
+
+// Get all patients
+patientRoutes.get("/all", protect, getAllPatients);
 
 module.exports = patientRoutes;

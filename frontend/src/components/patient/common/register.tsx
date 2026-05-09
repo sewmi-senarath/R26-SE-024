@@ -122,6 +122,7 @@ export default function PatientRegistration() {
                     occupations: step2Data.occupations,
 
                     // Step 3
+                    favoritePhotos: step3Data.favoritePhotos,
                     favoritePlaces: step3Data.favoritePlaces,
                     favoritePlacesText: step3Data.favoritePlacesText,
                     festivalsCelebrated: step3Data.festivalsCelebrated,

@@ -1,8 +1,15 @@
 import { GameHeader } from '@/src/components/patient/cognitive/components/games/shared/GameHeader';
 import { GameResultScreen } from '@/src/components/patient/cognitive/components/games/shared/GameResultScreen';
 import { InstructionScreen } from '@/src/components/patient/cognitive/components/games/shared/InstructionScreen';
+import { getMe } from '@/src/api/authApi';
 import { getGameContent } from '@/src/constants/gameContent';
-import { getRandomPuzzleImage, PuzzleImage } from '@/src/constants/puzzleImages';
+import {
+  buildMixedPuzzleImagePool,
+  buildPatientPuzzleImages,
+  getRandomPuzzleImageFromPool,
+  MOCK_PUZZLE_IMAGES,
+  PuzzleImage,
+} from '@/src/constants/puzzleImages';
 import { useSaveGameSession } from '@/src/hooks/useSaveGameSession';
 import { Difficulty, GameSessionResult, PhotoPuzzleConfig } from '@/src/types/games.types';
 import { useLocalSearchParams } from 'expo-router';
@@ -51,6 +58,12 @@ interface PuzzlePiece {
   correctPosition: number;
 }
 
+type PatientProfilePhoto = {
+  uri: string;
+  label?: string;
+  category?: PuzzleImage['category'];
+};
+
 // HELPERS
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -74,6 +87,28 @@ function buildPieces(gridSize: number): PuzzlePiece[] {
     }
   }
   return shuffle(pieces);
+}
+
+function getPatientProfilePhotos(user: any): PatientProfilePhoto[] {
+  const favoritePhotos = Array.isArray(user?.favoritePhotos)
+    ? user.favoritePhotos.map((uri: string, index: number) => ({
+        uri,
+        label: `Favorite Photo ${index + 1}`,
+        category: 'family' as const,
+      }))
+    : [];
+
+  const familyPhotos = Array.isArray(user?.familyMembers)
+    ? user.familyMembers
+        .filter((member: any) => typeof member?.photo === 'string' && member.photo.trim())
+        .map((member: any, index: number) => ({
+          uri: member.photo,
+          label: member.name || `Family Photo ${index + 1}`,
+          category: 'family' as const,
+        }))
+    : [];
+
+  return [...favoritePhotos, ...familyPhotos];
 }
 
 // DRAGGABLE PIECE
@@ -235,6 +270,7 @@ export default function PhotoPuzzleGame() {
   const [phase, setPhase] = useState<Phase>('instruction');
   const [pieces, setPieces] = useState<PuzzlePiece[]>([]);
   const [puzzleImage, setPuzzleImage] = useState<PuzzleImage | null>(null);
+  const [puzzleImagePool, setPuzzleImagePool] = useState<PuzzleImage[]>(MOCK_PUZZLE_IMAGES);
   const [snappedMap, setSnappedMap] = useState<Record<number, number | null>>({});
 
   // ── Key insight: we store positions in SCREEN (absoluteX/Y) space ──
@@ -257,6 +293,29 @@ export default function PhotoPuzzleGame() {
 
   const cellSize = Math.floor(PUZZLE_SIZE / config.gridSize);
   const pieceCount = config.gridSize * config.gridSize;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadPuzzleImages = async () => {
+      const response = await getMe();
+      const user = response?.data?.user;
+      const patientPhotos = buildPatientPuzzleImages(getPatientProfilePhotos(user));
+      const mixedPool = buildMixedPuzzleImagePool(patientPhotos);
+
+      if (!cancelled) {
+        setPuzzleImagePool(mixedPool);
+      }
+    };
+
+    loadPuzzleImages().catch(() => {
+      if (!cancelled) setPuzzleImagePool(MOCK_PUZZLE_IMAGES);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // ── Measure root origin once using measureInWindow on root only ──
   // Root view is full screen so its origin = status bar offset only
@@ -368,7 +427,7 @@ export default function PhotoPuzzleGame() {
     setSnappedMap({});
     setTimeLeft(config.timeLimitSeconds);
     setStartTime(Date.now());
-    setPuzzleImage(getRandomPuzzleImage());
+    setPuzzleImage(getRandomPuzzleImageFromPool(puzzleImagePool));
     setLayoutReady(false);
     setBoardOrigin({ x: 0, y: 0 });
     setTrayOrigin({ x: 0, y: 0 });

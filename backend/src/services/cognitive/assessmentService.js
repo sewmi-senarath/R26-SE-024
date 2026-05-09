@@ -1,11 +1,11 @@
 const crypto = require("crypto");
 const Assessment = require("../../models/cognitive/Assessment");
-const Question = require("../../models/cognitive/Question");
+const { listActiveQuestions } = require("./questionService");
 const { buildScoreSnapshot } = require("./scoringService");
 const { createHttpError } = require("./validationService");
 
 async function getActiveQuestions() {
-  return Question.find({ isActive: true }).sort({ order: 1 }).lean();
+  return listActiveQuestions();
 }
 
 async function createAssessmentSession(payload) {

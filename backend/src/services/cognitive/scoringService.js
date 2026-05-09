@@ -70,9 +70,12 @@ function computeSectionScores(questions, answers, session) {
   };
 
   for (const q of questions) {
+    if (!Object.prototype.hasOwnProperty.call(scores, q.section)) continue;
+
     const answer = getAnswer(answers, q.questionId);
     if (answer !== undefined) {
-      scores[q.section] += scoreAnswer(q, answer, session);
+      const earned = scoreAnswer(q, answer, session);
+      scores[q.section] += Number.isFinite(earned) ? earned : 0;
     }
   }
 
@@ -80,7 +83,10 @@ function computeSectionScores(questions, answers, session) {
 }
 
 function computeTotalScore(sectionScores) {
-  return Object.values(sectionScores).reduce((sum, val) => sum + val, 0);
+  return Object.values(sectionScores).reduce(
+    (sum, val) => sum + (Number.isFinite(val) ? val : 0),
+    0
+  );
 }
 
 function computeSeverity(score) {

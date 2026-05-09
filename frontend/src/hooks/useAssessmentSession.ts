@@ -19,6 +19,31 @@ type StartSessionOptions = {
   administrationMode?: "assisted" | "self";
 };
 
+const ACTIVE_ASSESSMENT_SECTIONS = new Set([
+  "Orientation",
+  "Registration",
+  "Attention",
+  "Language",
+]);
+
+function isActiveAssessmentQuestion(question: Question) {
+  return ACTIVE_ASSESSMENT_SECTIONS.has(question.section);
+}
+
+function reconcileSessionQuestionCount(
+  session: MMSESession,
+  totalQuestions: number,
+): MMSESession {
+  return {
+    ...session,
+    totalQuestions,
+    currentQuestionIndex: Math.min(
+      session.currentQuestionIndex,
+      Math.max(totalQuestions - 1, 0),
+    ),
+  };
+}
+
 function buildInitialSession(
   patientId: string,
   caregiverId: string,
@@ -89,10 +114,12 @@ export function useAssessmentSession(patientId?: string, caregiverId?: string) {
             : [];
 
         // Normalize backend shape -> frontend shape
-        const normalized = rawQuestions.map((q: any) => ({
-          ...q,
-          id: q.id ?? q.questionId,
-        }));
+        const normalized = rawQuestions
+          .map((q: any) => ({
+            ...q,
+            id: q.id ?? q.questionId,
+          }))
+          .filter(isActiveAssessmentQuestion);
 
         setQuestions(normalized);
         setError(null);
@@ -114,8 +141,9 @@ export function useAssessmentSession(patientId?: string, caregiverId?: string) {
         if (patientId && caregiverId) {
           const stored = await loadSession(patientId, caregiverId);
           setSession(
-            stored ||
-              buildInitialSession(patientId, caregiverId, questions.length),
+            stored
+              ? reconcileSessionQuestionCount(stored, questions.length)
+              : buildInitialSession(patientId, caregiverId, questions.length),
           );
         } else {
           const active = await loadActiveSession();
@@ -124,7 +152,7 @@ export function useAssessmentSession(patientId?: string, caregiverId?: string) {
             setSession(null);
             return;
           }
-          setSession(active);
+          setSession(reconcileSessionQuestionCount(active, questions.length));
         }
         setError(null);
       } catch (err) {

@@ -15,8 +15,9 @@ const {
   errorHandler,
 } = require("./src/middleware/errorHandler");
 const insightRoutes = require("./src/routes/caregiver/insightRoutes");
-
+const protectedRoutes = require("./src/routes/auth/protectedRoutes");
 const authRoutes = require("./src/routes/auth/authRoutes");
+const cognitivePatientRoutes = require("./src/routes/cognitive/patientRoutes");
 
 connectDB();
 const app = express();
@@ -37,8 +38,8 @@ app.use("/api/caregiver/medications", medicationRoutes);
 // Cognitive Assessment routes
 app.use("/api/cognitive", cognitiveRoutes);
 
-const protectedRoutes = require("./src/routes/auth/protectedRoutes");
 app.use("/api", protectedRoutes);
+app.use("/api/patients", cognitivePatientRoutes);
 
 // Health check
 app.get("/health", (req, res) => {

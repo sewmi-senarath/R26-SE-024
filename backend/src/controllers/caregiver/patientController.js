@@ -173,7 +173,9 @@
 //   deleteRoutine,
 // };
 
+const mongoose = require('mongoose');
 const Patient = require('../../models/caregiver/Patient');
+const User = require('../../models/auth/User');
 
 // ── GET all patients ───────────────────────────────────────────────────────
 const getPatients = async (req, res) => {
@@ -210,7 +212,7 @@ const createPatient = async (req, res) => {
     const {
       name, initials, age, condition, stage,
       avatarColor, emoji, condition_notes,
-      condition_description,
+      condition_description, userId,
     } = req.body;
 
     if (!name || !age || !condition || !stage) {
@@ -218,6 +220,38 @@ const createPatient = async (req, res) => {
         success: false,
         message: 'name, age, condition and stage are required',
       });
+    }
+
+    let registeredPatientId = null;
+    if (userId) {
+      if (!mongoose.Types.ObjectId.isValid(userId)) {
+        return res.status(400).json({
+          success: false,
+          message: 'userId must be a valid registered patient id',
+        });
+      }
+
+      const registeredPatient = await User.findOne({ _id: userId, role: 'patient' });
+      if (!registeredPatient) {
+        return res.status(404).json({
+          success: false,
+          message: 'Registered patient not found',
+        });
+      }
+
+      if (
+        registeredPatient.assignedCaregiverId &&
+        registeredPatient.assignedCaregiverId.toString() !== req.user.userId.toString()
+      ) {
+        return res.status(409).json({
+          success: false,
+          message: 'Registered patient is already linked to another caregiver',
+        });
+      }
+
+      registeredPatient.assignedCaregiverId = req.user.userId;
+      await registeredPatient.save({ validateBeforeSave: false });
+      registeredPatientId = registeredPatient._id;
     }
 
     const patient = await Patient.create({
@@ -228,6 +262,7 @@ const createPatient = async (req, res) => {
       condition_notes:       condition_notes || 'No notes added',
       condition_description: condition_description || 'No description provided.',
       routines:              [],
+      registeredPatientId,
       // ✅ Auto-set caregiverId from JWT token
       caregiverId: req.user.userId,
     });

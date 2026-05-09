@@ -49,6 +49,7 @@ const normalizePatientRegistrationFields = (body) => ({
   lifeEvents: parseJsonArrayField(body.lifeEvents, 'lifeEvents'),
   countriesLived: parseStringArrayField(body.countriesLived, 'countriesLived'),
   occupations: parseStringArrayField(body.occupations, 'occupations'),
+  favoritePhotos: parseStringArrayField(body.favoritePhotos, 'favoritePhotos'),
   favoritePlaces: parseStringArrayField(body.favoritePlaces, 'favoritePlaces'),
   festivalsCelebrated: parseStringArrayField(body.festivalsCelebrated, 'festivalsCelebrated'),
   foodsPreferred: parseJsonArrayField(body.foodsPreferred, 'foodsPreferred'),
@@ -102,6 +103,7 @@ const register = async (req, res) => {
       countriesLived: [],
       occupations: [],
       favoritePlaces: [],
+      favoritePhotos: [],
       festivalsCelebrated: [],
       foodsPreferred: [],
       preferredSports: [],
@@ -129,6 +131,7 @@ const register = async (req, res) => {
 
       // Step 3
       favoritePlaces: patientFields.favoritePlaces,
+      favoritePhotos: patientFields.favoritePhotos,
       favoritePlacesText,
       festivalsCelebrated: patientFields.festivalsCelebrated,
       foodsPreferred: patientFields.foodsPreferred,
@@ -293,7 +296,7 @@ const getMe = async (req, res) => {
       'fullName email role ' +
       'age gender preferredLanguage cognitiveLevel hometown hobbies interests ' +
       'familyMembers lifeEvents countriesLived occupations ' +
-      'favoritePlaces favoritePlacesText festivalsCelebrated foodsPreferred preferredSports preferredSportsText languagesPreferred assignedCaregiverId ' +
+      'favoritePhotos favoritePlaces favoritePlacesText festivalsCelebrated foodsPreferred preferredSports preferredSportsText languagesPreferred assignedCaregiverId ' +
       'avatarColor isOnline shiftsCompleted patientsAssigned hoursThisWeek profileImage'
     );
 
@@ -330,6 +333,7 @@ const getMe = async (req, res) => {
           occupations:    user.occupations,
 
           // Patient Step 3
+          favoritePhotos:      user.favoritePhotos,
           favoritePlaces:      user.favoritePlaces,
           favoritePlacesText:  user.favoritePlacesText,
           festivalsCelebrated: user.festivalsCelebrated,
