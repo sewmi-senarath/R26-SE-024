@@ -5,6 +5,58 @@ const {
   verifyRefreshToken,
 } = require('../../utils/jwt');
 
+const parseJsonArrayField = (value, fieldName) => {
+  if (value === undefined || value === null || value === '') return [];
+  if (Array.isArray(value)) return value;
+
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {
+      // Fall through to a clear 400 response below.
+    }
+  }
+
+  const error = new Error(`${fieldName} must be an array.`);
+  error.statusCode = 400;
+  throw error;
+};
+
+const parseStringArrayField = (value, fieldName) => {
+  if (value === undefined || value === null || value === '') return [];
+  if (Array.isArray(value)) return value.filter(Boolean);
+
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      if (Array.isArray(parsed)) return parsed.filter(Boolean);
+    } catch {
+      return value
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+  }
+
+  const error = new Error(`${fieldName} must be an array or comma-separated string.`);
+  error.statusCode = 400;
+  throw error;
+};
+
+const normalizePatientRegistrationFields = (body) => ({
+  familyMembers: parseJsonArrayField(body.familyMembers, 'familyMembers'),
+  lifeEvents: parseJsonArrayField(body.lifeEvents, 'lifeEvents'),
+  countriesLived: parseStringArrayField(body.countriesLived, 'countriesLived'),
+  occupations: parseStringArrayField(body.occupations, 'occupations'),
+  favoritePhotos: parseStringArrayField(body.favoritePhotos, 'favoritePhotos'),
+  favoritePlaces: parseStringArrayField(body.favoritePlaces, 'favoritePlaces'),
+  festivalsCelebrated: parseStringArrayField(body.festivalsCelebrated, 'festivalsCelebrated'),
+  foodsPreferred: parseJsonArrayField(body.foodsPreferred, 'foodsPreferred'),
+  preferredSports: parseStringArrayField(body.preferredSports, 'preferredSports'),
+  languagesPreferred: parseStringArrayField(body.languagesPreferred, 'languagesPreferred'),
+});
+
 // ── REGISTER ──────────────────────────────────────────────────────────────
 const register = async (req, res) => {
   try {
@@ -45,6 +97,23 @@ const register = async (req, res) => {
       });
     }
 
+    const emptyPatientFields = {
+      familyMembers: [],
+      lifeEvents: [],
+      countriesLived: [],
+      occupations: [],
+      favoritePlaces: [],
+      favoritePhotos: [],
+      festivalsCelebrated: [],
+      foodsPreferred: [],
+      preferredSports: [],
+      languagesPreferred: [],
+    };
+    const patientFields =
+      role === 'patient'
+        ? normalizePatientRegistrationFields(req.body)
+        : emptyPatientFields;
+
     // Create user with all fields
     const user = await User.create({
       fullName, email, password, role,
@@ -55,14 +124,20 @@ const register = async (req, res) => {
       hobbies, interests,
 
       // Step 2
-      familyMembers, lifeEvents,
-      countriesLived, occupations,
+      familyMembers: patientFields.familyMembers,
+      lifeEvents: patientFields.lifeEvents,
+      countriesLived: patientFields.countriesLived,
+      occupations: patientFields.occupations,
 
       // Step 3
-      favoritePlaces, favoritePlacesText,
-      festivalsCelebrated, foodsPreferred,
-      preferredSports, preferredSportsText,
-      languagesPreferred,
+      favoritePlaces: patientFields.favoritePlaces,
+      favoritePhotos: patientFields.favoritePhotos,
+      favoritePlacesText,
+      festivalsCelebrated: patientFields.festivalsCelebrated,
+      foodsPreferred: patientFields.foodsPreferred,
+      preferredSports: patientFields.preferredSports,
+      preferredSportsText,
+      languagesPreferred: patientFields.languagesPreferred,
       assignedCaregiverId: role === 'patient' ? assignedCaregiverId || null : null,
     });
 
@@ -90,9 +165,9 @@ const register = async (req, res) => {
     });
   } catch (error) {
     console.error('Register error:', error);
-    res.status(500).json({
+    res.status(error.statusCode || 500).json({
       success: false,
-      message: 'Server error during registration.',
+      message: error.statusCode ? error.message : 'Server error during registration.',
       error: error.message,
     });
   }
@@ -221,7 +296,7 @@ const getMe = async (req, res) => {
       'fullName email role ' +
       'age gender preferredLanguage cognitiveLevel hometown hobbies interests ' +
       'familyMembers lifeEvents countriesLived occupations ' +
-      'favoritePlaces favoritePlacesText festivalsCelebrated foodsPreferred preferredSports preferredSportsText languagesPreferred assignedCaregiverId ' +
+      'favoritePhotos favoritePlaces favoritePlacesText festivalsCelebrated foodsPreferred preferredSports preferredSportsText languagesPreferred assignedCaregiverId ' +
       'avatarColor isOnline shiftsCompleted patientsAssigned hoursThisWeek profileImage'
     );
 
@@ -258,6 +333,7 @@ const getMe = async (req, res) => {
           occupations:    user.occupations,
 
           // Patient Step 3
+          favoritePhotos:      user.favoritePhotos,
           favoritePlaces:      user.favoritePlaces,
           favoritePlacesText:  user.favoritePlacesText,
           festivalsCelebrated: user.festivalsCelebrated,

@@ -15,9 +15,10 @@ import {
 interface Props {
   result: GameSessionResult;
   onPlayAgain: () => void;
+  onBack?: () => void;
 }
 
-export function GameResultScreen({ result, onPlayAgain }: Props) {
+export function GameResultScreen({ result, onPlayAgain, onBack }: Props) {
   const router = useRouter();
   const config = GAME_CONFIGS[result.gameId];
   const pct = Math.round((result.score / result.maxScore) * 100);
@@ -219,7 +220,7 @@ export function GameResultScreen({ result, onPlayAgain }: Props) {
 
         {/* Back to Games */}
         <TouchableOpacity
-          onPress={() => router.replace('/patient/games')}
+          onPress={onBack ?? (() => router.replace('/patient/games'))}
           style={{
             borderWidth: 1.5,
             borderColor: '#e5e7eb',

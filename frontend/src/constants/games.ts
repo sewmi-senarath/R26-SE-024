@@ -33,7 +33,7 @@ export const GAME_CONFIGS: Record<GameId, GameConfigEntry> = {
       badgeText: "text-purple-700",
       border: "border-purple-200",
     },
-    targetSection: "Recall",
+    targetSection: "Registration",
     sectionMax: 3,
     difficultyThresholds: { hard: 80, medium: 50 },
     difficultyDescriptions: {
@@ -89,7 +89,7 @@ export const GAME_CONFIGS: Record<GameId, GameConfigEntry> = {
 
   photo_puzzle: {
     id: "photo_puzzle",
-    title: "Family Photo Puzzle",
+    title: "Photo Puzzle",
     description: "Piece together familiar photos",
     icon: "🖼️",
     color: {

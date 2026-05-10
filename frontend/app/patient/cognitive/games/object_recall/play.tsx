@@ -1,10 +1,9 @@
-// app/patient/cognitive/games/object_recall/play.tsx
-
 import { GameHeader } from '@/src/components/patient/cognitive/components/games/shared/GameHeader';
 import { GameResultScreen } from '@/src/components/patient/cognitive/components/games/shared/GameResultScreen';
 import { InstructionScreen } from '@/src/components/patient/cognitive/components/games/shared/InstructionScreen';
 import { getGameContent } from '@/src/constants/gameContent';
 import { useQuestionTimer } from '@/src/hooks/useQuestionTimer';
+import { useSaveGameSession } from '@/src/hooks/useSaveGameSession';
 import { useSoundEffects } from '@/src/hooks/useSoundEffects';
 import { Difficulty, GameSessionResult, ObjectRecallConfig } from '@/src/types/games.types';
 import { useLocalSearchParams } from 'expo-router';
@@ -27,6 +26,7 @@ type Phase = 'instruction' | 'study' | 'recall' | 'result';
 export default function ObjectRecallGame() {
   const { difficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
   const { playSound } = useSoundEffects();
+  const saveGameSession = useSaveGameSession();
   const config = getGameContent<ObjectRecallConfig>('object_recall', difficulty);
 
   const [phase, setPhase] = useState<Phase>('instruction');
@@ -58,7 +58,7 @@ export default function ObjectRecallGame() {
   useEffect(() => {
     if (phase === 'recall' && timer.isWarning && !warningSpokenRef.current) {
       warningSpokenRef.current = true;
-      Speech.speak('Time is almost over. You are doing well.');
+      Speech.speak('You are doing well.');
     }
   }, [phase, timer.isWarning]);
 
@@ -86,13 +86,14 @@ export default function ObjectRecallGame() {
     }
 
     setResult(nextResult);
+    void saveGameSession(nextResult);
     setShowConfetti(true);
     Speech.speak(`Great effort. You got ${correct} out of ${config.objectCount}.`);
     setTimeout(() => {
       setShowConfetti(false);
       setPhase('result');
     }, 1100);
-  }, [inputs, config, startTime, difficulty, playSound]);
+  }, [inputs, config, startTime, difficulty, playSound, saveGameSession]);
 
   const handleReset = () => {
     playSound('click');

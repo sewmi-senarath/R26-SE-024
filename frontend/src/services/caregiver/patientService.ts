@@ -30,7 +30,9 @@ export const fetchPatients = async (): Promise<PatientDetail[]> => {
 };
 
 export const createPatient = async (
-  patient: Omit<PatientDetail, 'id' | 'emoji' | 'lastChecked' | 'routines'>
+  patient: Omit<PatientDetail, 'id' | 'emoji' | 'lastChecked' | 'routines'> & {
+    userId?: string;
+  }
 ): Promise<PatientDetail> => {
   const data = await authFetch('/caregiver/patients', {
     method: 'POST',

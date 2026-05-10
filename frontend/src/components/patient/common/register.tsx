@@ -116,16 +116,17 @@ export default function PatientRegistration() {
                     gender: step1Data.gender,
 
                     // Step 2
-                    familyMembers: JSON.stringify(step2Data.familyMembers),
-                    lifeEvents: JSON.stringify(step2Data.lifeEvents),
+                    familyMembers: step2Data.familyMembers,
+                    lifeEvents: step2Data.lifeEvents,
                     countriesLived: step2Data.countriesLived,
                     occupations: step2Data.occupations,
 
                     // Step 3
+                    favoritePhotos: step3Data.favoritePhotos,
                     favoritePlaces: step3Data.favoritePlaces,
                     favoritePlacesText: step3Data.favoritePlacesText,
                     festivalsCelebrated: step3Data.festivalsCelebrated,
-                    foodsPreferred: JSON.stringify(step3Data.foodsPreferred),
+                    foodsPreferred: step3Data.foodsPreferred,
                     preferredSports: step3Data.preferredSports,
                     preferredSportsText: step3Data.preferredSportsText,
                     languagesPreferred: step3Data.languagesPreferred,

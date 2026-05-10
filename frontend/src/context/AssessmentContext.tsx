@@ -1,32 +1,115 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { SessionScores } from '../utils/difficultyEngine';
+import { getPatientAssessmentHistory } from "@/src/api/assessmentApi";
+import { getMe } from "@/src/api/authApi";
+import { loadActiveSession } from "@/src/utils/sessionStorage";
+import React, {
+  createContext,
+  ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
+import { SessionScores } from "../utils/difficultyEngine";
 
-// Default mock session — replace with real MMSE session data
-// when you wire up the full assessment flow
-const DEFAULT_SESSION: SessionScores = {
-  sessionId: 'default-session',
-  totalScore: 18,
+const FALLBACK_SESSION: SessionScores = {
+  sessionId: "no-completed-assessment",
+  totalScore: 0,
   sectionScores: {
-    Orientation: 6,
-    Registration: 2,
-    Attention: 3,
-    Recall: 2,
-    Language: 5,
+    Orientation: 0,
+    Registration: 0,
+    Attention: 0,
+    Recall: 0,
+    Language: 0,
   },
 };
 
 interface AssessmentContextType {
   session: SessionScores;
+  patientId: string | null;
+  isLoadingSession: boolean;
+  error: string | null;
   setSession: (session: SessionScores) => void;
+  refreshSession: () => Promise<void>;
 }
 
 const AssessmentContext = createContext<AssessmentContextType | null>(null);
 
 export function AssessmentProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<SessionScores>(DEFAULT_SESSION);
+  const [session, setSession] = useState<SessionScores>(FALLBACK_SESSION);
+  const [patientId, setPatientId] = useState<string | null>(null);
+  const [isLoadingSession, setIsLoadingSession] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const refreshSession = useCallback(async () => {
+    setIsLoadingSession(true);
+    try {
+      const activeSession = await loadActiveSession();
+
+      if (activeSession?.status === "done") {
+        setPatientId(activeSession.patientId || null);
+        setSession({
+          sessionId: activeSession.sessionId,
+          totalScore: activeSession.totalScore,
+          sectionScores: activeSession.sectionScores,
+        });
+        setError(null);
+        return;
+      }
+
+      const meRes = await getMe();
+      const currentPatientId =
+        meRes?.success && meRes.data.user.role === "patient"
+          ? meRes.data.user.id
+          : null;
+
+      setPatientId(currentPatientId);
+
+      if (!currentPatientId) {
+        setSession(FALLBACK_SESSION);
+        setError("No patient account found for game difficulty.");
+        return;
+      }
+
+      const sessions = await getPatientAssessmentHistory(currentPatientId);
+      const latestDone = sessions.find((item) => item.status === "done");
+
+      if (!latestDone) {
+        setSession(FALLBACK_SESSION);
+        setError(null);
+        return;
+      }
+
+      setSession({
+        sessionId: latestDone.sessionId,
+        totalScore: latestDone.totalScore,
+        sectionScores: latestDone.sectionScores,
+      });
+      setError(null);
+    } catch (err) {
+      setSession(FALLBACK_SESSION);
+      setError(
+        err instanceof Error ? err.message : "Failed to load screening result.",
+      );
+    } finally {
+      setIsLoadingSession(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshSession();
+  }, [refreshSession]);
 
   return (
-    <AssessmentContext.Provider value={{ session, setSession }}>
+    <AssessmentContext.Provider
+      value={{
+        session,
+        patientId,
+        isLoadingSession,
+        error,
+        setSession,
+        refreshSession,
+      }}
+    >
       {children}
     </AssessmentContext.Provider>
   );
@@ -34,6 +117,6 @@ export function AssessmentProvider({ children }: { children: ReactNode }) {
 
 export function useAssessment() {
   const ctx = useContext(AssessmentContext);
-  if (!ctx) throw new Error('useAssessment must be used inside AssessmentProvider');
+  if (!ctx) throw new Error("useAssessment must be used inside AssessmentProvider");
   return ctx;
 }

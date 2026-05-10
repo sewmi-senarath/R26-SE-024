@@ -14,9 +14,10 @@ interface Props {
   difficulty: Difficulty;
   steps: InstructionStep[];
   onStart: () => void;
+  onBack?: () => void;
 }
 
-export function InstructionScreen({ gameId, difficulty, steps, onStart }: Props) {
+export function InstructionScreen({ gameId, difficulty, steps, onStart, onBack }: Props) {
   const router = useRouter();
   const config = GAME_CONFIGS[gameId];
   const c = config.color;
@@ -29,7 +30,7 @@ export function InstructionScreen({ gameId, difficulty, steps, onStart }: Props)
       >
         {/* Back button */}
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={onBack ?? (() => router.back())}
           className="px-6 pt-4 pb-2 flex-row items-center gap-1"
         >
           <Text className="text-blue-500 text-lg font-medium">← Back</Text>

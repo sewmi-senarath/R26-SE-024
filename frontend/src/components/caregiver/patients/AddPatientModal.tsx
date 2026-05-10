@@ -449,7 +449,11 @@ interface RegisteredPatient {
 interface AddPatientModalProps {
   visible:  boolean;
   onClose:  () => void;
-  onSubmit: (patient: Omit<PatientDetail, 'id' | 'emoji' | 'lastChecked' | 'routines'>) => Promise<void>;
+  onSubmit: (
+    patient: Omit<PatientDetail, 'id' | 'emoji' | 'lastChecked' | 'routines'> & {
+      userId?: string;
+    }
+  ) => Promise<void>;
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -544,6 +548,7 @@ export const AddPatientModal: React.FC<AddPatientModalProps> = ({
     setLoading(true);
     try {
       await onSubmit({
+        userId:                form.userId || undefined,
         name:                  form.name.trim(),
         initials:              getInitials(form.name),
         age:                   Number(form.age),

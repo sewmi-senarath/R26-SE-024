@@ -8,13 +8,13 @@ const {
   getPatientAssessments,
 } = require("../../controllers/cognitive/assessmentController");
 
-const router = express.Router();
+const assessmentRoutes = express.Router();
 
-router.post("/", createSession);
-router.get("/patient/:patientId/history", getPatientAssessments);
-router.get("/:sessionId", getSession);
-router.patch("/:sessionId/answer", submitAnswer);
-router.patch("/:sessionId/progress", updateProgress);
-router.post("/:sessionId/complete", completeSession);
+assessmentRoutes.post("/", createSession);
+assessmentRoutes.get("/patient/:patientId/history", getPatientAssessments);
+assessmentRoutes.get("/:sessionId", getSession);
+assessmentRoutes.patch("/:sessionId/answer", submitAnswer);
+assessmentRoutes.patch("/:sessionId/progress", updateProgress);
+assessmentRoutes.post("/:sessionId/complete", completeSession);
 
-module.exports = router;
+module.exports = assessmentRoutes;

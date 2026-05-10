@@ -3,6 +3,7 @@ import { GameResultScreen } from '@/src/components/patient/cognitive/components/
 import { InstructionScreen } from '@/src/components/patient/cognitive/components/games/shared/InstructionScreen';
 import { getGameContent } from '@/src/constants/gameContent';
 import { useQuestionTimer } from '@/src/hooks/useQuestionTimer';
+import { useSaveGameSession } from '@/src/hooks/useSaveGameSession';
 import { useSoundEffects } from '@/src/hooks/useSoundEffects';
 import { Difficulty, GameSessionResult, WordPuzzleConfig } from '@/src/types/games.types';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -17,6 +18,7 @@ export default function WordPuzzleGame() {
   const { difficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
   const router = useRouter();
   const { playSound } = useSoundEffects();
+  const saveGameSession = useSaveGameSession();
   const config = getGameContent<WordPuzzleConfig>('word_puzzle', difficulty);
   
   const [phase, setPhase] = useState<Phase>('instruction');
@@ -83,7 +85,7 @@ export default function WordPuzzleGame() {
       playSound('click');
     }
     
-    setResult({
+    const nextResult: GameSessionResult = {
       gameId: 'word_puzzle',
       difficulty,
       score,
@@ -92,7 +94,9 @@ export default function WordPuzzleGame() {
       completedAt: new Date().toISOString(),
       correctAnswers: score,
       totalAnswers: config.words.length,
-    });
+    };
+    setResult(nextResult);
+    void saveGameSession(nextResult);
     setPhase('result');
   };
 
@@ -118,9 +122,10 @@ export default function WordPuzzleGame() {
         difficulty={difficulty}
         steps={[
           { icon: '🔤', text: `Unscramble ${config.wordLength}-letter words` },
+          { icon: '🔀', text: config.scrambled ? 'Letters are scrambled - rearrange them' : 'Type the word from the hint' },
           { icon: '💡', text: config.showLetterHints ? 'Letter position hints are shown' : 'No hints - rely on memory' },
           { icon: '⏱️', text: config.timeLimitSeconds ? `${config.timeLimitSeconds} seconds per word` : 'No time limit' },
-          { icon: '🔀', text: config.scrambled ? 'Letters are scrambled — rearrange them' : 'Type the word from the hint' },
+          
         ]}
         onStart={() => {
           playSound('click');
