@@ -434,7 +434,7 @@ export default function PhotoPuzzleGame() {
     setShowConfetti(false);
     celebratedRef.current = false;
     warningSpokenRef.current = false;
-    Speech.speak('Drag each piece to the matching spot. Take your time.');
+    Speech.speak('Drag each piece to the matching spot.');
     setPhase('playing');
   };
 

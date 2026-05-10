@@ -1,9 +1,11 @@
 import { GAME_CONFIGS } from "@/src/constants/games";
 import { useAssessment } from "@/src/context/AssessmentContext";
 import { generateGamePlan } from "@/src/utils/difficultyEngine";
+import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
 import { Audio } from "expo-av";
 import { useRouter } from "expo-router";
-import React, { useMemo, useRef } from "react";
+import React, { useCallback, useMemo, useRef } from "react";
 import {
   Platform,
   SafeAreaView,
@@ -17,7 +19,13 @@ import { DifficultyBadge } from "./DifficultyBadge";
 
 export default function BrainGamesScreen() {
   const router = useRouter();
-  const { session, isLoadingSession } = useAssessment();
+  const {
+    session,
+    isLoadingSession,
+    hasCompletedAssessment,
+    error,
+    refreshSession,
+  } = useAssessment();
   const gamePlan = useMemo(() => generateGamePlan(session), [session]);
 
   // --- Sound effect setup ---
@@ -40,12 +48,18 @@ export default function BrainGamesScreen() {
     };
   }, []);
 
+  useFocusEffect(
+    useCallback(() => {
+      refreshSession();
+    }, [refreshSession]),
+  );
+
   const playSound = async () => {
     try {
       if (soundRef.current) {
         await soundRef.current.replayAsync();
       }
-    } catch (e) {
+    } catch {
       // ignore sound errors
     }
   };
@@ -60,6 +74,76 @@ export default function BrainGamesScreen() {
   const hardCount = gamePlan.assignments.filter(
     (assignment) => assignment.difficulty === "hard",
   ).length;
+
+  if (isLoadingSession) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: "#f9fafb",
+          paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
+        }}
+      >
+        <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center px-6">
+          <View className="w-16 h-16 rounded-2xl bg-blue-100 items-center justify-center mb-5">
+            <Ionicons name="clipboard-outline" size={30} color="#3b82f6" />
+          </View>
+          <Text className="text-lg font-semibold text-gray-900 text-center">
+            Checking your screening status...
+          </Text>
+          <Text className="text-sm text-gray-500 text-center mt-2">
+            We are loading your latest assessment result.
+          </Text>
+        </SafeAreaView>
+      </View>
+    );
+  }
+
+  if (!hasCompletedAssessment) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: "#f9fafb",
+          paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
+        }}
+      >
+        <SafeAreaView className="flex-1 bg-gray-50">
+          <View className="flex-1 justify-center px-6 pb-24">
+            <View className="w-16 h-16 rounded-2xl bg-blue-100 items-center justify-center mb-6">
+              <Ionicons name="clipboard-outline" size={32} color="#3b82f6" />
+            </View>
+
+            <Text className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">
+              Screening Required
+            </Text>
+            <Text className="text-3xl font-bold text-gray-900 mb-3">
+              Complete the assessment first
+            </Text>
+            <Text className="text-base text-gray-500 leading-6 mb-8">
+              Your games are personalized from your screening test results. Take
+              the assessment once, then your game plan will appear here.
+            </Text>
+
+            {error ? (
+              <Text className="text-sm text-red-500 mb-4">{error}</Text>
+            ) : null}
+
+            <TouchableOpacity
+              onPress={() => router.push("/patient/cognitive/assessment")}
+              activeOpacity={0.8}
+              className="bg-blue-500 rounded-2xl py-4 px-5 flex-row items-center justify-center gap-2"
+            >
+              <Ionicons name="arrow-forward" size={20} color="#ffffff" />
+              <Text className="text-white font-semibold text-base">
+                Go to Assessment
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </View>
+    );
+  }
 
   return (
     <View

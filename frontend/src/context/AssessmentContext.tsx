@@ -27,6 +27,7 @@ interface AssessmentContextType {
   session: SessionScores;
   patientId: string | null;
   isLoadingSession: boolean;
+  hasCompletedAssessment: boolean;
   error: string | null;
   setSession: (session: SessionScores) => void;
   refreshSession: () => Promise<void>;
@@ -38,24 +39,12 @@ export function AssessmentProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<SessionScores>(FALLBACK_SESSION);
   const [patientId, setPatientId] = useState<string | null>(null);
   const [isLoadingSession, setIsLoadingSession] = useState(true);
+  const [hasCompletedAssessment, setHasCompletedAssessment] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const refreshSession = useCallback(async () => {
     setIsLoadingSession(true);
     try {
-      const activeSession = await loadActiveSession();
-
-      if (activeSession?.status === "done") {
-        setPatientId(activeSession.patientId || null);
-        setSession({
-          sessionId: activeSession.sessionId,
-          totalScore: activeSession.totalScore,
-          sectionScores: activeSession.sectionScores,
-        });
-        setError(null);
-        return;
-      }
-
       const meRes = await getMe();
       const currentPatientId =
         meRes?.success && meRes.data.user.role === "patient"
@@ -66,7 +55,24 @@ export function AssessmentProvider({ children }: { children: ReactNode }) {
 
       if (!currentPatientId) {
         setSession(FALLBACK_SESSION);
+        setHasCompletedAssessment(false);
         setError("No patient account found for game difficulty.");
+        return;
+      }
+
+      const activeSession = await loadActiveSession();
+
+      if (
+        activeSession?.status === "done" &&
+        activeSession.patientId === currentPatientId
+      ) {
+        setSession({
+          sessionId: activeSession.sessionId,
+          totalScore: activeSession.totalScore,
+          sectionScores: activeSession.sectionScores,
+        });
+        setHasCompletedAssessment(true);
+        setError(null);
         return;
       }
 
@@ -75,6 +81,7 @@ export function AssessmentProvider({ children }: { children: ReactNode }) {
 
       if (!latestDone) {
         setSession(FALLBACK_SESSION);
+        setHasCompletedAssessment(false);
         setError(null);
         return;
       }
@@ -84,9 +91,11 @@ export function AssessmentProvider({ children }: { children: ReactNode }) {
         totalScore: latestDone.totalScore,
         sectionScores: latestDone.sectionScores,
       });
+      setHasCompletedAssessment(true);
       setError(null);
     } catch (err) {
       setSession(FALLBACK_SESSION);
+      setHasCompletedAssessment(false);
       setError(
         err instanceof Error ? err.message : "Failed to load screening result.",
       );
@@ -105,6 +114,7 @@ export function AssessmentProvider({ children }: { children: ReactNode }) {
         session,
         patientId,
         isLoadingSession,
+        hasCompletedAssessment,
         error,
         setSession,
         refreshSession,
