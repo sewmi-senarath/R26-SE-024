@@ -669,11 +669,12 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator, Alert, Modal, RefreshControl,
   ScrollView, StatusBar, Text, TouchableOpacity, View,
 } from 'react-native';
+import { authFetch } from '../../src/api/authApi';
 import { MoodChecker } from '../../src/components/caregiver/insights/MoodChecker';
 import { RecommendationCard } from '../../src/components/caregiver/insights/RecommendationCard';
 import { StressGauge } from '../../src/components/caregiver/insights/StressGauge';
@@ -681,7 +682,6 @@ import { WeeklyChart } from '../../src/components/caregiver/insights/WeeklyChart
 import { WellbeingStats } from '../../src/components/caregiver/insights/WellbeingStats';
 import { Colors } from '../../src/constants/colors';
 import { getLatestResult, submitCheckIn } from '../../src/services/caregiver/insightService';
-import { authFetch } from '../../src/api/authApi';
 import {
   CheckInResult, DailyCheckIn,
   MoodType, Recommendation,
@@ -736,8 +736,8 @@ const StepSlider: React.FC<{
               height: 30, borderRadius: 6,
               backgroundColor:
                 step === value ? Colors.primary
-                : step < value ? Colors.primaryLight
-                : Colors.borderLight,
+                  : step < value ? Colors.primaryLight
+                    : Colors.borderLight,
               justifyContent: 'center', alignItems: 'center',
             }}>
               <Text style={{
@@ -745,8 +745,8 @@ const StepSlider: React.FC<{
                 fontWeight: step === value ? '700' : '500',
                 color:
                   step === value ? Colors.white
-                  : step < value ? Colors.primary
-                  : Colors.textMuted,
+                    : step < value ? Colors.primary
+                      : Colors.textMuted,
               }}>
                 {step}
               </Text>
@@ -811,15 +811,16 @@ const NumberStepper: React.FC<{
 
 // ── Result Banner ─────────────────────────────────────────────────────────
 const ResultBanner: React.FC<{
-  result:       CheckInResult;
-  form:         DailyCheckIn;
+  result: CheckInResult;
+  form: DailyCheckIn;
   onNewCheckIn: () => void;
 }> = ({ result, form, onNewCheckIn }) => {
-  const config = {
-    Low:      { color: Colors.success, bg: Colors.successSoft, emoji: '😊' },
-    Moderate: { color: Colors.warning, bg: Colors.warningSoft, emoji: '😐' },
-    High:     { color: Colors.danger,  bg: Colors.dangerSoft,  emoji: '😟' },
-  }[result.stressLevel];
+  const configMap: Record<string, { color: string; bg: string; emoji: string }> = {
+    'Not Stressed': { color: Colors.success, bg: Colors.successSoft, emoji: '😊' },
+    'Stressed': { color: Colors.danger, bg: Colors.dangerSoft, emoji: '😟' },
+  };
+  const config = configMap[result.stressLevel] ??
+    { color: Colors.warning, bg: Colors.warningSoft, emoji: '😐' };
 
   const handleViewPlan = () => {
     router.push({
@@ -827,7 +828,7 @@ const ResultBanner: React.FC<{
       params: {
         stressLevel: result.stressLevel,
         stressScore: String(result.stressScore),
-        formData:    JSON.stringify(form),
+        formData: JSON.stringify(form),
       },
     } as any);
   };
@@ -1060,16 +1061,16 @@ const CheckInModal: React.FC<{
 
 // ── MAIN SCREEN ───────────────────────────────────────────────────────────
 export default function InsightsScreen() {
-  const [stressLevel, setStressLevel]         = useState<StressLevel>('Moderate');
-  const [stressScore, setStressScore]         = useState(65);
-  const [checkInResult, setCheckInResult]     = useState<CheckInResult | null>(null);
-  const [lastForm, setLastForm]               = useState<DailyCheckIn | null>(null);
-  const [showCheckIn, setShowCheckIn]         = useState(false);
+  const [stressLevel, setStressLevel] = useState<StressLevel>('Moderate');
+  const [stressScore, setStressScore] = useState(65);
+  const [checkInResult, setCheckInResult] = useState<CheckInResult | null>(null);
+  const [lastForm, setLastForm] = useState<DailyCheckIn | null>(null);
+  const [showCheckIn, setShowCheckIn] = useState(false);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
-  const [refreshing, setRefreshing]           = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   // ✅ Real stats from API
-  const [stats, setStats]   = useState<WellbeingStatsType>(DEFAULT_STATS);
+  const [stats, setStats] = useState<WellbeingStatsType>(DEFAULT_STATS);
   const [weekly, setWeekly] = useState<WeeklyData[]>(DEFAULT_WEEKLY);
 
   // ✅ Fetch real stats and weekly data
@@ -1093,7 +1094,7 @@ export default function InsightsScreen() {
         // Update stats from latest check-in
         setStats((prev) => ({
           ...prev,
-          avgSleep:    result.stressScore ? 8 - (result.stressScore * 0.3) : 6.5,
+          avgSleep: result.stressScore ? 8 - (result.stressScore * 0.3) : 6.5,
           breaksTaken: result.stressScore ? Math.max(1, 5 - Math.floor(result.stressScore / 2)) : 3,
         }));
       }
@@ -1118,10 +1119,10 @@ export default function InsightsScreen() {
 
     // ✅ Update stats from real check-in form data
     setStats({
-      avgSleep:       form.sleepHours,
-      activeHours:    form.hoursCaregiving,
+      avgSleep: form.sleepHours,
+      activeHours: form.hoursCaregiving,
       tasksCompleted: form.tasksCompleted,
-      breaksTaken:    form.breaksTaken,
+      breaksTaken: form.breaksTaken,
     });
 
     // ✅ Update weekly chart with today's real data
