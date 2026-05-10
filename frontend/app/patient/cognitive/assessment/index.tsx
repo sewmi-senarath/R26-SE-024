@@ -1,19 +1,41 @@
+import { getMe } from "@/src/api/authApi";
 import { useAssessmentSession } from "@/src/hooks/useAssessmentSession";
 import { useRouter } from "expo-router";
 import React from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-const PATIENT_ID = "patient_001";
-const CAREGIVER_ID = "caregiver-001";
-
 export default function AssessmentWelcome() {
   const router = useRouter();
-  const { startSession } = useAssessmentSession(PATIENT_ID, CAREGIVER_ID);
+  const { startSession } = useAssessmentSession();
 
   const handleStart = async () => {
-    await startSession();
-    router.replace("/patient/cognitive/assessment/0");
+    try {
+      const meRes = await getMe();
+      if (!meRes?.success) {
+        throw new Error(meRes?.message || "Failed to load user");
+      }
+
+      const me = meRes.data.user;
+
+      const patientId = me.role === "patient" ? me.id : undefined;
+      const caregiverId =
+        me.role === "caregiver" ? me.id : me.assignedCaregiverId;
+
+      if (!patientId || !caregiverId) {
+        throw new Error("Missing patient/caregiver ID");
+      }
+
+      await startSession({
+        patientId,
+        caregiverId,
+        administrationMode: "self",
+      });
+      router.replace("/patient/cognitive/assessment/0");
+    } catch (error) {
+      console.error("Session start failed:", error);
+      alert("Failed to start assessment. Please check your connection.");
+    }
   };
 
   return (

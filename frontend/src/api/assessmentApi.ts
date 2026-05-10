@@ -61,7 +61,7 @@ async function apiRequest<T>(path: string, init: RequestInit): Promise<T> {
 }
 
 export async function startSession(
-  payload: CreateSessionPayload
+  payload: CreateSessionPayload,
 ): Promise<MMSESession> {
   const data = await apiRequest<{ session: MMSESession }>("/assessments", {
     method: "POST",
@@ -72,14 +72,14 @@ export async function startSession(
 
 export async function submitAnswer(
   sessionId: string,
-  payload: SubmitAnswerPayload
+  payload: SubmitAnswerPayload,
 ): Promise<MMSESession> {
   const data = await apiRequest<{ session: MMSESession }>(
     `/assessments/${sessionId}/answer`,
     {
       method: "PATCH",
       body: JSON.stringify(payload),
-    }
+    },
   );
   return data.session;
 }
@@ -87,21 +87,31 @@ export async function submitAnswer(
 export async function completeSession(sessionId: string): Promise<MMSESession> {
   const data = await apiRequest<{ session: MMSESession }>(
     `/assessments/${sessionId}/complete`,
-    { method: "POST" }
+    { method: "POST" },
   );
   return data.session;
 }
 
 export async function updateSessionProgress(
   sessionId: string,
-  payload: UpdateProgressPayload
+  payload: UpdateProgressPayload,
 ): Promise<MMSESession> {
   const data = await apiRequest<{ session: MMSESession }>(
     `/assessments/${sessionId}/progress`,
     {
       method: "PATCH",
       body: JSON.stringify(payload),
-    }
+    },
   );
   return data.session;
+}
+
+export async function getPatientAssessmentHistory(
+  patientId: string,
+): Promise<MMSESession[]> {
+  const data = await apiRequest<{ sessions: MMSESession[]; total: number }>(
+    `/assessments/patient/${patientId}/history`,
+    { method: "GET" },
+  );
+  return data.sessions;
 }

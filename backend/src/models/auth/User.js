@@ -59,6 +59,11 @@ const userSchema = new mongoose.Schema(
     preferredSports:     { type: String },
     preferredSportsText: { type: String },
     languagesPreferred:  { type: String },
+    assignedCaregiverId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
 
     // ── Caregiver extra fields ────────────────────────────────────────────
     avatarColor:      { type: String, default: '#2563EB' },

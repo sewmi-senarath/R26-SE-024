@@ -100,3 +100,4 @@ export interface MMSESession {
   locale: string;
   administrationMode: 'assisted' | 'self';
 }
+

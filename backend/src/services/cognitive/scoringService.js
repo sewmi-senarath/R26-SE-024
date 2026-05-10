@@ -66,7 +66,6 @@ function computeSectionScores(questions, answers, session) {
     Orientation: 0,
     Registration: 0,
     Attention: 0,
-    Recall: 0,
     Language: 0,
   };
 

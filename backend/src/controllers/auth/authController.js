@@ -24,7 +24,7 @@ const register = async (req, res) => {
       favoritePlaces, favoritePlacesText,
       festivalsCelebrated, foodsPreferred,
       preferredSports, preferredSportsText,
-      languagesPreferred,
+      languagesPreferred, assignedCaregiverId,
     } = req.body;
 
     // Validate role
@@ -63,6 +63,7 @@ const register = async (req, res) => {
       festivalsCelebrated, foodsPreferred,
       preferredSports, preferredSportsText,
       languagesPreferred,
+      assignedCaregiverId: role === 'patient' ? assignedCaregiverId || null : null,
     });
 
     // Generate tokens
@@ -220,9 +221,17 @@ const getMe = async (req, res) => {
       'fullName email role ' +
       'age gender preferredLanguage cognitiveLevel hometown hobbies interests ' +
       'familyMembers lifeEvents countriesLived occupations ' +
-      'favoritePlaces favoritePlacesText festivalsCelebrated foodsPreferred preferredSports preferredSportsText languagesPreferred ' +
+      'favoritePlaces favoritePlacesText festivalsCelebrated foodsPreferred preferredSports preferredSportsText languagesPreferred assignedCaregiverId ' +
       'avatarColor isOnline shiftsCompleted patientsAssigned hoursThisWeek profileImage'
     );
+
+    const fallbackCaregiver =
+      user.role === 'patient' && !user.assignedCaregiverId
+        ? await User.findOne({ role: 'caregiver', isActive: true }).select('_id')
+        : null;
+
+    const assignedCaregiverId =
+      user.assignedCaregiverId || fallbackCaregiver?._id || null;
 
     res.status(200).json({
       success: true,
@@ -256,6 +265,7 @@ const getMe = async (req, res) => {
           preferredSports:     user.preferredSports,
           preferredSportsText: user.preferredSportsText,
           languagesPreferred:  user.languagesPreferred,
+          assignedCaregiverId,
 
           // Caregiver
           avatarColor:      user.avatarColor,

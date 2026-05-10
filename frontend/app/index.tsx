@@ -100,7 +100,7 @@ export default function Index() {
           }}
         >
           <Text style={{ color: '#2563eb', fontSize: 18, fontWeight: 'bold' }}>
-            Already have an account
+            Already have an account?
           </Text>
         </TouchableOpacity>
 

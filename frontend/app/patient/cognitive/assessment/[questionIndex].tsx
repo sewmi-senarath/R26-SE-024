@@ -15,9 +15,6 @@ import React, { useCallback } from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-const PATIENT_ID = "patient_001";
-const CAREGIVER_ID = "caregiver-001";
-
 export default function QuestionScreen() {
   const router = useRouter();
   const {
@@ -29,7 +26,7 @@ export default function QuestionScreen() {
     markTimeExpired,
     isLoading,
     error,
-  } = useAssessmentSession(PATIENT_ID, CAREGIVER_ID);
+  } = useAssessmentSession();
 
   // IMPORTANT: use optional chaining so hooks can run even when currentQuestion is null.
   const isRecallQuestion =
@@ -51,7 +48,7 @@ export default function QuestionScreen() {
       if (!currentQuestion) return;
       await submitAnswer(currentQuestion.id, answer);
     },
-    [currentQuestion, submitAnswer]
+    [currentQuestion, submitAnswer],
   );
 
   const handleNext = useCallback(async () => {
@@ -105,7 +102,9 @@ export default function QuestionScreen() {
   }
 
   const answered = currentQuestion.id in session.answers;
-  const canProceed = isRecallQuestion ? answered : answered || session.timeExpired;
+  const canProceed = isRecallQuestion
+    ? answered
+    : answered || session.timeExpired;
   const canSkip = !answered;
 
   return (
@@ -162,10 +161,14 @@ export default function QuestionScreen() {
           onPress={handleSkip}
           disabled={!canSkip}
           className={`py-4 rounded-2xl items-center border ${
-            canSkip ? "border-amber-400 bg-amber-50" : "border-gray-200 bg-gray-100"
+            canSkip
+              ? "border-amber-400 bg-amber-50"
+              : "border-gray-200 bg-gray-100"
           }`}
         >
-          <Text className={`font-semibold ${canSkip ? "text-amber-700" : "text-gray-400"}`}>
+          <Text
+            className={`font-semibold ${canSkip ? "text-amber-700" : "text-gray-400"}`}
+          >
             Skip question
           </Text>
         </TouchableOpacity>
@@ -183,7 +186,7 @@ export default function QuestionScreen() {
 function renderQuestion(
   question: Question,
   onAnswer: (a: any) => void,
-  secondsLeft: number
+  secondsLeft: number,
 ) {
   switch (question.type) {
     case "mcq":
