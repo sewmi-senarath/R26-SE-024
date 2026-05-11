@@ -1,7 +1,8 @@
 import { GameHeader } from '@/src/components/patient/cognitive/components/games/shared/GameHeader';
 import { GameResultScreen } from '@/src/components/patient/cognitive/components/games/shared/GameResultScreen';
 import { InstructionScreen } from '@/src/components/patient/cognitive/components/games/shared/InstructionScreen';
-import { getGameContent } from '@/src/constants/gameContent';
+import { useAssessment } from '@/src/context/AssessmentContext';
+import { usePersonalizedGameContent } from '@/src/hooks/usePersonalizedGameContent';
 import { useQuestionTimer } from '@/src/hooks/useQuestionTimer';
 import { useSaveGameSession } from '@/src/hooks/useSaveGameSession';
 import { useSoundEffects } from '@/src/hooks/useSoundEffects';
@@ -9,7 +10,7 @@ import { Difficulty, GameSessionResult, MemoryRecallConfig } from '@/src/types/g
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Speech from 'expo-speech';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { SafeAreaView, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 type Phase = 'instruction' | 'showing' | 'recall' | 'result';
 
@@ -18,7 +19,12 @@ export default function MemoryRecallGame() {
   const router = useRouter();
   const { playSound } = useSoundEffects();
   const saveGameSession = useSaveGameSession();
-  const config = getGameContent<MemoryRecallConfig>('memory_recall', difficulty);
+  const { patientId } = useAssessment();
+  const { config } = usePersonalizedGameContent<MemoryRecallConfig>(
+    'memory_recall',
+    difficulty,
+    patientId,
+  );
 
   const [phase, setPhase] = useState<Phase>('instruction');
   const [currentShowIndex, setCurrentShowIndex] = useState(0);
@@ -193,42 +199,48 @@ export default function MemoryRecallGame() {
         {/* RECALL phase */}
         {phase === 'recall' && (
           <View style={{ flex: 1 }}>
-            <Text className="text-3xl text-gray-500 text-center mb-1">
-              Select all items you saw
-            </Text>
-            <Text className="text-3xl text-gray-400 text-center mb-4">
-              {selectedIds.length} selected
-            </Text>
+            <ScrollView
+              style={{ flex: 1 }}
+              contentContainerStyle={{ paddingBottom: 24 }}
+              showsVerticalScrollIndicator={false}
+            >
+              <Text className="text-3xl text-gray-500 text-center mb-1">
+                Select all items you saw
+              </Text>
+              <Text className="text-3xl text-gray-400 text-center mb-4">
+                {selectedIds.length} selected
+              </Text>
 
-            <View className="h-3 bg-gray-200 rounded-full overflow-hidden mb-6">
-              <View
-                className={`h-full rounded-full ${timer.isWarning ? 'bg-red-400' : 'bg-blue-400'}`}
-                style={{ width: `${100 - timer.progressPercent}%` }}
-              />
-            </View>
+              <View className="h-3 bg-gray-200 rounded-full overflow-hidden mb-6">
+                <View
+                  className={`h-full rounded-full ${timer.isWarning ? 'bg-red-400' : 'bg-blue-400'}`}
+                  style={{ width: `${100 - timer.progressPercent}%` }}
+                />
+              </View>
 
-            <View style={{ flex: 1, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignContent: 'flex-start', gap: 12, marginBottom: 16 }}>
-              {ALL_OPTIONS.map(item => {
-                const selected = selectedIds.includes(item.id);
-                return (
-                  <TouchableOpacity
-                    key={item.id}
-                    onPress={() => toggleSelect(item.id)}
-                    className={`w-40 h-40 rounded-2xl border-2 items-center justify-center ${
-                      selected ? 'bg-blue-500 border-blue-500' : 'bg-white border-gray-200'
-                    }`}
-                  >
-                    <Text style={{ fontSize: 50 }}>{item.emoji}</Text>
-                    <Text className={`text-2xl font-medium mt-1 ${selected ? 'text-white' : 'text-gray-600'}`}>
-                      {item.label}
-                    </Text>
-                    {config.showHints && !selected && (
-                      <Text className="text-xl text-gray-400">{item.category}</Text>
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignContent: 'flex-start', gap: 12 }}>
+                {ALL_OPTIONS.map(item => {
+                  const selected = selectedIds.includes(item.id);
+                  return (
+                    <TouchableOpacity
+                      key={item.id}
+                      onPress={() => toggleSelect(item.id)}
+                      className={`w-40 h-40 rounded-2xl border-2 items-center justify-center ${
+                        selected ? 'bg-blue-500 border-blue-500' : 'bg-white border-gray-200'
+                      }`}
+                    >
+                      <Text style={{ fontSize: 50 }}>{item.emoji}</Text>
+                      <Text className={`text-2xl font-medium mt-1 ${selected ? 'text-white' : 'text-gray-600'}`}>
+                        {item.label}
+                      </Text>
+                      {config.showHints && !selected && (
+                        <Text className="text-xl text-gray-400">{item.category}</Text>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </ScrollView>
 
             <TouchableOpacity
               onPress={finishGame}

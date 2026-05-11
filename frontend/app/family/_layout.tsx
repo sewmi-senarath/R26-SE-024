@@ -45,7 +45,7 @@ export default function FamilyLayout() {
         const role = await getStoredRole();
         if (!role) { router.replace('/auth/login'); return; }
         if (role !== 'family') {
-          if (role === 'patient') router.replace('/patient');
+          if (role === 'patient') router.replace('/patient/activity-selector');
           else if (role === 'caregiver') router.replace('/caregiver');
           return;
         }

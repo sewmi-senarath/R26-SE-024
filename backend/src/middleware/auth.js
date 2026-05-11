@@ -27,7 +27,7 @@ const protect = async (req, res, next) => {
     const decoded = verifyAccessToken(token);
 
     // Check if user still exists and is active
-    const user = await User.findById(decoded.userId);
+    const user = await User.findById(decoded.userId).select('role fullName email isActive');
     if (!user || !user.isActive) {
       return res.status(401).json({
         success: false,

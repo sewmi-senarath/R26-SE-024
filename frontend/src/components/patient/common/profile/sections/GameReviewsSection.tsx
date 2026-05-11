@@ -1,38 +1,46 @@
 import { Colors } from "@/src/constants/colors";
 import { GAME_CONFIGS } from "@/src/constants/games";
+import { Review } from "@/src/constants/profileConstants";
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { SectionHeader } from "../components/SectionHeader";
-import { fallbackReviews } from "@/src/constants/profileConstants";
 
-export function GameReviewsSection() {
+type GameReviewsSectionProps = {
+  reviews: Review[];
+};
+
+export function GameReviewsSection({ reviews }: GameReviewsSectionProps) {
   return (
     <View style={styles.panel}>
       <SectionHeader title="Game Reviews" icon="star-outline" />
-      <View style={styles.reviewList}>
-        {fallbackReviews.map((item) => {
-          const game = GAME_CONFIGS[item.gameId];
-          return (
-            <View key={item.gameId} style={styles.reviewCard}>
-              <View style={styles.gameIcon}>
-                <Text style={styles.gameEmoji}>{game.icon}</Text>
-              </View>
-              <View style={styles.reviewBody}>
-                <View style={styles.reviewTitleRow}>
-                  <Text style={styles.reviewTitle} numberOfLines={1}>
-                    {game.title}
-                  </Text>
-                  <Text style={styles.reviewScore}>{item.bestScore}</Text>
+      {reviews.length === 0 ? (
+        <Text style={styles.emptyText}>No completed games yet.</Text>
+      ) : (
+        <View style={styles.reviewList}>
+          {reviews.map((item) => {
+            const game = GAME_CONFIGS[item.gameId];
+            return (
+              <View key={item.gameId} style={styles.reviewCard}>
+                <View style={styles.gameIcon}>
+                  <Text style={styles.gameEmoji}>{game.icon}</Text>
                 </View>
-                <Text style={styles.reviewMeta}>
-                  {item.sessions} plays - Last played {item.lastPlayed}
-                </Text>
-                <Text style={styles.reviewText}>{item.review}</Text>
+                <View style={styles.reviewBody}>
+                  <View style={styles.reviewTitleRow}>
+                    <Text style={styles.reviewTitle} numberOfLines={1}>
+                      {game.title}
+                    </Text>
+                    <Text style={styles.reviewScore}>{item.bestScore}</Text>
+                  </View>
+                  <Text style={styles.reviewMeta}>
+                    {item.sessions} plays - Last played {item.lastPlayed}
+                  </Text>
+                  <Text style={styles.reviewText}>{item.review}</Text>
+                </View>
               </View>
-            </View>
-          );
-        })}
-      </View>
+            );
+          })}
+        </View>
+      )}
     </View>
   );
 }
@@ -48,6 +56,11 @@ const styles = StyleSheet.create({
   },
   reviewList: {
     gap: 12,
+  },
+  emptyText: {
+    color: Colors.textMuted,
+    fontSize: 14,
+    fontWeight: "700",
   },
   reviewCard: {
     backgroundColor: "#F8FAFC",

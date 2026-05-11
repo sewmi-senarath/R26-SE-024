@@ -1,7 +1,8 @@
 import { GameHeader } from '@/src/components/patient/cognitive/components/games/shared/GameHeader';
 import { GameResultScreen } from '@/src/components/patient/cognitive/components/games/shared/GameResultScreen';
 import { InstructionScreen } from '@/src/components/patient/cognitive/components/games/shared/InstructionScreen';
-import { getGameContent } from '@/src/constants/gameContent';
+import { useAssessment } from '@/src/context/AssessmentContext';
+import { usePersonalizedGameContent } from '@/src/hooks/usePersonalizedGameContent';
 import { useQuestionTimer } from '@/src/hooks/useQuestionTimer';
 import { useSaveGameSession } from '@/src/hooks/useSaveGameSession';
 import { useSoundEffects } from '@/src/hooks/useSoundEffects';
@@ -27,7 +28,12 @@ export default function ObjectRecallGame() {
   const { difficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
   const { playSound } = useSoundEffects();
   const saveGameSession = useSaveGameSession();
-  const config = getGameContent<ObjectRecallConfig>('object_recall', difficulty);
+  const { patientId } = useAssessment();
+  const { config } = usePersonalizedGameContent<ObjectRecallConfig>(
+    'object_recall',
+    difficulty,
+    patientId,
+  );
 
   const [phase, setPhase] = useState<Phase>('instruction');
   const [inputs, setInputs] = useState<string[]>(Array(config.objectCount).fill(''));

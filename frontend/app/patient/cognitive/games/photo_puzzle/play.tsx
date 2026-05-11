@@ -1,7 +1,7 @@
 import { GameHeader } from '@/src/components/patient/cognitive/components/games/shared/GameHeader';
 import { GameResultScreen } from '@/src/components/patient/cognitive/components/games/shared/GameResultScreen';
 import { InstructionScreen } from '@/src/components/patient/cognitive/components/games/shared/InstructionScreen';
-import { getMe } from '@/src/api/authApi';
+import { getMePhotos } from '@/src/api/authApi';
 import { getGameContent } from '@/src/constants/gameContent';
 import {
   buildMixedPuzzleImagePool,
@@ -18,7 +18,6 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Dimensions,
   Image,
-  LayoutChangeEvent,
   Platform,
   ScrollView,
   StatusBar,
@@ -46,7 +45,6 @@ const PUZZLE_SIZE = Math.min(SCREEN_WIDTH - H_PADDING * 2, 340);
 const SNAP_THRESHOLD = 60;
 const TRAY_PADDING = 10;
 const PIECE_GAP = 1;
-const PIECE_X_OFFSET = 12; 
 const TRAY_PIECE_SCALE = 0.9; // or any value less than 1 for smaller tray pieces
 
 type Phase = 'instruction' | 'playing' | 'result';
@@ -273,34 +271,58 @@ export default function PhotoPuzzleGame() {
   const [puzzleImagePool, setPuzzleImagePool] = useState<PuzzleImage[]>(MOCK_PUZZLE_IMAGES);
   const [snappedMap, setSnappedMap] = useState<Record<number, number | null>>({});
 
-  // ── Key insight: we store positions in SCREEN (absoluteX/Y) space ──
-  // onLayout gives position relative to parent. We accumulate the
-  // root view's screen origin once, then add it to all onLayout values.
-  const [rootOrigin, setRootOrigin] = useState({ x: 0, y: 0 });
   const [boardOrigin, setBoardOrigin] = useState({ x: 0, y: 0 });
   const [trayOrigin, setTrayOrigin] = useState({ x: 0, y: 0 });
   const [layoutReady, setLayoutReady] = useState(false);
 
-  const rootRef = useRef<View>(null);
+  const boardRef = useRef<View>(null);
+  const trayRef = useRef<View>(null);
 
   const [timeLeft, setTimeLeft] = useState<number | null>(config.timeLimitSeconds);
   const [startTime, setStartTime] = useState(0);
   const [result, setResult] = useState<GameSessionResult | null>(null);
+  const piecesRef = useRef<PuzzlePiece[]>([]);
+  const snappedMapRef = useRef<Record<number, number | null>>({});
+  const startTimeRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [showReferencePhoto, setShowReferencePhoto] = useState(false);
+  const referencePhotoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const celebratedRef = useRef(false);
   const warningSpokenRef = useRef(false);
 
   const cellSize = Math.floor(PUZZLE_SIZE / config.gridSize);
   const pieceCount = config.gridSize * config.gridSize;
+  const canShowReferencePhoto = difficulty === 'medium' || difficulty === 'hard';
+
+  const calculateCorrectCount = useCallback(
+    (currentPieces: PuzzlePiece[], currentSnappedMap: Record<number, number | null>) =>
+      currentPieces.filter(p => {
+        const s = currentSnappedMap[p.id];
+        return s !== null && s !== undefined && s === p.correctPosition;
+      }).length,
+    [],
+  );
+
+  useEffect(() => {
+    piecesRef.current = pieces;
+  }, [pieces]);
+
+  useEffect(() => {
+    snappedMapRef.current = snappedMap;
+  }, [snappedMap]);
+
+  useEffect(() => {
+    startTimeRef.current = startTime;
+  }, [startTime]);
 
   useEffect(() => {
     let cancelled = false;
 
     const loadPuzzleImages = async () => {
-      const response = await getMe();
-      const user = response?.data?.user;
-      const patientPhotos = buildPatientPuzzleImages(getPatientProfilePhotos(user));
+      const response = await getMePhotos();
+      const photos = response?.data?.photos;
+      const patientPhotos = buildPatientPuzzleImages(getPatientProfilePhotos(photos));
       const mixedPool = buildMixedPuzzleImagePool(patientPhotos);
 
       if (!cancelled) {
@@ -317,19 +339,10 @@ export default function PhotoPuzzleGame() {
     };
   }, []);
 
-  // ── Measure root origin once using measureInWindow on root only ──
-  // Root view is full screen so its origin = status bar offset only
-  const measureRoot = useCallback(() => {
-    rootRef.current?.measureInWindow((x, y) => {
-      setRootOrigin({ x, y });
-    });
-  }, []);
-
   // ── Build slot positions in screen space ──────────────────
-  // boardOrigin is relative to root. Add rootOrigin to get screen coords.
   const slotPositions = Array(pieceCount).fill(null).map((_, i) => ({
-    x: rootOrigin.x + boardOrigin.x + (i % config.gridSize) * cellSize - PIECE_X_OFFSET, // <-- shift left
-    y: rootOrigin.y + boardOrigin.y + Math.floor(i / config.gridSize) * cellSize,
+    x: boardOrigin.x + (i % config.gridSize) * cellSize,
+    y: boardOrigin.y + Math.floor(i / config.gridSize) * cellSize,
   }));
 
   // ── Build tray piece start positions in screen space ──────
@@ -337,10 +350,21 @@ export default function PhotoPuzzleGame() {
     const col = i % config.gridSize;
     const row = Math.floor(i / config.gridSize);
     return {
-      x: rootOrigin.x + trayOrigin.x + TRAY_PADDING + col * (cellSize + PIECE_GAP) - PIECE_X_OFFSET, // <-- shift left
-      y: rootOrigin.y + trayOrigin.y + TRAY_PADDING + 24 + row * (cellSize + PIECE_GAP),
+      x: trayOrigin.x + TRAY_PADDING + col * (cellSize * TRAY_PIECE_SCALE + PIECE_GAP),
+      y: trayOrigin.y + TRAY_PADDING + 24 + row * (cellSize * TRAY_PIECE_SCALE + PIECE_GAP),
     };
   });
+
+  const measurePuzzleLayout = useCallback(() => {
+    requestAnimationFrame(() => {
+      boardRef.current?.measureInWindow((x, y) => {
+        setBoardOrigin({ x, y });
+      });
+      trayRef.current?.measureInWindow((x, y) => {
+        setTrayOrigin({ x, y });
+      });
+    });
+  }, []);
 
   // ── Check all positions are ready ─────────────────────────
   useEffect(() => {
@@ -351,20 +375,23 @@ export default function PhotoPuzzleGame() {
     ) {
       setLayoutReady(true);
     }
-  }, [boardOrigin, trayOrigin, rootOrigin, phase]);
+  }, [boardOrigin, trayOrigin, phase]);
+
+  useEffect(() => {
+    if (phase === 'playing') {
+      measurePuzzleLayout();
+    }
+  }, [phase, measurePuzzleLayout]);
 
   // ── Finish ────────────────────────────────────────────────
   const finishGame = useCallback(() => {
-    const correct = pieces.filter(p => {
-      const s = snappedMap[p.id];
-      return s !== null && s !== undefined && s === p.correctPosition;
-    }).length;
+    const correct = calculateCorrectCount(piecesRef.current, snappedMapRef.current);
     const nextResult: GameSessionResult = {
       gameId: 'photo_puzzle',
       difficulty,
       score: correct,
       maxScore: pieceCount,
-      timeTakenSeconds: Math.round((Date.now() - startTime) / 1000),
+      timeTakenSeconds: Math.round((Date.now() - startTimeRef.current) / 1000),
       completedAt: new Date().toISOString(),
       correctAnswers: correct,
       totalAnswers: pieceCount,
@@ -373,7 +400,7 @@ export default function PhotoPuzzleGame() {
     void saveGameSession(nextResult);
     Speech.speak(`You solved ${correct} of ${pieceCount} pieces.`);
     setPhase('result');
-  }, [pieces, snappedMap, pieceCount, startTime, difficulty, saveGameSession]);
+  }, [calculateCorrectCount, pieceCount, difficulty, saveGameSession]);
 
   // ── Timer ─────────────────────────────────────────────────
   useEffect(() => {
@@ -392,10 +419,7 @@ export default function PhotoPuzzleGame() {
   }, [phase]);
 
   // ── Correct count ─────────────────────────────────────────
-  const correctCount = pieces.filter(p => {
-    const s = snappedMap[p.id];
-    return s !== null && s !== undefined && s === p.correctPosition;
-  }).length;
+  const correctCount = calculateCorrectCount(pieces, snappedMap);
 
   // ── Win check ─────────────────────────────────────────────
   useEffect(() => {
@@ -421,17 +445,35 @@ export default function PhotoPuzzleGame() {
     }
   }, [phase, timeLeft]);
 
+  useEffect(() => {
+    return () => {
+      if (referencePhotoTimerRef.current) {
+        clearTimeout(referencePhotoTimerRef.current);
+      }
+    };
+  }, []);
+
   // ── Start ─────────────────────────────────────────────────
   const handleStart = () => {
-    setPieces(buildPieces(config.gridSize));
+    const startedAt = Date.now();
+    const nextPieces = buildPieces(config.gridSize);
+    piecesRef.current = nextPieces;
+    snappedMapRef.current = {};
+    setPieces(nextPieces);
     setSnappedMap({});
     setTimeLeft(config.timeLimitSeconds);
-    setStartTime(Date.now());
+    setStartTime(startedAt);
+    startTimeRef.current = startedAt;
     setPuzzleImage(getRandomPuzzleImageFromPool(puzzleImagePool));
     setLayoutReady(false);
     setBoardOrigin({ x: 0, y: 0 });
     setTrayOrigin({ x: 0, y: 0 });
     setShowConfetti(false);
+    setShowReferencePhoto(false);
+    if (referencePhotoTimerRef.current) {
+      clearTimeout(referencePhotoTimerRef.current);
+      referencePhotoTimerRef.current = null;
+    }
     celebratedRef.current = false;
     warningSpokenRef.current = false;
     Speech.speak('Drag each piece to the matching spot.');
@@ -460,14 +502,38 @@ export default function PhotoPuzzleGame() {
 
   const handleReset = () => {
     setPhase('instruction');
+    piecesRef.current = [];
+    snappedMapRef.current = {};
+    startTimeRef.current = 0;
     setPieces([]);
     setSnappedMap({});
     setResult(null);
     setLayoutReady(false);
     setShowConfetti(false);
+    setShowReferencePhoto(false);
     celebratedRef.current = false;
     warningSpokenRef.current = false;
+    if (referencePhotoTimerRef.current) {
+      clearTimeout(referencePhotoTimerRef.current);
+      referencePhotoTimerRef.current = null;
+    }
     if (timerRef.current) clearInterval(timerRef.current);
+  };
+
+  const handleShowReferencePhoto = () => {
+    if (!puzzleImage) return;
+
+    setShowReferencePhoto(true);
+    Speech.speak('Here is the full photo.');
+
+    if (referencePhotoTimerRef.current) {
+      clearTimeout(referencePhotoTimerRef.current);
+    }
+
+    referencePhotoTimerRef.current = setTimeout(() => {
+      setShowReferencePhoto(false);
+      referencePhotoTimerRef.current = null;
+    }, 5000);
   };
 
   // RENDER
@@ -513,7 +579,7 @@ export default function PhotoPuzzleGame() {
         contentContainerStyle={{
           flexGrow: 1,
           backgroundColor: '#f9fafb',
-          paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+          paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) + 28 : 16,
         }}
         bounces={false}
       >
@@ -559,14 +625,8 @@ export default function PhotoPuzzleGame() {
 
           {/* ── Board ──────────────────────────────────── */}
           <View
-            onLayout={(e: LayoutChangeEvent) => {
-              // e.nativeEvent.layout is relative to the paddingHorizontal View
-              // We need it relative to rootRef, so add H_PADDING
-              setBoardOrigin({
-                x: H_PADDING + e.nativeEvent.layout.x,
-                y: e.nativeEvent.layout.y,
-              });
-            }}
+            ref={boardRef}
+            onLayout={measurePuzzleLayout}
             style={{
               width: PUZZLE_SIZE,
               height: PUZZLE_SIZE,
@@ -625,12 +685,8 @@ export default function PhotoPuzzleGame() {
 
           {/* ── Tray ───────────────────────────────────── */}
           <View
-            onLayout={(e: LayoutChangeEvent) => {
-              setTrayOrigin({
-                x: H_PADDING + e.nativeEvent.layout.x,
-                y: e.nativeEvent.layout.y,
-              });
-            }}
+            ref={trayRef}
+            onLayout={measurePuzzleLayout}
             style={{
               width: PUZZLE_SIZE,
               alignSelf: 'center',
@@ -699,42 +755,133 @@ export default function PhotoPuzzleGame() {
 
         </View>
 
-        {/* ── Full-screen piece overlay ────────────────── */}
-        {/* Pieces live here so their coordinates = screen coordinates */}
-        {/* pointerEvents="box-none" so touches pass through to buttons */}
-        {layoutReady && puzzleImage && (
-          <View
-            pointerEvents="box-none"
-            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-          >
-            {pieces.map((piece, index) => {
-              const start = trayStartPositions[index] ?? { x: 0, y: 0 };
-              const snappedSlot = snappedMap[piece.id] ?? null;
-              const isCorrect =
-                snappedSlot !== null && snappedSlot === piece.correctPosition;
-
-              return (
-                <DraggablePiece
-                  key={piece.id}
-                  piece={piece}
-                  cellSize={cellSize}
-                  image={puzzleImage!}
-                  puzzleSize={PUZZLE_SIZE}
-                  initX={start.x}
-                  initY={start.y}
-                  slotPositions={slotPositions}
-                  onSnapped={handleSnapped}
-                  onUnsnapped={handleUnsnapped}
-                  snappedSlot={snappedSlot}
-                  isCorrect={isCorrect}
-                  scale={snappedSlot === null ? TRAY_PIECE_SCALE : 1}
-                />
-              );
-            })}
-          </View>
-        )}
-
       </ScrollView>
+
+      {layoutReady && puzzleImage && (
+        <View
+          pointerEvents="box-none"
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+        >
+          {pieces.map((piece, index) => {
+            const start = trayStartPositions[index] ?? { x: 0, y: 0 };
+            const snappedSlot = snappedMap[piece.id] ?? null;
+            const isCorrect =
+              snappedSlot !== null && snappedSlot === piece.correctPosition;
+
+            return (
+              <DraggablePiece
+                key={piece.id}
+                piece={piece}
+                cellSize={cellSize}
+                image={puzzleImage!}
+                puzzleSize={PUZZLE_SIZE}
+                initX={start.x}
+                initY={start.y}
+                slotPositions={slotPositions}
+                onSnapped={handleSnapped}
+                onUnsnapped={handleUnsnapped}
+                snappedSlot={snappedSlot}
+                isCorrect={isCorrect}
+                scale={snappedSlot === null ? TRAY_PIECE_SCALE : 1}
+              />
+            );
+          })}
+        </View>
+      )}
+
+      {canShowReferencePhoto && puzzleImage && (
+        <TouchableOpacity
+          onPress={handleShowReferencePhoto}
+          activeOpacity={0.85}
+          style={{
+            position: 'absolute',
+            right: 10,
+            top: '42%',
+            zIndex: 1200,
+            width: 58,
+            minHeight: 72,
+            borderRadius: 18,
+            backgroundColor: '#2563eb',
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingVertical: 10,
+            paddingHorizontal: 6,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.18,
+            shadowRadius: 8,
+            elevation: 8,
+          }}
+        >
+          <Text style={{ fontSize: 22, marginBottom: 4 }}>🖼️</Text>
+          <Text
+            style={{
+              color: '#ffffff',
+              fontSize: 11,
+              fontWeight: '800',
+              textAlign: 'center',
+              lineHeight: 13,
+            }}
+          >
+            View Photo
+          </Text>
+        </TouchableOpacity>
+      )}
+
+      {showReferencePhoto && puzzleImage && (
+        <View
+          style={{
+            position: 'absolute',
+            top: 0,
+            right: 0,
+            bottom: 0,
+            left: 0,
+            zIndex: 2000,
+            backgroundColor: 'rgba(17, 24, 39, 0.72)',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 24,
+          }}
+        >
+          <View
+            style={{
+              width: Math.min(SCREEN_WIDTH - 48, 360),
+              maxHeight: '82%',
+              backgroundColor: '#ffffff',
+              borderRadius: 22,
+              padding: 12,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 8 },
+              shadowOpacity: 0.22,
+              shadowRadius: 18,
+              elevation: 12,
+            }}
+          >
+            <Image
+              source={puzzleImage.source}
+              resizeMode="contain"
+              style={{
+                width: '100%',
+                height: Math.min(SCREEN_WIDTH - 72, 420),
+                borderRadius: 16,
+                backgroundColor: '#111827',
+              }}
+            />
+            <Text
+              style={{
+                marginTop: 10,
+                color: '#4b5563',
+                fontSize: 13,
+                fontWeight: '700',
+                textAlign: 'center',
+              }}
+            >
+              Full photo preview
+            </Text>
+          </View>
+        </View>
+      )}
     </GestureHandlerRootView>
   );
 }
+

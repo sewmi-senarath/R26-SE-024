@@ -1,16 +1,20 @@
 import { Colors } from "@/src/constants/colors";
+import { ProfileStat } from "@/src/hooks/usePatientProfile";
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { SectionHeader } from "../components/SectionHeader";
-import { appStats } from "@/src/constants/profileConstants";
 
-export function StatisticsSection() {
+type StatisticsSectionProps = {
+  stats: ProfileStat[];
+};
+
+export function StatisticsSection({ stats }: StatisticsSectionProps) {
   return (
     <View style={styles.section}>
       <SectionHeader title="Statistics" icon="stats-chart-outline" />
       <View style={styles.cardGrid}>
-        {appStats.map((stat) => (
+        {stats.map((stat) => (
           <View key={stat.label} style={styles.statCard}>
             <View style={[styles.statIcon, { backgroundColor: `${stat.tone}18` }]}>
               <Ionicons

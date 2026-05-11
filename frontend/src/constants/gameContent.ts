@@ -1,101 +1,92 @@
 import {
-    AttentionGameConfig,
-    Difficulty,
-    GameId,
-    MemoryRecallConfig,
-    ObjectRecallConfig,
-    PhotoPuzzleConfig,
-    WordPuzzleConfig,
+  AttentionGameConfig,
+  Difficulty,
+  GameId,
+  MemoryRecallConfig,
+  ObjectRecallConfig,
+  PhotoPuzzleConfig,
+  WordPuzzleConfig,
 } from "../types/games.types";
+import { SEQUENCE_ITEMS } from "./game-content/sequence_items";
+import { PUZZLE_WORDS } from "./game-content/puzzle_words";
+import { RECALL_OBJECTS } from "./game-content/recall_objects";
 
-// ── Shared item pools
-const SEQUENCE_ITEMS = [
-  { id: "s1", emoji: "🍎", label: "Apple", category: "Food" },
-  { id: "s2", emoji: "🐕", label: "Dog", category: "Animal" },
-  { id: "s3", emoji: "🚗", label: "Car", category: "Vehicle" },
-  { id: "s4", emoji: "🌸", label: "Flower", category: "Nature" },
-  { id: "s5", emoji: "📚", label: "Book", category: "Object" },
-  { id: "s6", emoji: "🎵", label: "Music", category: "Art" },
-  { id: "s7", emoji: "🏠", label: "House", category: "Place" },
-];
+function sampleItems<T>(items: T[], count: number): T[] {
+  const shuffled = [...items];
 
-const RECALL_OBJECTS = [
-  { id: "o1", emoji: "🔑", label: "Keys", category: "Household" },
-  { id: "o2", emoji: "👓", label: "Glasses", category: "Personal" },
-  { id: "o3", emoji: "☕", label: "Cup", category: "Household" },
-  { id: "o4", emoji: "📱", label: "Phone", category: "Technology" },
-  { id: "o5", emoji: "🖊️", label: "Pen", category: "Stationery" },
-  { id: "o6", emoji: "🧦", label: "Socks", category: "Clothing" },
-  { id: "o7", emoji: "🪴", label: "Plant", category: "Nature" },
-  { id: "o8", emoji: "🕯️", label: "Candle", category: "Household" },
-];
+  for (let i = shuffled.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
 
-const PUZZLE_WORDS = [
-  // easy — 3 letters
-  { id: "w1", word: "CAT", hint: "A furry pet", category: "Animals" },
-  { id: "w2", word: "SUN", hint: "Shines in the sky", category: "Nature" },
-  { id: "w3", word: "CUP", hint: "You drink from it", category: "Objects" },
-  // medium — 5 letters
-  { id: "w4", word: "APPLE", hint: "A red fruit", category: "Food" },
-  { id: "w5", word: "CLOCK", hint: "Shows the time", category: "Objects" },
-  { id: "w6", word: "CHAIR", hint: "You sit on it", category: "Furniture" },
-  // hard — 8 letters
-  { id: "w7", word: "CALENDAR", hint: "Tracks dates", category: "Objects" },
-  { id: "w8", word: "UMBRELLA", hint: "Used in rain", category: "Objects" },
-  { id: "w9", word: "ELEPHANT", hint: "Large animal", category: "Animals" },
-];
+  return shuffled.slice(0, count);
+}
 
-// ── Memory Recall configs ─────────────────────────────────────
+function matchesWordLength(word: string, wordLength: number): boolean {
+  return wordLength === 8 ? word.length >= 8 : word.length === wordLength;
+}
+
+function buildMemoryRecallConfig(
+  sequenceLength: number,
+  displayTimeMs: number,
+  timeLimitSeconds: number,
+  showHints: boolean,
+): MemoryRecallConfig {
+  return {
+    sequenceLength,
+    displayTimeMs,
+    timeLimitSeconds,
+    showHints,
+    items: sampleItems(SEQUENCE_ITEMS, sequenceLength),
+  };
+}
+
+function buildObjectRecallConfig(
+  objectCount: number,
+  displayTimeMs: number,
+  timeLimitSeconds: number,
+  showCategoryHints: boolean,
+): ObjectRecallConfig {
+  return {
+    objectCount,
+    displayTimeMs,
+    timeLimitSeconds,
+    showCategoryHints,
+    objects: sampleItems(RECALL_OBJECTS, objectCount),
+  };
+}
+
+function buildWordPuzzleConfig(
+  wordLength: number,
+  showLetterHints: boolean,
+  timeLimitSeconds: number | null,
+  scrambled: boolean,
+): WordPuzzleConfig {
+  const matchingWords = PUZZLE_WORDS.filter((w) =>
+    matchesWordLength(w.word, wordLength),
+  );
+
+  return {
+    wordLength,
+    showLetterHints,
+    timeLimitSeconds,
+    scrambled,
+    words: sampleItems(matchingWords, Math.min(5, matchingWords.length)),
+  };
+}
+
 const MEMORY_RECALL: Record<Difficulty, MemoryRecallConfig> = {
-  easy: {
-    sequenceLength: 3,
-    displayTimeMs: 3000,
-    timeLimitSeconds: 60,
-    showHints: true,
-    items: SEQUENCE_ITEMS.slice(0, 3),
-  },
-  medium: {
-    sequenceLength: 5,
-    displayTimeMs: 2000,
-    timeLimitSeconds: 45,
-    showHints: false,
-    items: SEQUENCE_ITEMS.slice(0, 5),
-  },
-  hard: {
-    sequenceLength: 7,
-    displayTimeMs: 1000,
-    timeLimitSeconds: 30,
-    showHints: false,
-    items: SEQUENCE_ITEMS,
-  },
+  easy: buildMemoryRecallConfig(3, 3000, 60, true),
+  medium: buildMemoryRecallConfig(5, 2000, 45, false),
+  hard: buildMemoryRecallConfig(7, 1000, 30, false),
 };
 
-// ── Object Recall configs
 const OBJECT_RECALL: Record<Difficulty, ObjectRecallConfig> = {
-  easy: {
-    objectCount: 3,
-    displayTimeMs: 8000,
-    timeLimitSeconds: 60,
-    showCategoryHints: true,
-    objects: RECALL_OBJECTS.slice(0, 3),
-  },
-  medium: {
-    objectCount: 5,
-    displayTimeMs: 10000,
-    timeLimitSeconds: 45,
-    showCategoryHints: false,
-    objects: RECALL_OBJECTS.slice(0, 5),
-  },
-  hard: {
-    objectCount: 8,
-    displayTimeMs: 15000,
-    timeLimitSeconds: 30,
-    showCategoryHints: false,
-    objects: RECALL_OBJECTS,
-  },
+  easy: buildObjectRecallConfig(3, 8000, 60, true),
+  medium: buildObjectRecallConfig(5, 10000, 45, false),
+  hard: buildObjectRecallConfig(7, 15000, 30, false),
 };
 
-// ── Attention Game configs
 const ATTENTION_GAME: Record<Difficulty, AttentionGameConfig> = {
   easy: {
     targetEmoji: "⭐",
@@ -123,8 +114,7 @@ const ATTENTION_GAME: Record<Difficulty, AttentionGameConfig> = {
   },
 };
 
-// ── Photo Puzzle configs
-const photo_puzzle: Record<Difficulty, PhotoPuzzleConfig> = {
+const PHOTO_PUZZLE: Record<Difficulty, PhotoPuzzleConfig> = {
   easy: {
     gridSize: 2,
     pieceCount: 4,
@@ -148,40 +138,47 @@ const photo_puzzle: Record<Difficulty, PhotoPuzzleConfig> = {
   },
 };
 
-// ── Word Puzzle configs
 const WORD_PUZZLE: Record<Difficulty, WordPuzzleConfig> = {
-  easy: {
-    wordLength: 3,
-    showLetterHints: true,
-    timeLimitSeconds: null,
-    scrambled: false,
-    words: PUZZLE_WORDS.filter((w) => w.word.length === 3),
-  },
-  medium: {
-    wordLength: 5,
-    showLetterHints: false,
-    timeLimitSeconds: 60,
-    scrambled: false,
-    words: PUZZLE_WORDS.filter((w) => w.word.length === 5),
-  },
-  hard: {
-    wordLength: 8,
-    showLetterHints: false,
-    timeLimitSeconds: 45,
-    scrambled: true,
-    words: PUZZLE_WORDS.filter((w) => w.word.length === 8),
-  },
+  easy: buildWordPuzzleConfig(3, true, null, false),
+  medium: buildWordPuzzleConfig(5, false, 60, false),
+  hard: buildWordPuzzleConfig(8, false, 45, true),
 };
 
-// ── Master lookup — the single function all game screens call ──
 export const GAME_CONTENT: Record<GameId, Record<Difficulty, any>> = {
   memory_recall: MEMORY_RECALL,
   object_recall: OBJECT_RECALL,
   attention_game: ATTENTION_GAME,
-  photo_puzzle: photo_puzzle,
+  photo_puzzle: PHOTO_PUZZLE,
   word_puzzle: WORD_PUZZLE,
 };
 
 export function getGameContent<T>(gameId: GameId, difficulty: Difficulty): T {
+  if (gameId === "memory_recall") {
+    const config = GAME_CONTENT[gameId][difficulty] as MemoryRecallConfig;
+    return {
+      ...config,
+      items: sampleItems(SEQUENCE_ITEMS, config.sequenceLength),
+    } as T;
+  }
+
+  if (gameId === "object_recall") {
+    const config = GAME_CONTENT[gameId][difficulty] as ObjectRecallConfig;
+    return {
+      ...config,
+      objects: sampleItems(RECALL_OBJECTS, config.objectCount),
+    } as T;
+  }
+
+  if (gameId === "word_puzzle") {
+    const config = GAME_CONTENT[gameId][difficulty] as WordPuzzleConfig;
+    const matchingWords = PUZZLE_WORDS.filter(
+      (w) => matchesWordLength(w.word, config.wordLength),
+    );
+    return {
+      ...config,
+      words: sampleItems(matchingWords, config.words.length),
+    } as T;
+  }
+
   return GAME_CONTENT[gameId][difficulty] as T;
 }
