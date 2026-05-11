@@ -15,9 +15,19 @@ interface Props {
   steps: InstructionStep[];
   onStart: () => void;
   onBack?: () => void;
+  startDisabled?: boolean;
+  startLabel?: string;
 }
 
-export function InstructionScreen({ gameId, difficulty, steps, onStart, onBack }: Props) {
+export function InstructionScreen({
+  gameId,
+  difficulty,
+  steps,
+  onStart,
+  onBack,
+  startDisabled = false,
+  startLabel = 'Start Game',
+}: Props) {
   const router = useRouter();
   const config = GAME_CONFIGS[gameId];
   const c = config.color;
@@ -72,9 +82,12 @@ export function InstructionScreen({ gameId, difficulty, steps, onStart, onBack }
       <View className="absolute bottom-0 left-0 right-0 px-6 py-6 bg-white border-t border-gray-200">
         <TouchableOpacity
           onPress={onStart}
-          className="bg-blue-500 py-5 rounded-3xl items-center active:bg-blue-600"
+          disabled={startDisabled}
+          className={`py-5 rounded-3xl items-center ${
+            startDisabled ? 'bg-gray-300' : 'bg-blue-500 active:bg-blue-600'
+          }`}
         >
-          <Text className="text-white font-bold text-3xl">Start Game</Text>
+          <Text className="text-white font-bold text-3xl">{startLabel}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

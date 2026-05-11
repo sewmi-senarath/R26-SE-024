@@ -1,7 +1,8 @@
 import { GameHeader } from '@/src/components/patient/cognitive/components/games/shared/GameHeader';
 import { GameResultScreen } from '@/src/components/patient/cognitive/components/games/shared/GameResultScreen';
 import { InstructionScreen } from '@/src/components/patient/cognitive/components/games/shared/InstructionScreen';
-import { getMePhotos } from '@/src/api/authApi';
+import { getMePhotos, getPatientPhotos } from '@/src/api/authApi';
+import { useAssessment } from '@/src/context/AssessmentContext';
 import { getGameContent } from '@/src/constants/gameContent';
 import {
   buildMixedPuzzleImagePool,
@@ -264,11 +265,14 @@ export default function PhotoPuzzleGame() {
   const { difficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
   const config = getGameContent<PhotoPuzzleConfig>('photo_puzzle', difficulty);
   const saveGameSession = useSaveGameSession();
+  const { patientId, isLoadingSession } = useAssessment();
 
   const [phase, setPhase] = useState<Phase>('instruction');
   const [pieces, setPieces] = useState<PuzzlePiece[]>([]);
   const [puzzleImage, setPuzzleImage] = useState<PuzzleImage | null>(null);
-  const [puzzleImagePool, setPuzzleImagePool] = useState<PuzzleImage[]>(MOCK_PUZZLE_IMAGES);
+  const [puzzleImagePool, setPuzzleImagePool] = useState<PuzzleImage[]>([]);
+  const [isLoadingPuzzleImages, setIsLoadingPuzzleImages] = useState(true);
+  const [hasPersonalPuzzleImages, setHasPersonalPuzzleImages] = useState(false);
   const [snappedMap, setSnappedMap] = useState<Record<number, number | null>>({});
 
   const [boardOrigin, setBoardOrigin] = useState({ x: 0, y: 0 });
@@ -320,24 +324,36 @@ export default function PhotoPuzzleGame() {
     let cancelled = false;
 
     const loadPuzzleImages = async () => {
-      const response = await getMePhotos();
-      const photos = response?.data?.photos;
+      if (isLoadingSession) {
+        setIsLoadingPuzzleImages(true);
+        return;
+      }
+
+      setIsLoadingPuzzleImages(true);
+      const response = patientId ? await getPatientPhotos(patientId) : await getMePhotos();
+      const photos = response?.success ? response.data?.photos : null;
       const patientPhotos = buildPatientPuzzleImages(getPatientProfilePhotos(photos));
       const mixedPool = buildMixedPuzzleImagePool(patientPhotos);
 
       if (!cancelled) {
+        setHasPersonalPuzzleImages(patientPhotos.length > 0);
         setPuzzleImagePool(mixedPool);
+        setIsLoadingPuzzleImages(false);
       }
     };
 
     loadPuzzleImages().catch(() => {
-      if (!cancelled) setPuzzleImagePool(MOCK_PUZZLE_IMAGES);
+      if (!cancelled) {
+        setHasPersonalPuzzleImages(false);
+        setPuzzleImagePool(MOCK_PUZZLE_IMAGES);
+        setIsLoadingPuzzleImages(false);
+      }
     });
 
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isLoadingSession, patientId]);
 
   // ── Build slot positions in screen space ──────────────────
   const slotPositions = Array(pieceCount).fill(null).map((_, i) => ({
@@ -455,6 +471,11 @@ export default function PhotoPuzzleGame() {
 
   // ── Start ─────────────────────────────────────────────────
   const handleStart = () => {
+    if (isLoadingSession || isLoadingPuzzleImages) {
+      Speech.speak('Preparing your photos. Please wait a moment.');
+      return;
+    }
+
     const startedAt = Date.now();
     const nextPieces = buildPieces(config.gridSize);
     piecesRef.current = nextPieces;
@@ -545,12 +566,20 @@ export default function PhotoPuzzleGame() {
         steps={[
           { icon: '✋', text: 'Drag each piece from the bottom tray up onto the puzzle board' },
           { icon: '🎯', text: 'Place each piece in the correct position' },
+          ...(isLoadingSession || isLoadingPuzzleImages
+            ? [{ icon: 'image', text: 'Preparing your uploaded photos' }]
+            : hasPersonalPuzzleImages
+              ? [{ icon: 'image', text: 'Your uploaded photos will be used for this puzzle' }]
+              : [{ icon: 'image', text: 'Default photos will be used if no uploaded photos are available' }]
+          ),
           ...(config.timeLimitSeconds
             ? [{ icon: '⏱️', text: `Complete within ${config.timeLimitSeconds} seconds` }]
             : [{ icon: '♾️', text: 'No time limit - take your time' }]
           ),
         ]}
         onStart={handleStart}
+        startDisabled={isLoadingSession || isLoadingPuzzleImages}
+        startLabel={isLoadingSession || isLoadingPuzzleImages ? 'Loading Photos...' : 'Start Game'}
       />
     );
   }
@@ -884,4 +913,5 @@ export default function PhotoPuzzleGame() {
     </GestureHandlerRootView>
   );
 }
+
 

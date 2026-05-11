@@ -303,3 +303,7 @@ export const getMe = async () => {
 export const getMePhotos = async () => {
   return await authFetch("/auth/me/photos", { method: "GET" });
 };
+
+export const getPatientPhotos = async (patientId: string) => {
+  return await authFetch(`/auth/patients/${patientId}/photos`, { method: "GET" });
+};

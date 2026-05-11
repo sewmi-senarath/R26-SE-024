@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const User = require('../../models/auth/User');
 const {
   generateAccessToken,
@@ -362,6 +363,24 @@ const getMe = async (req, res) => {
   }
 };
 
+const toPhotoPayload = (user) => ({
+  familyMembers: user?.familyMembers || [],
+  favoritePhotos: user?.favoritePhotos || [],
+  profileImage: user?.profileImage,
+});
+
+const canAccessPatientPhotos = (requestUser, patient) => {
+  if (requestUser.role === 'patient') {
+    return requestUser.userId.toString() === patient._id.toString();
+  }
+
+  if (requestUser.role === 'caregiver') {
+    return patient.assignedCaregiverId?.toString() === requestUser.userId.toString();
+  }
+
+  return false;
+};
+
 const getMePhotos = async (req, res) => {
   try {
     const user = await User.findById(req.user.userId).select(
@@ -371,11 +390,7 @@ const getMePhotos = async (req, res) => {
     res.status(200).json({
       success: true,
       data: {
-        photos: {
-          familyMembers: user.familyMembers || [],
-          favoritePhotos: user.favoritePhotos || [],
-          profileImage: user.profileImage,
-        },
+        photos: toPhotoPayload(user),
       },
     });
   } catch (error) {
@@ -383,6 +398,41 @@ const getMePhotos = async (req, res) => {
   }
 };
 
-module.exports = { register, login, refresh, logout, getMe, getMePhotos };
+const getPatientPhotos = async (req, res) => {
+  try {
+    const { patientId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(patientId)) {
+      return res.status(400).json({ success: false, message: 'Invalid patient id.' });
+    }
+
+    const patient = await User.findOne({ _id: patientId, role: 'patient' }).select(
+      'familyMembers favoritePhotos profileImage assignedCaregiverId'
+    );
+
+    if (!patient) {
+      return res.status(404).json({ success: false, message: 'Patient not found.' });
+    }
+
+    if (!canAccessPatientPhotos(req.user, patient)) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not allowed to access this patient\'s photos.',
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        photos: toPhotoPayload(patient),
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+};
+
+module.exports = { register, login, refresh, logout, getMe, getMePhotos, getPatientPhotos };
+
 
 
