@@ -1,5 +1,6 @@
 import { FamilyMember, LifeEvent, Step2Data } from '@/src/types/PatientRegisterTypes';
 import { COUNTRY_OPTIONS, RELATION_OPTIONS } from '@/src/constants/PatientFormConstants';
+import { getDurableImageUri } from '@/src/utils/photoUri';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
@@ -12,6 +13,11 @@ interface Step2Props {
     data: Step2Data;
     onChange: (data: Partial<Step2Data>) => void;
 }
+
+const resolveOpenValue = (
+    value: boolean | ((current: boolean) => boolean),
+    current: boolean
+) => (typeof value === 'function' ? value(current) : value);
 
 export default function Step2PersonalMemories({ data, onChange }: Step2Props) {
     const [openRelationId, setOpenRelationId] = useState<string | null>(null);
@@ -61,14 +67,18 @@ export default function Step2PersonalMemories({ data, onChange }: Step2Props) {
         const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ['images'],
             allowsEditing: true,
-            quality: 0.8,
+            base64: true,
+            quality: 0.35,
         });
 
-        if (!result.canceled && result.assets?.[0]?.uri) {
-            handleUpdateFamilyMember(
-                id, 'photo', 
-                result.assets[0].uri
-            );
+        if (!result.canceled && result.assets?.[0]) {
+            const durableUri = getDurableImageUri(result.assets[0]);
+            if (durableUri) {
+                handleUpdateFamilyMember(
+                    id, 'photo',
+                    durableUri
+                );
+            }
         }
     };
 
@@ -152,9 +162,13 @@ export default function Step2PersonalMemories({ data, onChange }: Step2Props) {
                                         value={member.relation || null}
                                         items={relationItems}
                                         setItems={setRelationItems}
-                                        setOpen={(isOpen) =>
-                                            setOpenRelationId(isOpen ? member.id : null)
-                                        }
+                                        setOpen={(isOpen) => {
+                                            const nextOpen = resolveOpenValue(
+                                                isOpen,
+                                                openRelationId === member.id
+                                            );
+                                            setOpenRelationId(nextOpen ? member.id : null);
+                                        }}
                                         setValue={(callback) => {
                                             const next = callback(member.relation || null);
                                             handleUpdateFamilyMember(
@@ -269,3 +283,4 @@ export default function Step2PersonalMemories({ data, onChange }: Step2Props) {
         </View>
     );
 }
+

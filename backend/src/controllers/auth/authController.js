@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const User = require('../../models/auth/User');
 const {
   generateAccessToken,
@@ -290,14 +291,20 @@ const logout = async (req, res) => {
 };
 
 // ── GET CURRENT USER ──────────────────────────────────────────────────────
+const mapFamilyMemberSummary = (member) => ({
+  id: member.id,
+  name: member.name,
+  relation: member.relation,
+});
+
 const getMe = async (req, res) => {
   try {
     const user = await User.findById(req.user.userId).select(
       'fullName email role ' +
       'age gender preferredLanguage cognitiveLevel hometown hobbies interests ' +
-      'familyMembers lifeEvents countriesLived occupations ' +
-      'favoritePhotos favoritePlaces favoritePlacesText festivalsCelebrated foodsPreferred preferredSports preferredSportsText languagesPreferred assignedCaregiverId ' +
-      'avatarColor isOnline shiftsCompleted patientsAssigned hoursThisWeek profileImage'
+      'familyMembers.id familyMembers.name familyMembers.relation lifeEvents countriesLived occupations ' +
+      'favoritePlaces favoritePlacesText festivalsCelebrated foodsPreferred preferredSports preferredSportsText languagesPreferred assignedCaregiverId ' +
+      'avatarColor isOnline shiftsCompleted patientsAssigned hoursThisWeek'
     );
 
     const fallbackCaregiver =
@@ -326,14 +333,13 @@ const getMe = async (req, res) => {
           hobbies:           user.hobbies,
           interests:         user.interests,
 
-          // Patient Step 2
-          familyMembers:  user.familyMembers,
+          // Patient Step 2. Photos are intentionally omitted from /me.
+          familyMembers:  (user.familyMembers || []).map(mapFamilyMemberSummary),
           lifeEvents:     user.lifeEvents,
           countriesLived: user.countriesLived,
           occupations:    user.occupations,
 
-          // Patient Step 3
-          favoritePhotos:      user.favoritePhotos,
+          // Patient Step 3. Favorite photos are served by /auth/me/photos.
           favoritePlaces:      user.favoritePlaces,
           favoritePlacesText:  user.favoritePlacesText,
           festivalsCelebrated: user.festivalsCelebrated,
@@ -349,7 +355,6 @@ const getMe = async (req, res) => {
           shiftsCompleted:  user.shiftsCompleted,
           patientsAssigned: user.patientsAssigned,
           hoursThisWeek:    user.hoursThisWeek,
-          profileImage:     user.profileImage,
         },
       },
     });
@@ -358,4 +363,76 @@ const getMe = async (req, res) => {
   }
 };
 
-module.exports = { register, login, refresh, logout, getMe };
+const toPhotoPayload = (user) => ({
+  familyMembers: user?.familyMembers || [],
+  favoritePhotos: user?.favoritePhotos || [],
+  profileImage: user?.profileImage,
+});
+
+const canAccessPatientPhotos = (requestUser, patient) => {
+  if (requestUser.role === 'patient') {
+    return requestUser.userId.toString() === patient._id.toString();
+  }
+
+  if (requestUser.role === 'caregiver') {
+    return patient.assignedCaregiverId?.toString() === requestUser.userId.toString();
+  }
+
+  return false;
+};
+
+const getMePhotos = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId).select(
+      'familyMembers favoritePhotos profileImage'
+    );
+
+    res.status(200).json({
+      success: true,
+      data: {
+        photos: toPhotoPayload(user),
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+};
+
+const getPatientPhotos = async (req, res) => {
+  try {
+    const { patientId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(patientId)) {
+      return res.status(400).json({ success: false, message: 'Invalid patient id.' });
+    }
+
+    const patient = await User.findOne({ _id: patientId, role: 'patient' }).select(
+      'familyMembers favoritePhotos profileImage assignedCaregiverId'
+    );
+
+    if (!patient) {
+      return res.status(404).json({ success: false, message: 'Patient not found.' });
+    }
+
+    if (!canAccessPatientPhotos(req.user, patient)) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not allowed to access this patient\'s photos.',
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        photos: toPhotoPayload(patient),
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+};
+
+module.exports = { register, login, refresh, logout, getMe, getMePhotos, getPatientPhotos };
+
+
+

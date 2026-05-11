@@ -14,6 +14,11 @@ async function createGameSession(payload) {
   });
 }
 
+async function getGameSessionsForPatient(patientId) {
+  return GameSession.find({ patientId }).sort({ completedAt: -1 }).lean();
+}
+
 module.exports = {
   createGameSession,
+  getGameSessionsForPatient,
 };

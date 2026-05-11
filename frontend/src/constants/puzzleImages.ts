@@ -1,4 +1,5 @@
 // src/constants/puzzleImages.ts
+import { normalizeStoredImageUri } from "@/src/utils/photoUri";
 // ─────────────────────────────────────────────────────────────
 // DEVELOPMENT: All images are local assets.
 // PRODUCTION:  Replace `uri` values with URLs from your backend.
@@ -33,30 +34,30 @@ export const MOCK_PUZZLE_IMAGES: PuzzleImage[] = [
     source: require("@/assets/images/puzzle_images/photo2.png"),
     category: "family",
   },
-  {
-    id: "photo_3",
-    label: "Garden",
-    source: require("@/assets/images/puzzle_images/photo3.png"),
-    category: "place",
-  },
-  {
-    id: "photo_4",
-    label: "Beach",
-    source: require("@/assets/images/puzzle_images/photo4.png"),
-    category: "place",
-  },
-  {
-    id: "photo_5",
-    label: "Beach",
-    source: require("@/assets/images/puzzle_images/photo5.png"),
-    category: "place",
-  },
-  {
-    id: "photo_6",
-    label: "Beach",
-    source: require("@/assets/images/puzzle_images/photo6.png"),
-    category: "place",
-  },
+  // {
+  //   id: "photo_3",
+  //   label: "Garden",
+  //   source: require("@/assets/images/puzzle_images/photo3.png"),
+  //   category: "place",
+  // },
+  // {
+  //   id: "photo_4",
+  //   label: "Beach",
+  //   source: require("@/assets/images/puzzle_images/photo4.png"),
+  //   category: "place",
+  // },
+  // {
+  //   id: "photo_5",
+  //   label: "Beach",
+  //   source: require("@/assets/images/puzzle_images/photo5.png"),
+  //   category: "place",
+  // },
+  // {
+  //   id: "photo_6",
+  //   label: "Beach",
+  //   source: require("@/assets/images/puzzle_images/photo6.png"),
+  //   category: "place",
+  // },
   
 ];
 
@@ -75,7 +76,7 @@ export function buildPatientPuzzleImages(
   return photos
     .map((photo) => ({
       ...photo,
-      uri: photo.uri?.trim(),
+      uri: normalizeStoredImageUri(photo.uri),
     }))
     .filter((photo) => {
       if (!photo.uri || seen.has(photo.uri)) return false;

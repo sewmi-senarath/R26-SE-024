@@ -1,14 +1,17 @@
 import { GAME_CONFIGS } from "@/src/constants/games";
 import { useAssessment } from "@/src/context/AssessmentContext";
 import { generateGamePlan } from "@/src/utils/difficultyEngine";
+import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
 import { Audio } from "expo-av";
 import { useRouter } from "expo-router";
-import React, { useMemo, useRef } from "react";
+import React, { useCallback, useMemo, useRef } from "react";
 import {
   Platform,
   SafeAreaView,
   ScrollView,
   StatusBar,
+  StyleSheet,
   Text,
   TouchableOpacity,
   View,
@@ -17,7 +20,13 @@ import { DifficultyBadge } from "./DifficultyBadge";
 
 export default function BrainGamesScreen() {
   const router = useRouter();
-  const { session, isLoadingSession } = useAssessment();
+  const {
+    session,
+    isLoadingSession,
+    hasCompletedAssessment,
+    error,
+    refreshSession,
+  } = useAssessment();
   const gamePlan = useMemo(() => generateGamePlan(session), [session]);
 
   // --- Sound effect setup ---
@@ -40,12 +49,18 @@ export default function BrainGamesScreen() {
     };
   }, []);
 
+  useFocusEffect(
+    useCallback(() => {
+      refreshSession();
+    }, [refreshSession]),
+  );
+
   const playSound = async () => {
     try {
       if (soundRef.current) {
         await soundRef.current.replayAsync();
       }
-    } catch (e) {
+    } catch {
       // ignore sound errors
     }
   };
@@ -60,6 +75,72 @@ export default function BrainGamesScreen() {
   const hardCount = gamePlan.assignments.filter(
     (assignment) => assignment.difficulty === "hard",
   ).length;
+
+  if (isLoadingSession) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: "#f9fafb",
+          paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
+        }}
+      >
+        <SafeAreaView className="flex-1 bg-gray-50 items-center justify-center px-6">
+          <View className="w-16 h-16 rounded-2xl bg-blue-100 items-center justify-center mb-5">
+            <Ionicons name="clipboard-outline" size={30} color="#3b82f6" />
+          </View>
+          <Text className="text-lg font-semibold text-gray-900 text-center">
+            Checking your screening status...
+          </Text>
+          <Text className="text-sm text-gray-500 text-center mt-2">
+            We are loading your latest assessment result.
+          </Text>
+        </SafeAreaView>
+      </View>
+    );
+  }
+
+  if (!hasCompletedAssessment) {
+    return (
+      <View style={styles.screen}>
+        <SafeAreaView style={styles.safeArea}>
+          <View style={styles.assessmentPrompt}>
+            <View style={styles.promptIcon}>
+              <Ionicons name="clipboard-outline" size={32} color="#3b82f6" />
+            </View>
+
+            <Text style={styles.promptEyebrow}>
+              Screening Required
+            </Text>
+            <Text style={styles.promptTitle}>
+              Complete the assessment first
+            </Text>
+            <Text style={styles.promptBody}>
+              Your games are personalized from your screening test results. Take
+              the assessment once, then your game plan will appear here.
+            </Text>
+
+            {error ? (
+              <Text style={styles.promptError}>{error}</Text>
+            ) : null}
+
+            <TouchableOpacity
+              onPress={() => router.push("/patient/cognitive/assessment")}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Go to assessment"
+              style={styles.assessmentButton}
+            >
+              <Ionicons name="arrow-forward" size={20} color="#ffffff" />
+              <Text style={styles.assessmentButtonText}>
+                Go to Assessment
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </View>
+    );
+  }
 
   return (
     <View
@@ -192,3 +273,77 @@ export default function BrainGamesScreen() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: "#f9fafb",
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
+  },
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#f9fafb",
+  },
+  assessmentPrompt: {
+    flex: 1,
+    justifyContent: "center",
+    paddingHorizontal: 24,
+    paddingBottom: 96,
+    width: "100%",
+    maxWidth: 520,
+    alignSelf: "center",
+  },
+  promptIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 16,
+    backgroundColor: "#dbeafe",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 24,
+  },
+  promptEyebrow: {
+    color: "#9ca3af",
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 1.5,
+    marginBottom: 8,
+    textTransform: "uppercase",
+  },
+  promptTitle: {
+    color: "#111827",
+    fontSize: 30,
+    fontWeight: "800",
+    lineHeight: 36,
+    marginBottom: 12,
+  },
+  promptBody: {
+    color: "#6b7280",
+    fontSize: 16,
+    lineHeight: 24,
+    marginBottom: 32,
+  },
+  promptError: {
+    color: "#ef4444",
+    fontSize: 14,
+    marginBottom: 16,
+  },
+  assessmentButton: {
+    minHeight: 56,
+    borderRadius: 16,
+    backgroundColor: "#3b82f6",
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    width: "100%",
+  },
+  assessmentButtonText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "700",
+    lineHeight: 20,
+  },
+});

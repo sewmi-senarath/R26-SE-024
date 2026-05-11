@@ -50,7 +50,7 @@ export default function CaregiverLayout() {
           return;
         }
         if (role !== 'caregiver') {
-          if (role === 'patient') router.replace('/patient');
+          if (role === 'patient') router.replace('/patient/activity-selector');
           else if (role === 'family') router.replace('/family');
           return;
         }

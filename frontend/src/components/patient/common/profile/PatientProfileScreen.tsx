@@ -17,8 +17,15 @@ import { SettingsSection } from "./sections/SettingsSection";
 import { StatisticsSection } from "./sections/StatisticsSection";
 
 export default function PatientProfileScreen() {
-  const { user, latestSession, loadingScreening, patientLevel, screeningRows } =
-    usePatientProfile();
+  const {
+    user,
+    latestSession,
+    loadingScreening,
+    patientLevel,
+    screeningRows,
+    appStats,
+    gameReviews,
+  } = usePatientProfile();
   const { settings, toggleSetting } = useSettings();
 
   return (
@@ -36,8 +43,8 @@ export default function PatientProfileScreen() {
           screeningRows={screeningRows}
         />
         <CurrentLevelSection patientLevel={patientLevel} />
-        <StatisticsSection />
-        <GameReviewsSection />
+        <StatisticsSection stats={appStats} />
+        <GameReviewsSection reviews={gameReviews} />
         <SettingsSection settings={settings} onToggleSetting={toggleSetting} />
       </ScrollView>
     </SafeAreaView>

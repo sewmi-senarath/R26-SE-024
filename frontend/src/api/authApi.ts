@@ -299,3 +299,11 @@ export const logoutUser = async () => {
 export const getMe = async () => {
   return await authFetch("/auth/me", { method: "GET" });
 };
+
+export const getMePhotos = async () => {
+  return await authFetch("/auth/me/photos", { method: "GET" });
+};
+
+export const getPatientPhotos = async (patientId: string) => {
+  return await authFetch(`/auth/patients/${patientId}/photos`, { method: "GET" });
+};

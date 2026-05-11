@@ -1,14 +1,15 @@
 import { GameHeader } from '@/src/components/patient/cognitive/components/games/shared/GameHeader';
 import { GameResultScreen } from '@/src/components/patient/cognitive/components/games/shared/GameResultScreen';
 import { InstructionScreen } from '@/src/components/patient/cognitive/components/games/shared/InstructionScreen';
-import { getGameContent } from '@/src/constants/gameContent';
+import { useAssessment } from '@/src/context/AssessmentContext';
+import { usePersonalizedGameContent } from '@/src/hooks/usePersonalizedGameContent';
 import { useQuestionTimer } from '@/src/hooks/useQuestionTimer';
 import { useSaveGameSession } from '@/src/hooks/useSaveGameSession';
 import { useSoundEffects } from '@/src/hooks/useSoundEffects';
 import { Difficulty, GameSessionResult, WordPuzzleConfig } from '@/src/types/games.types';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Speech from 'expo-speech';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Image, SafeAreaView, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import ConfettiCannon from 'react-native-confetti-cannon';
 
@@ -19,7 +20,12 @@ export default function WordPuzzleGame() {
   const router = useRouter();
   const { playSound } = useSoundEffects();
   const saveGameSession = useSaveGameSession();
-  const config = getGameContent<WordPuzzleConfig>('word_puzzle', difficulty);
+  const { patientId } = useAssessment();
+  const { config } = usePersonalizedGameContent<WordPuzzleConfig>(
+    'word_puzzle',
+    difficulty,
+    patientId,
+  );
   
   const [phase, setPhase] = useState<Phase>('instruction');
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
@@ -28,58 +34,94 @@ export default function WordPuzzleGame() {
   const [startTime, setStartTime] = useState(0);
   const [result, setResult] = useState<GameSessionResult | null>(null);
   const [feedback, setFeedback] = useState<'correct' | 'incorrect' | null>(null);
-  const [timerEnabled, setTimerEnabled] = useState(true);
+  const [hintLevel, setHintLevel] = useState(0);
+  const [revealedAnswer, setRevealedAnswer] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
 
   const timer = useQuestionTimer({
-    limitSeconds: timerEnabled ? (config.timeLimitSeconds || null) : null,
-    onExpire: () => handleNextWord(false),
-    autoStart: phase === 'playing' && timerEnabled,
+    limitSeconds: revealedAnswer ? null : (config.timeLimitSeconds || null),
+    onExpire: () => handleNextWord(score),
+    autoStart: phase === 'playing' && !revealedAnswer,
   });
-  
+
   const currentWord = config.words[currentWordIndex];
-  const scrambledWord = currentWord ? scrambleWord(currentWord.word) : '';
+  const scrambledWord = useMemo(
+    () => (currentWord ? scrambleWord(currentWord.word) : ''),
+    [currentWord?.id, currentWord?.word],
+  );
+  const visualCue = currentWord ? getWordVisualCue(currentWord.word, currentWord.category) : '💡';
+  const extraHints = currentWord ? buildExtraHints(currentWord.word, currentWord.category) : [];
+  const visibleHints = extraHints.slice(0, hintLevel);
+  const canShowMoreHints = hintLevel < extraHints.length;
 
   const handleSubmit = () => {
+    if (!currentWord || revealedAnswer) return;
+
     const normalize = (s: string) => s.trim().toLowerCase().replace(/[^a-z]/g, '');
     const target = normalize(currentWord.word);
     const answer = normalize(userAnswer);
     const isCorrect = answer === target || levenshtein(answer, target) <= 1;
 
     if (isCorrect) {
+      const nextScore = score + 1;
       playSound('success');
-      setScore(s => s + 1);
+      setScore(nextScore);
       setFeedback('correct');
       Speech.speak('Correct! Well done.');
       setShowConfetti(true);
 
       setTimeout(() => {
         setShowConfetti(false);
-        handleNextWord(true);
+        handleNextWord(nextScore);
       }, 900);
     } else {
       playSound('error');
       setFeedback('incorrect');
+      setHintLevel(level => Math.min(level + 1, extraHints.length));
       Speech.speak('Try again. Take your time.');
     }
   };
 
-  const handleNextWord = useCallback((wasCorrect: boolean) => {
+  const handleNextWord = useCallback((nextScore = score) => {
     if (currentWordIndex < config.words.length - 1) {
       playSound('click');
       setCurrentWordIndex(i => i + 1);
       setUserAnswer('');
       setFeedback(null);
+      setHintLevel(0);
+      setRevealedAnswer(false);
       timer.reset();
     } else {
-      finishGame();
+      finishGame(nextScore);
     }
-  }, [currentWordIndex, config.words.length, timer, playSound]);
+  }, [currentWordIndex, config.words.length, timer, playSound, score]);
 
-  const finishGame = () => {
-    if (score === config.words.length) {
+  const handleShowMoreHint = () => {
+    if (!currentWord || !canShowMoreHints) return;
+
+    playSound('click');
+    setHintLevel(level => Math.min(level + 1, extraHints.length));
+  };
+
+  const handleRevealAnswer = () => {
+    if (!currentWord) return;
+
+    playSound('click');
+    setRevealedAnswer(true);
+    setFeedback(null);
+    setUserAnswer(currentWord.word);
+    Speech.speak(`The answer is ${currentWord.word}.`);
+  };
+
+  const handleSkipWord = () => {
+    playSound('click');
+    handleNextWord(score);
+  };
+
+  const finishGame = (finalScore = score) => {
+    if (finalScore === config.words.length) {
       playSound('success');
-    } else if (score === 0) {
+    } else if (finalScore === 0) {
       playSound('error');
     } else {
       playSound('click');
@@ -88,11 +130,11 @@ export default function WordPuzzleGame() {
     const nextResult: GameSessionResult = {
       gameId: 'word_puzzle',
       difficulty,
-      score,
+      score: finalScore,
       maxScore: config.words.length,
       timeTakenSeconds: Math.round((Date.now() - startTime) / 1000),
       completedAt: new Date().toISOString(),
-      correctAnswers: score,
+      correctAnswers: finalScore,
       totalAnswers: config.words.length,
     };
     setResult(nextResult);
@@ -108,6 +150,8 @@ export default function WordPuzzleGame() {
     setScore(0);
     setResult(null);
     setFeedback(null);
+    setHintLevel(0);
+    setRevealedAnswer(false);
   };
 
   const handleGoBack = () => {
@@ -122,8 +166,9 @@ export default function WordPuzzleGame() {
         difficulty={difficulty}
         steps={[
           { icon: '🔤', text: `Unscramble ${config.wordLength}-letter words` },
-          { icon: '🔀', text: config.scrambled ? 'Letters are scrambled - rearrange them' : 'Type the word from the hint' },
-          { icon: '💡', text: config.showLetterHints ? 'Letter position hints are shown' : 'No hints - rely on memory' },
+          { icon: '🔀', text: config.scrambled ? 'Use the scrambled letters, visual clue, and hints' : 'Use the visual clue and hints to type the word' },
+          { icon: '💡', text: 'Ask for extra hints when you need help' },
+          { icon: '✅', text: 'Reveal the answer or skip any word without losing your progress' },
           { icon: '⏱️', text: config.timeLimitSeconds ? `${config.timeLimitSeconds} seconds per word` : 'No time limit' },
           
         ]}
@@ -132,6 +177,10 @@ export default function WordPuzzleGame() {
           setPhase('playing');
           setStartTime(Date.now());
           setCurrentWordIndex(0);
+          setUserAnswer('');
+          setFeedback(null);
+          setHintLevel(0);
+          setRevealedAnswer(false);
         }}
         onBack={handleGoBack}
       />
@@ -148,7 +197,7 @@ export default function WordPuzzleGame() {
       <GameHeader
         title="Word Puzzle"
         difficulty={difficulty}
-        timeLeft={config.timeLimitSeconds ? timer.secondsLeft : null}
+        timeLeft={config.timeLimitSeconds && !revealedAnswer ? timer.secondsLeft : null}
       />
 
       <ScrollView
@@ -180,7 +229,7 @@ export default function WordPuzzleGame() {
         </View>
 
         {/* Timer bar if time limit */}
-        {config.timeLimitSeconds && (
+        {config.timeLimitSeconds && !revealedAnswer && (
           <View className="h-1.5 bg-gray-200 rounded-full overflow-hidden mb-8">
             <View
               className={`h-full rounded-full ${timer.isWarning ? 'bg-red-400' : 'bg-blue-400'}`}
@@ -191,6 +240,32 @@ export default function WordPuzzleGame() {
 
         {/* Main content */}
         <View style={{ flex: 1, justifyContent: 'center', gap: 24 }}>
+          <View style={{ alignItems: 'center', gap: 10 }}>
+            {currentWord?.image ? (
+              <Image source={{ uri: currentWord.image }} style={{ width: 170, height: 126, borderRadius: 18 }} />
+            ) : (
+              <View
+                style={{
+                  width: 132,
+                  height: 132,
+                  borderRadius: 66,
+                  backgroundColor: '#eef2ff',
+                  borderWidth: 2,
+                  borderColor: '#c7d2fe',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Text style={{ fontSize: 64 }}>{visualCue}</Text>
+              </View>
+            )}
+            {currentWord?.category && (
+              <Text className="text-sm font-semibold text-indigo-600">
+                {currentWord.category}
+              </Text>
+            )}
+          </View>
+
           {/* Hint */}
           {currentWord?.hint && (
             <View className="bg-blue-50 rounded-2xl p-4">
@@ -198,6 +273,30 @@ export default function WordPuzzleGame() {
                 Hint
               </Text>
               <Text className="text-base text-blue-900 font-medium">{currentWord.hint}</Text>
+            </View>
+          )}
+
+          {visibleHints.length > 0 && (
+            <View className="gap-2">
+              {visibleHints.map((hint, index) => (
+                <View key={hint} className="bg-amber-50 rounded-2xl px-4 py-3 border border-amber-100">
+                  <Text className="text-xs text-amber-600 font-semibold uppercase tracking-wide mb-1">
+                    Extra hint {index + 1}
+                  </Text>
+                  <Text className="text-base text-amber-900 font-medium">{hint}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {revealedAnswer && currentWord && (
+            <View className="bg-gray-900 rounded-2xl p-4 items-center">
+              <Text className="text-xs text-gray-300 font-semibold uppercase tracking-wide mb-1">
+                Answer
+              </Text>
+              <Text className="text-3xl text-white font-bold tracking-widest">
+                {currentWord.word}
+              </Text>
             </View>
           )}
 
@@ -221,17 +320,10 @@ export default function WordPuzzleGame() {
             <View className="items-center gap-2">
               <Text className="text-xs text-gray-400 uppercase tracking-wide">Type the word</Text>
               {config.showLetterHints && currentWord && (
-                <Text className="text-lg font-semibold text-gray-600">
-                  _ {currentWord.word.slice(1).split('').map(() => '_').join(' ')} _
+                <Text className="text-xl font-semibold text-gray-600">
+                  {maskWord(currentWord.word)}
                 </Text>
               )}
-            </View>
-          )}
-
-          {/* Image hint placeholder (simple, optional) */}
-          {currentWord?.image && (
-            <View style={{ alignItems: 'center', marginTop: 8 }}>
-              <Image source={{ uri: currentWord.image }} style={{ width: 160, height: 120, borderRadius: 12 }} />
             </View>
           )}
 
@@ -245,7 +337,7 @@ export default function WordPuzzleGame() {
               returnKeyType="done"
               onSubmitEditing={handleSubmit}
               // keep editable unless the user already got it correct
-              editable={feedback !== 'correct'}
+              editable={feedback !== 'correct' && !revealedAnswer}
               autoCapitalize="none"
               autoCorrect={false}
               maxLength={config.wordLength + 4}
@@ -287,33 +379,88 @@ export default function WordPuzzleGame() {
             )}
           </View>
 
-          {/* Submit button */}
-          <TouchableOpacity
-            onPress={handleSubmit}
-            // allow retry when incorrect; only disable after correct or if input is empty
-            disabled={!userAnswer.trim() || feedback === 'correct'}
-            className={`py-4 rounded-2xl items-center ${
-              userAnswer.trim() && feedback !== 'correct' ? 'bg-blue-500' : 'bg-gray-200'
-            }`}
-          >
-            <Text
-              className={`font-bold text-base ${
-                userAnswer.trim() && feedback !== 'correct' ? 'text-white' : 'text-gray-400'
+          {revealedAnswer ? (
+            <TouchableOpacity
+              onPress={() => handleNextWord(score)}
+              className="py-4 rounded-2xl items-center bg-blue-500"
+            >
+              <Text className="font-bold text-base text-white">
+                {currentWordIndex === config.words.length - 1 ? 'Finish' : 'Continue'}
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              onPress={handleSubmit}
+              // allow retry when incorrect; only disable after correct or if input is empty
+              disabled={!userAnswer.trim() || feedback === 'correct'}
+              className={`py-4 rounded-2xl items-center ${
+                userAnswer.trim() && feedback !== 'correct' ? 'bg-blue-500' : 'bg-gray-200'
               }`}
             >
-              {currentWordIndex === config.words.length - 1 ? 'Finish' : 'Submit'}
-            </Text>
-          </TouchableOpacity>
-
-          {/* Skip button shown when user wants to move on after incorrect */}
-          {feedback === 'incorrect' && (
-            <TouchableOpacity
-              onPress={() => handleNextWord(false)}
-              className="mt-3 items-center"
-            >
-              <Text className="text-sm text-gray-500">Skip this word</Text>
+              <Text
+                className={`font-bold text-base ${
+                  userAnswer.trim() && feedback !== 'correct' ? 'text-white' : 'text-gray-400'
+                }`}
+              >
+                {currentWordIndex === config.words.length - 1 ? 'Finish' : 'Submit'}
+              </Text>
             </TouchableOpacity>
           )}
+
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <TouchableOpacity
+              onPress={handleShowMoreHint}
+              disabled={!canShowMoreHints || revealedAnswer}
+              style={{
+                flex: 1,
+                paddingVertical: 14,
+                borderRadius: 16,
+                alignItems: 'center',
+                backgroundColor: canShowMoreHints && !revealedAnswer ? '#fef3c7' : '#f3f4f6',
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 14,
+                  fontWeight: '700',
+                  color: canShowMoreHints && !revealedAnswer ? '#92400e' : '#9ca3af',
+                }}
+              >
+                More hint
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={handleRevealAnswer}
+              disabled={revealedAnswer}
+              style={{
+                flex: 1,
+                paddingVertical: 14,
+                borderRadius: 16,
+                alignItems: 'center',
+                backgroundColor: revealedAnswer ? '#f3f4f6' : '#e0e7ff',
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 14,
+                  fontWeight: '700',
+                  color: revealedAnswer ? '#9ca3af' : '#4338ca',
+                }}
+              >
+                Reveal answer
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity
+            onPress={handleSkipWord}
+            className="items-center"
+          >
+            <Text className="text-sm font-semibold text-gray-500">
+              Skip this word
+            </Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -328,6 +475,126 @@ function scrambleWord(word: string): string {
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
   return arr.join('');
+}
+
+function maskWord(word: string): string {
+  if (word.length <= 2) return word.split('').join(' ');
+  const middle = word.slice(1, -1).split('').map(() => '_').join(' ');
+  return `${word[0]} ${middle} ${word[word.length - 1]}`;
+}
+
+function buildExtraHints(word: string, category: string): string[] {
+  return [
+    `It starts with ${word[0]} and ends with ${word[word.length - 1]}.`,
+    `It has ${word.length} letters.`,
+    `Letter pattern: ${buildLetterPattern(word)}.`,
+    `Category: ${category}.`,
+  ];
+}
+
+function buildLetterPattern(word: string): string {
+  const vowels = new Set(['A', 'E', 'I', 'O', 'U']);
+  return word
+    .toUpperCase()
+    .split('')
+    .map(letter => (vowels.has(letter) ? 'V' : 'C'))
+    .join(' ');
+}
+
+function getWordVisualCue(word: string, category: string): string {
+  const byWord: Record<string, string> = {
+    AIRPLANE: '✈️',
+    APPLE: '🍎',
+    BAG: '👜',
+    BANANA: '🍌',
+    BAT: '🏏',
+    BEACH: '🏖️',
+    BED: '🛏️',
+    BEE: '🐝',
+    BOOK: '📖',
+    BREAD: '🍞',
+    BUS: '🚌',
+    BUTTERFLY: '🦋',
+    CAKE: '🍰',
+    CALENDAR: '📅',
+    CAMERA: '📷',
+    CAR: '🚗',
+    CAT: '🐱',
+    CHAIR: '🪑',
+    CLOCK: '🕒',
+    CLOUD: '☁️',
+    COW: '🐄',
+    CUP: '☕',
+    DOG: '🐶',
+    ELEPHANT: '🐘',
+    EYE: '👁️',
+    FOX: '🦊',
+    GIFT: '🎁',
+    GRAPES: '🍇',
+    GUITAR: '🎸',
+    HAT: '🎩',
+    HEART: '❤️',
+    HOSPITAL: '🏥',
+    HOUSE: '🏠',
+    KEY: '🔑',
+    KEYBOARD: '⌨️',
+    LAPTOP: '💻',
+    MEDICINE: '💊',
+    MOON: '🌙',
+    MOUNTAIN: '⛰️',
+    MUSIC: '🎵',
+    OCEAN: '🌊',
+    OWL: '🦉',
+    PEN: '🖊️',
+    PHONE: '📱',
+    PIE: '🥧',
+    PIZZA: '🍕',
+    PLANT: '🪴',
+    RIVER: '🏞️',
+    SANDWICH: '🥪',
+    SHIP: '🚢',
+    SHOES: '👞',
+    STAR: '⭐',
+    SUN: '☀️',
+    TABLE: '🍽️',
+    TEA: '🍵',
+    TRAIN: '🚆',
+    UMBRELLA: '☂️',
+    WATCH: '⌚',
+    WATER: '💧',
+  };
+
+  const byCategory: Record<string, string> = {
+    Action: '🏃',
+    Adjective: '✨',
+    Age: '🎂',
+    Animals: '🐾',
+    Art: '🎨',
+    Body: '🧍',
+    Clothing: '👕',
+    Education: '📚',
+    Emotion: '😊',
+    Events: '🎉',
+    Finance: '💳',
+    Food: '🍽️',
+    Furniture: '🪑',
+    Games: '🎲',
+    Health: '🩺',
+    Nature: '🌿',
+    Objects: '📦',
+    People: '👤',
+    Places: '📍',
+    Science: '🔬',
+    Senses: '👂',
+    Shape: '⭕',
+    Technology: '💻',
+    Time: '🕒',
+    Tools: '🛠️',
+    Transport: '🚗',
+    Travel: '🧳',
+  };
+
+  return byWord[word.toUpperCase()] || byCategory[category] || '💡';
 }
 
 // Tiny helper (can be moved out)

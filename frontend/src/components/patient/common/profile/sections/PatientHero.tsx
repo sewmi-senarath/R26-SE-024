@@ -1,14 +1,23 @@
+import { logoutUser } from "@/src/api/authApi";
 import { Colors } from "@/src/constants/colors";
-import React from "react";
-import { StyleSheet, Text, View } from "react-native";
 import { UserProfile } from "@/src/hooks/usePatientProfile";
 import { getInitials } from "@/src/utils/formatters";
+import { useRouter } from "expo-router";
+import React from "react";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 interface PatientHeroProps {
   user: UserProfile;
 }
 
 export function PatientHero({ user }: PatientHeroProps) {
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await logoutUser();
+    router.replace("/auth/login");
+  };
+
   return (
     <View style={styles.hero}>
       <View style={styles.avatar}>
@@ -23,6 +32,9 @@ export function PatientHero({ user }: PatientHeroProps) {
           {user.email || "Not available"}
         </Text>
       </View>
+      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+        <Text style={styles.logoutButtonText}>Logout</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -71,5 +83,18 @@ const styles = StyleSheet.create({
     color: "#DBEAFE",
     fontSize: 14,
     marginTop: 6,
+  },
+  logoutButton: {
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.3)",
+  },
+  logoutButtonText: {
+    color: Colors.white,
+    fontSize: 14,
+    fontWeight: "600",
   },
 });
