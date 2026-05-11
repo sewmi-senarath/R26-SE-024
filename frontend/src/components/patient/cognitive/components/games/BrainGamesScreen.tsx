@@ -11,6 +11,7 @@ import {
   SafeAreaView,
   ScrollView,
   StatusBar,
+  StyleSheet,
   Text,
   TouchableOpacity,
   View,
@@ -101,41 +102,37 @@ export default function BrainGamesScreen() {
 
   if (!hasCompletedAssessment) {
     return (
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: "#f9fafb",
-          paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
-        }}
-      >
-        <SafeAreaView className="flex-1 bg-gray-50">
-          <View className="flex-1 justify-center px-6 pb-24">
-            <View className="w-16 h-16 rounded-2xl bg-blue-100 items-center justify-center mb-6">
+      <View style={styles.screen}>
+        <SafeAreaView style={styles.safeArea}>
+          <View style={styles.assessmentPrompt}>
+            <View style={styles.promptIcon}>
               <Ionicons name="clipboard-outline" size={32} color="#3b82f6" />
             </View>
 
-            <Text className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">
+            <Text style={styles.promptEyebrow}>
               Screening Required
             </Text>
-            <Text className="text-3xl font-bold text-gray-900 mb-3">
+            <Text style={styles.promptTitle}>
               Complete the assessment first
             </Text>
-            <Text className="text-base text-gray-500 leading-6 mb-8">
+            <Text style={styles.promptBody}>
               Your games are personalized from your screening test results. Take
               the assessment once, then your game plan will appear here.
             </Text>
 
             {error ? (
-              <Text className="text-sm text-red-500 mb-4">{error}</Text>
+              <Text style={styles.promptError}>{error}</Text>
             ) : null}
 
             <TouchableOpacity
               onPress={() => router.push("/patient/cognitive/assessment")}
               activeOpacity={0.8}
-              className="bg-blue-500 rounded-2xl py-4 px-5 flex-row items-center justify-center gap-2"
+              accessibilityRole="button"
+              accessibilityLabel="Go to assessment"
+              style={styles.assessmentButton}
             >
               <Ionicons name="arrow-forward" size={20} color="#ffffff" />
-              <Text className="text-white font-semibold text-base">
+              <Text style={styles.assessmentButtonText}>
                 Go to Assessment
               </Text>
             </TouchableOpacity>
@@ -276,3 +273,77 @@ export default function BrainGamesScreen() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: "#f9fafb",
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
+  },
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#f9fafb",
+  },
+  assessmentPrompt: {
+    flex: 1,
+    justifyContent: "center",
+    paddingHorizontal: 24,
+    paddingBottom: 96,
+    width: "100%",
+    maxWidth: 520,
+    alignSelf: "center",
+  },
+  promptIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 16,
+    backgroundColor: "#dbeafe",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 24,
+  },
+  promptEyebrow: {
+    color: "#9ca3af",
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 1.5,
+    marginBottom: 8,
+    textTransform: "uppercase",
+  },
+  promptTitle: {
+    color: "#111827",
+    fontSize: 30,
+    fontWeight: "800",
+    lineHeight: 36,
+    marginBottom: 12,
+  },
+  promptBody: {
+    color: "#6b7280",
+    fontSize: 16,
+    lineHeight: 24,
+    marginBottom: 32,
+  },
+  promptError: {
+    color: "#ef4444",
+    fontSize: 14,
+    marginBottom: 16,
+  },
+  assessmentButton: {
+    minHeight: 56,
+    borderRadius: 16,
+    backgroundColor: "#3b82f6",
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    width: "100%",
+  },
+  assessmentButtonText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "700",
+    lineHeight: 20,
+  },
+});
