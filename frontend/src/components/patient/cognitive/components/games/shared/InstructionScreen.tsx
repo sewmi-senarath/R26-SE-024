@@ -1,7 +1,9 @@
 import { GAME_CONFIGS } from '@/src/constants/games';
 import { Difficulty, GameId } from '@/src/types/games.types';
+import { Ionicons } from '@expo/vector-icons';
+import * as Speech from 'expo-speech';
 import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { SafeAreaView, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 interface InstructionStep {
@@ -31,6 +33,59 @@ export function InstructionScreen({
   const router = useRouter();
   const config = GAME_CONFIGS[gameId];
   const c = config.color;
+  const [isSpeaking, setIsSpeaking] = useState(false);
+
+  const spokenInstructions = useMemo(
+    () =>
+      [
+        `${config.title}.`,
+        config.description,
+        'How to play.',
+        ...steps.map((step, index) => `Step ${index + 1}. ${step.text}.`),
+      ].join(' '),
+    [config.description, config.title, steps]
+  );
+
+  useEffect(() => {
+    return () => {
+      Speech.stop();
+    };
+  }, []);
+
+  const stopInstructions = () => {
+    Speech.stop();
+    setIsSpeaking(false);
+  };
+
+  const handleListenPress = () => {
+    if (isSpeaking) {
+      stopInstructions();
+      return;
+    }
+
+    setIsSpeaking(true);
+    Speech.speak(spokenInstructions, {
+      rate: 0.9,
+      pitch: 1,
+      onDone: () => setIsSpeaking(false),
+      onStopped: () => setIsSpeaking(false),
+      onError: () => setIsSpeaking(false),
+    });
+  };
+
+  const handleBackPress = () => {
+    stopInstructions();
+    if (onBack) {
+      onBack();
+      return;
+    }
+    router.back();
+  };
+
+  const handleStartPress = () => {
+    stopInstructions();
+    onStart();
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
@@ -40,7 +95,7 @@ export function InstructionScreen({
       >
         {/* Back button */}
         <TouchableOpacity
-          onPress={onBack ?? (() => router.back())}
+          onPress={handleBackPress}
           className="px-6 pt-4 pb-2 flex-row items-center gap-1"
         >
           <Text className="text-blue-500 text-lg font-medium">← Back</Text>
@@ -57,6 +112,23 @@ export function InstructionScreen({
           <Text className="text-base text-gray-600 text-center mb-5 leading-relaxed">
             {config.description}
           </Text>
+          <TouchableOpacity
+            onPress={handleListenPress}
+            accessibilityRole="button"
+            accessibilityLabel={isSpeaking ? 'Stop listening to instructions' : 'Listen to instructions'}
+            className={`px-6 py-4 rounded-2xl flex-row items-center justify-center gap-2 ${
+              isSpeaking ? 'bg-gray-900 active:bg-gray-800' : 'bg-blue-500 active:bg-blue-600'
+            }`}
+          >
+            <Ionicons
+              name={isSpeaking ? 'stop-circle' : 'volume-high'}
+              size={24}
+              color="#ffffff"
+            />
+            <Text className="text-white text-xl font-bold">
+              {isSpeaking ? 'Stop Instructions' : 'Listen to Instructions'}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* How to play */}
@@ -81,7 +153,7 @@ export function InstructionScreen({
       {/* Start button — fixed at bottom */}
       <View className="absolute bottom-0 left-0 right-0 px-6 py-6 bg-white border-t border-gray-200">
         <TouchableOpacity
-          onPress={onStart}
+          onPress={handleStartPress}
           disabled={startDisabled}
           className={`py-5 rounded-3xl items-center ${
             startDisabled ? 'bg-gray-300' : 'bg-blue-500 active:bg-blue-600'
