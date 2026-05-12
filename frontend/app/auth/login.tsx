@@ -10,11 +10,8 @@ export default function Login() {
   const [password, setPassword] = useState("");
 
   const handleLogin = () => {
-    if (username === "admin" && password === "123") {
-      router.push("/caregiver");
-    } else {
-      Alert.alert("Login Failed", "Invalid credentials. Please use admin / 123");
-    }
+    // Caregiver login logic (to be implemented with backend)
+    Alert.alert("Notice", "Caregiver login logic will be connected to the backend.");
   };
 
   return (
@@ -95,105 +92,133 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 30,
     justifyContent: 'center',
+    maxWidth: 450,
+    alignSelf: 'center',
+    width: '100%',
   },
   logoSection: {
     alignItems: 'center',
     marginBottom: 40,
   },
   logoCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#F1F5F9',
+    width: 90,
+    height: 90,
+    borderRadius: 28,
+    backgroundColor: '#F8FAFC',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 15,
   },
   logoText: {
-    fontSize: 24,
+    fontFamily: 'Open Sans',
+    fontSize: 26,
     fontWeight: '800',
     color: Colors.primary,
+    letterSpacing: -0.5,
   },
   header: {
     marginBottom: 40,
+    alignItems: 'center',
   },
   title: {
-    fontSize: 32,
+    fontFamily: 'Open Sans',
+    fontSize: 34,
     fontWeight: '900',
     color: '#0F172A',
-    marginBottom: 8,
+    marginBottom: 10,
+    textAlign: 'center',
   },
   subtitle: {
+    fontFamily: 'Inter',
     fontSize: 16,
     color: '#64748B',
+    textAlign: 'center',
+    fontWeight: '500',
   },
   form: {
     width: '100%',
   },
   inputGroup: {
-    marginBottom: 20,
+    marginBottom: 24,
   },
   label: {
+    fontFamily: 'Inter',
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#475569',
     marginBottom: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F8FAFC',
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    paddingHorizontal: 15,
+    paddingHorizontal: 18,
   },
   inputIcon: {
-    marginRight: 10,
+    marginRight: 12,
   },
   input: {
+    fontFamily: 'Inter',
     flex: 1,
-    paddingVertical: 15,
-    fontSize: 15,
+    paddingVertical: 16,
+    fontSize: 16,
     color: '#1E293B',
+    fontWeight: '500',
   },
   loginBtn: {
     backgroundColor: Colors.primary,
-    borderRadius: 16,
+    borderRadius: 18,
     paddingVertical: 18,
     alignItems: 'center',
     marginTop: 10,
     shadowColor: Colors.primary,
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 5,
+    shadowOpacity: 0.25,
+    shadowRadius: 15,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
   },
   loginBtnText: {
+    fontFamily: 'Inter',
     color: '#fff',
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '800',
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 30,
+    marginTop: 35,
   },
   footerText: {
+    fontFamily: 'Inter',
     color: '#64748B',
+    fontSize: 15,
+    fontWeight: '500',
   },
   signUpText: {
+    fontFamily: 'Inter',
     color: Colors.primary,
     fontWeight: '800',
+    fontSize: 15,
   },
   backBtn: {
-    marginTop: 40,
+    marginTop: 50,
     alignSelf: 'center',
+    padding: 10,
   },
   backBtnText: {
+    fontFamily: 'Inter',
     color: '#94A3B8',
-    fontWeight: '600',
+    fontWeight: '700',
+    fontSize: 14,
   }
-});
-  );
-}
+});

@@ -10,6 +10,7 @@ export default function RoleSelectScreen() {
   const roles = [
     { id: 'patient', title: 'I am a Patient', sub: 'I need help with my daily routine', icon: 'heart', color: '#E11D48' },
     { id: 'caregiver', title: 'I am a Caregiver', sub: 'I manage care for others', icon: 'shield-checkmark', color: '#2563EB' },
+    { id: 'admin', title: 'I am Admin', sub: 'System administration and management', icon: 'settings', color: Colors.sageGreen },
     { id: 'family', title: 'I am Family', sub: 'I want to stay connected', icon: 'people', color: '#0891B2' },
   ];
 
@@ -29,7 +30,12 @@ export default function RoleSelectScreen() {
             <TouchableOpacity 
               key={role.id} 
               style={[styles.roleCard, { borderLeftColor: role.color }]}
-              onPress={() => router.push(role.id === 'caregiver' ? '/auth/login' : '/patient')}
+              onPress={() => {
+                if (role.id === 'caregiver') router.push('/auth/login');
+                else if (role.id === 'admin') router.push('/auth/admin-login');
+                else if (role.id === 'patient') router.push('/patient/auth');
+                else router.push('/patient');
+              }}
             >
               <View style={[styles.iconBox, { backgroundColor: role.color + '15' }]}>
                 <Ionicons name={role.icon as any} size={24} color={role.color} />
@@ -60,81 +66,93 @@ const styles = StyleSheet.create({
     padding: 30,
     justifyContent: 'center',
     alignItems: 'center',
+    maxWidth: 500,
+    alignSelf: 'center',
+    width: '100%',
   },
   logoContainer: {
     alignItems: 'center',
-    marginBottom: 50,
+    marginBottom: 60,
   },
   logoCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 110,
+    height: 110,
+    borderRadius: 55,
     backgroundColor: '#fff',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
     shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 5,
-    marginBottom: 20,
+    shadowRadius: 20,
+    elevation: 8,
+    marginBottom: 25,
   },
   logoTextSmall: {
-    fontSize: 10,
+    fontFamily: 'Open Sans',
+    fontSize: 11,
     fontWeight: '800',
     color: Colors.primary,
-    marginTop: 2,
+    marginTop: 4,
+    letterSpacing: 1,
   },
   tagline: {
-    fontSize: 14,
+    fontFamily: 'Inter',
+    fontSize: 16,
     color: '#64748B',
-    fontWeight: '500',
+    fontWeight: '600',
+    textAlign: 'center',
   },
   roleList: {
     width: '100%',
-    gap: 15,
+    gap: 16,
   },
   roleCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
-    borderLeftWidth: 6,
+    borderRadius: 20,
+    padding: 22,
+    borderLeftWidth: 8,
     shadowColor: '#000',
     shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
+    shadowRadius: 15,
+    elevation: 3,
   },
   iconBox: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 54,
+    height: 54,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 15,
+    marginRight: 18,
   },
   roleText: {
     flex: 1,
   },
   roleTitle: {
+    fontFamily: 'Open Sans',
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#1E293B',
   },
   roleSub: {
+    fontFamily: 'Inter',
     fontSize: 14,
     color: '#64748B',
-    marginTop: 2,
+    marginTop: 4,
+    fontWeight: '500',
   },
   footer: {
-    marginTop: 100,
+    marginTop: 80,
   },
   footerText: {
-    fontSize: 14,
+    fontFamily: 'Inter',
+    fontSize: 15,
     color: '#64748B',
+    fontWeight: '600',
   },
   loginLink: {
     color: Colors.primary,
-    fontWeight: '700',
+    fontWeight: '800',
   }
 });

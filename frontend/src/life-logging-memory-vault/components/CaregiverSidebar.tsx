@@ -9,10 +9,9 @@ const CaregiverSidebar = () => {
   const pathname = usePathname();
 
   const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: 'grid', href: '/caregiver' },
-    { id: 'behavior', label: 'Behavior Logs', icon: 'time', href: '/caregiver/behavior-logs' },
+    { id: 'behavior', label: 'Behavioral Patterns', icon: 'pulse', href: '/caregiver/behavior-logs' },
     { id: 'objects', label: 'Object Tracker', icon: 'search', href: '/caregiver/object-tracker' },
-    { id: 'hardware', label: 'Hardware Hub', icon: 'hardware-chip', href: '/caregiver/hardware-hub' },
+    { id: 'hardware', label: 'Hardware Sync Hub', icon: 'glasses', href: '/caregiver/hardware-hub' },
     { id: 'ingestion', label: 'Data Ingestion', icon: 'cloud-upload', href: '/caregiver/data-ingestion' },
   ];
 
@@ -22,7 +21,7 @@ const CaregiverSidebar = () => {
         <View style={styles.logoIcon}>
           <Ionicons name="pulse" size={24} color="#fff" />
         </View>
-        <Text style={styles.logoText}>EchoCare</Text>
+        <Text style={styles.logoText}>MemoCare</Text>
       </View>
 
       <ScrollView style={styles.menu}>
@@ -36,8 +35,8 @@ const CaregiverSidebar = () => {
             >
               <Ionicons 
                 name={item.icon as any} 
-                size={20} 
-                color={isActive ? Colors.sageGreen : '#64748B'} 
+                size={22} 
+                color={isActive ? Colors.sageGreen : '#94A3B8'} 
               />
               <Text style={[styles.menuLabel, isActive && styles.activeLabel]}>
                 {item.label}
@@ -50,10 +49,13 @@ const CaregiverSidebar = () => {
 
       <View style={styles.footer}>
         <TouchableOpacity style={styles.footerItem}>
-          <Ionicons name="settings-outline" size={20} color="#64748B" />
+          <Ionicons name="settings-outline" size={20} color="#94A3B8" />
           <Text style={styles.footerLabel}>Settings</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.footerItem, { marginTop: 15 }]}>
+        <TouchableOpacity 
+          style={[styles.footerItem, { marginTop: 20 }]}
+          onPress={() => router.push('/role/select')}
+        >
           <Ionicons name="log-out-outline" size={20} color="#EF4444" />
           <Text style={[styles.footerLabel, { color: '#EF4444' }]}>Logout</Text>
         </TouchableOpacity>
@@ -64,30 +66,31 @@ const CaregiverSidebar = () => {
 
 const styles = StyleSheet.create({
   sidebar: {
-    width: 260,
+    width: 280,
     height: '100%',
     backgroundColor: '#fff',
     borderRightWidth: 1,
     borderRightColor: '#F1F5F9',
-    paddingVertical: 30,
+    paddingVertical: 40,
   },
   logoSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 25,
-    marginBottom: 40,
+    paddingHorizontal: 30,
+    marginBottom: 50,
   },
   logoIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     backgroundColor: Colors.sageGreen,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 14,
   },
   logoText: {
-    fontSize: 20,
+    fontFamily: 'Open Sans',
+    fontSize: 22,
     fontWeight: '800',
     color: Colors.sageGreen,
   },
@@ -97,21 +100,23 @@ const styles = StyleSheet.create({
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 25,
+    paddingVertical: 14,
+    paddingHorizontal: 30,
     marginVertical: 4,
   },
   activeItem: {
     backgroundColor: Colors.sageGreen + '08',
   },
   menuLabel: {
-    fontSize: 14,
+    fontFamily: 'Inter',
+    fontSize: 15,
     fontWeight: '600',
     color: '#64748B',
-    marginLeft: 15,
+    marginLeft: 18,
   },
   activeLabel: {
     color: Colors.sageGreen,
+    fontWeight: '800',
   },
   activeIndicator: {
     position: 'absolute',
@@ -123,20 +128,21 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 4,
   },
   footer: {
-    paddingHorizontal: 25,
+    paddingHorizontal: 30,
     borderTopWidth: 1,
     borderTopColor: '#F1F5F9',
-    paddingTop: 20,
+    paddingTop: 30,
   },
   footerItem: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   footerLabel: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontFamily: 'Inter',
+    fontSize: 15,
+    fontWeight: '700',
     color: '#64748B',
-    marginLeft: 15,
+    marginLeft: 18,
   }
 });
 
