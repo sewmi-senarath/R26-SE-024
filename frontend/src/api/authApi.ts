@@ -183,6 +183,7 @@ export const loginUser = async (email: string, password: string) => {
       await storage.setItem("refreshToken", data.data.refreshToken);
       await storage.setItem("userRole", data.data.user.role);
       await storage.setItem("userData", JSON.stringify(data.data.user));
+      await storage.setItem("caregiverId", data.data.user._id);
     }
     return data;
   } catch (error) {
