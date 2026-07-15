@@ -14,6 +14,7 @@ import {
 import { useSaveGameSession } from '@/src/hooks/useSaveGameSession';
 import { Difficulty, GameSessionResult, PhotoPuzzleConfig } from '@/src/types/games.types';
 import { useLocalSearchParams } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import * as Speech from 'expo-speech';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -33,6 +34,7 @@ import {
   GestureHandlerRootView,
 } from 'react-native-gesture-handler';
 import Animated, {
+  FadeIn,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
@@ -444,6 +446,7 @@ export default function PhotoPuzzleGame() {
       celebratedRef.current = true;
       if (timerRef.current) clearInterval(timerRef.current);
       setShowConfetti(true);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       Speech.speak('Wonderful! Puzzle completed.');
       setTimeout(() => {
         setShowConfetti(false);
@@ -505,6 +508,7 @@ export default function PhotoPuzzleGame() {
   const handleSnapped = useCallback((pieceId: number, slotIndex: number) => {
     const moved = pieces.find(p => p.id === pieceId);
     if (moved?.correctPosition === slotIndex) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
       Speech.speak('Great placement.');
     }
     setSnappedMap(prev => {
@@ -617,6 +621,7 @@ export default function PhotoPuzzleGame() {
             title="Photo Puzzle"
             difficulty={difficulty}
             timeLeft={timeLeft}
+            totalSeconds={config.timeLimitSeconds}
           />
 
           {/* Stats row */}
@@ -626,9 +631,13 @@ export default function PhotoPuzzleGame() {
             marginBottom: 6,
             marginTop: 4,
           }}>
-            <Text style={{ fontSize: 13, color: '#6b7280' }}>
+            <Animated.Text
+              key={correctCount}
+              entering={FadeIn.duration(250)}
+              style={{ fontSize: 13, color: correctCount === pieceCount ? '#16a34a' : '#6b7280', fontWeight: correctCount === pieceCount ? '700' : '400' }}
+            >
               {correctCount} / {pieceCount} placed correctly
-            </Text>
+            </Animated.Text>
             {isWarning && timeLeft !== null && (
               <Text style={{ fontSize: 13, color: '#ef4444', fontWeight: '700' }}>
                 ⚠ {timeLeft}s left!

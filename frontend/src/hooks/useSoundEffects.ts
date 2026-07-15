@@ -1,7 +1,29 @@
 import { Audio } from "expo-av";
+import * as Haptics from "expo-haptics";
 import { useEffect, useRef } from "react";
 
 type SoundType = "back" | "success" | "error" | "click";
+
+async function fireHaptic(type: SoundType) {
+  try {
+    switch (type) {
+      case "success":
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        break;
+      case "error":
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        break;
+      case "click":
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        break;
+      case "back":
+        await Haptics.selectionAsync();
+        break;
+    }
+  } catch {
+    // haptics unavailable (e.g. web) — ignore
+  }
+}
 
 export const useSoundEffects = () => {
   const soundsRef = useRef<Record<SoundType, Audio.Sound | null>>({
@@ -23,6 +45,8 @@ export const useSoundEffects = () => {
   }, []);
 
   const playSound = async (type: SoundType) => {
+    void fireHaptic(type);
+
     try {
       if (!soundsRef.current[type]) {
         const soundMap: Record<SoundType, any> = {

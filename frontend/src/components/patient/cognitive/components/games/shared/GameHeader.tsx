@@ -1,20 +1,53 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Difficulty } from '@/src/types/games.types';
 import { DifficultyBadge } from '../DifficultyBadge';
+import Animated, {
+  Easing,
+  FadeIn,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
+import { CircularProgress } from './CircularProgress';
 
 interface Props {
   title: string;
   difficulty: Difficulty;
   timeLeft?: number | null;
+  /** Total seconds for the countdown — enables the circular ring timer. */
+  totalSeconds?: number | null;
   onExit?: () => void;
   onBack?: () => void;
 }
 
-export function GameHeader({ title, difficulty, timeLeft, onExit, onBack }: Props) {
+export function GameHeader({ title, difficulty, timeLeft, totalSeconds, onExit, onBack }: Props) {
   const router = useRouter();
   const handleBack = onExit ?? onBack ?? (() => router.back());
+  const isWarning = timeLeft != null && timeLeft <= 10;
+  const pulse = useSharedValue(1);
+
+  useEffect(() => {
+    if (isWarning) {
+      pulse.value = withRepeat(
+        withSequence(
+          withTiming(1.12, { duration: 400, easing: Easing.inOut(Easing.ease) }),
+          withTiming(1, { duration: 400, easing: Easing.inOut(Easing.ease) }),
+        ),
+        -1,
+        true,
+      );
+    } else {
+      pulse.value = withTiming(1, { duration: 200 });
+    }
+  }, [isWarning]);
+
+  const pulseStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulse.value }],
+  }));
 
   return (
     <View
@@ -41,16 +74,38 @@ export function GameHeader({ title, difficulty, timeLeft, onExit, onBack }: Prop
         <DifficultyBadge difficulty={difficulty} size="sm" />
       </View>
 
-      {timeLeft != null && (
-        <View
-          className={`px-2.5 py-1 rounded-xl ${timeLeft <= 10 ? 'bg-red-100' : 'bg-blue-100'}`}
-          style={{ flexShrink: 0, minWidth: 48, alignItems: 'center' }}
+      {timeLeft != null && totalSeconds ? (
+        <Animated.View entering={FadeIn.duration(300)} style={[{ flexShrink: 0 }, pulseStyle]}>
+          <CircularProgress
+            percent={(timeLeft / totalSeconds) * 100}
+            size={44}
+            strokeWidth={5}
+            color={isWarning ? '#ef4444' : '#3b82f6'}
+            label={`${timeLeft}`}
+            delay={0}
+          />
+        </Animated.View>
+      ) : timeLeft != null ? (
+        <Animated.View
+          entering={FadeIn.duration(300)}
+          style={[
+            {
+              flexShrink: 0,
+              minWidth: 48,
+              alignItems: 'center',
+              paddingHorizontal: 10,
+              paddingVertical: 4,
+              borderRadius: 12,
+              backgroundColor: isWarning ? '#fee2e2' : '#dbeafe',
+            },
+            pulseStyle,
+          ]}
         >
-          <Text className={`text-xs font-bold ${timeLeft <= 10 ? 'text-red-600' : 'text-blue-600'}`}>
+          <Text className={`text-xs font-bold ${isWarning ? 'text-red-600' : 'text-blue-600'}`}>
             {timeLeft}s
           </Text>
-        </View>
-      )}
+        </Animated.View>
+      ) : null}
     </View>
   );
 }

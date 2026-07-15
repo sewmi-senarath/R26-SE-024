@@ -9,6 +9,14 @@ import { AttentionGameConfig, Difficulty, GameSessionResult } from '@/src/types/
 import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { SafeAreaView, Text, TouchableOpacity, View } from 'react-native';
+import Animated, {
+  Easing,
+  ZoomIn,
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 
 type Phase = 'instruction' | 'playing' | 'result';
 
@@ -33,6 +41,56 @@ function buildGrid(config: AttentionGameConfig): string[] {
   return grid;
 }
 
+function AttentionCell({
+  emoji,
+  size,
+  flashed,
+  onPress,
+}: {
+  emoji: string;
+  size: number;
+  flashed: boolean;
+  onPress: () => void;
+}) {
+  const scale = useSharedValue(1);
+
+  useEffect(() => {
+    if (flashed) {
+      scale.value = withSequence(
+        withTiming(1.25, { duration: 100, easing: Easing.out(Easing.ease) }),
+        withTiming(1, { duration: 150, easing: Easing.in(Easing.ease) }),
+      );
+    }
+  }, [flashed]);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
+      <Animated.View
+        entering={ZoomIn.duration(250)}
+        style={[
+          {
+            width: size,
+            height: size,
+            backgroundColor: flashed ? '#dbeafe' : '#ffffff',
+            borderRadius: 12,
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderWidth: 1,
+            borderColor: '#f3f4f6',
+          },
+          animStyle,
+        ]}
+      >
+        <Text style={{ fontSize: size * 0.45 }}>{emoji}</Text>
+      </Animated.View>
+    </TouchableOpacity>
+  );
+}
+
 export default function AttentionGame() {
   const { difficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
   const { playSound } = useSoundEffects();
@@ -47,6 +105,7 @@ export default function AttentionGame() {
   const [totalStarsShown, setTotalStarsShown] = useState(0);
   const [result, setResult] = useState<GameSessionResult | null>(null);
   const [flashIndex, setFlashIndex] = useState<number | null>(null);
+  const [gridVersion, setGridVersion] = useState(0);
 
   const scoreRef = useRef(score);
   const tapsRef = useRef(taps);
@@ -61,6 +120,7 @@ export default function AttentionGame() {
 
   const createNewRound = useCallback(() => {
     setGrid(buildGrid(config));
+    setGridVersion((v) => v + 1);
     tappedCellsRef.current = new Set();
     setTotalStarsShown((n) => {
       const next = n + config.targetCount;
@@ -198,6 +258,7 @@ export default function AttentionGame() {
         title="Attention Game"
         difficulty={difficulty}
         timeLeft={timer.secondsLeft}
+        totalSeconds={config.timeLimitSeconds}
       />
 
       <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 16, alignItems: 'center' }}>
@@ -226,22 +287,13 @@ export default function AttentionGame() {
 
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', width: config.gridSize * (cellSize + 6), justifyContent: 'center', gap: 3 }}>
           {grid.map((emoji, i) => (
-            <TouchableOpacity
-              key={i}
+            <AttentionCell
+              key={`${i}-${gridVersion}`}
+              emoji={emoji}
+              size={cellSize}
+              flashed={flashIndex === i}
               onPress={() => handleTap(i)}
-              style={{
-                width: cellSize,
-                height: cellSize,
-                backgroundColor: flashIndex === i ? '#dbeafe' : '#ffffff',
-                borderRadius: 12,
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderWidth: 1,
-                borderColor: '#f3f4f6',
-              }}
-            >
-              <Text style={{ fontSize: cellSize * 0.45 }}>{emoji}</Text>
-            </TouchableOpacity>
+            />
           ))}
         </View>
       </View>

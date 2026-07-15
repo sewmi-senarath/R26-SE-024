@@ -1,11 +1,14 @@
-import { GAME_CONFIGS } from "@/src/constants/games";
+import { getPatientGameSessions, GameSessionHistoryItem } from "@/src/api/gameSessionApi";
+import { GAME_CONFIGS, GAME_ORDER } from "@/src/constants/games";
 import { useAssessment } from "@/src/context/AssessmentContext";
+import { GameId } from "@/src/types/games.types";
 import { generateGamePlan } from "@/src/utils/difficultyEngine";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { Audio } from "expo-av";
+import * as Haptics from "expo-haptics";
 import { useRouter } from "expo-router";
-import React, { useCallback, useMemo, useRef } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   Platform,
   SafeAreaView,
@@ -16,7 +19,20 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
 import { DifficultyBadge } from "./DifficultyBadge";
+import { DonutChart, TrendBarChart, TrendPoint } from "./shared/ProgressCharts";
+import { RadarChart, RadarPoint } from "./shared/RadarChart";
+
+const GAME_SHORT_LABELS: Record<GameId, string> = {
+  memory_recall: "Memory",
+  object_recall: "Objects",
+  attention_game: "Attention",
+  photo_puzzle: "Puzzle",
+  word_puzzle: "Words",
+  orientation_game: "Orientation",
+  face_name_match: "Faces",
+};
 
 export default function BrainGamesScreen() {
   const router = useRouter();
@@ -26,8 +42,52 @@ export default function BrainGamesScreen() {
     hasCompletedAssessment,
     error,
     refreshSession,
+    patientId,
   } = useAssessment();
   const gamePlan = useMemo(() => generateGamePlan(session), [session]);
+
+  const [history, setHistory] = useState<GameSessionHistoryItem[]>([]);
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      if (!patientId) return;
+      getPatientGameSessions(patientId)
+        .then((sessions) => {
+          if (!cancelled) setHistory(sessions);
+        })
+        .catch(() => {
+          if (!cancelled) setHistory([]);
+        });
+      return () => {
+        cancelled = true;
+      };
+    }, [patientId]),
+  );
+
+  const trendData: TrendPoint[] = useMemo(() => {
+    const sorted = [...history]
+      .filter((s) => typeof s.completedAt === "string")
+      .sort((a, b) => new Date(a.completedAt).getTime() - new Date(b.completedAt).getTime())
+      .slice(-6);
+
+    return sorted.map((s, i) => ({
+      label: `#${i + 1}`,
+      percent: s.maxScore > 0 ? Math.round((s.score / s.maxScore) * 100) : 0,
+    }));
+  }, [history]);
+
+  const radarData: RadarPoint[] = useMemo(() => {
+    return GAME_ORDER.map((gameId) => {
+      const sessions = history.filter((s) => s.gameId === gameId && s.maxScore > 0);
+      const avgPercent = sessions.length
+        ? Math.round(
+            sessions.reduce((sum, s) => sum + (s.score / s.maxScore) * 100, 0) / sessions.length,
+          )
+        : 0;
+      return { label: GAME_SHORT_LABELS[gameId], value: avgPercent };
+    });
+  }, [history]);
 
   // --- Sound effect setup ---
   const soundRef = useRef<Audio.Sound | null>(null);
@@ -56,6 +116,7 @@ export default function BrainGamesScreen() {
   );
 
   const playSound = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     try {
       if (soundRef.current) {
         await soundRef.current.replayAsync();
@@ -155,14 +216,75 @@ export default function BrainGamesScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 112 }}
         >
-          <View className="px-6 pt-6 pb-2">
+          <Animated.View entering={FadeInDown.duration(400)} className="px-6 pt-6 pb-2">
             <Text className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">
               Your Personalized
             </Text>
             <Text className="text-3xl font-bold text-gray-900 mb-1">
               Game Plan
             </Text>
-          </View>
+          </Animated.View>
+
+          {trendData.length > 0 ? (
+            <Animated.View
+              entering={FadeInUp.delay(80).duration(450)}
+              className="mx-6 mt-2 mb-1 rounded-3xl border border-gray-100 bg-white p-5"
+              style={{
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.05,
+                shadowRadius: 8,
+                elevation: 2,
+              }}
+            >
+              <View className="flex-row items-center justify-between mb-3">
+                <Text className="text-sm font-bold text-gray-900">
+                  Your Progress
+                </Text>
+                <Text className="text-xs text-gray-400">
+                  Last {trendData.length} sessions
+                </Text>
+              </View>
+              <View className="flex-row items-center gap-4">
+                <DonutChart
+                  segments={[
+                    { value: easyCount, color: "#22c55e", label: "Easy" },
+                    { value: mediumCount, color: "#f59e0b", label: "Medium" },
+                    { value: hardCount, color: "#ef4444", label: "Hard" },
+                  ]}
+                  size={80}
+                  strokeWidth={12}
+                />
+                <View style={{ flex: 1 }}>
+                  <TrendBarChart data={trendData} height={64} />
+                </View>
+              </View>
+            </Animated.View>
+          ) : null}
+
+          {history.length > 0 ? (
+            <Animated.View
+              entering={FadeInUp.delay(140).duration(450)}
+              className="mx-6 mt-2 mb-1 rounded-3xl border border-gray-100 bg-white p-5 items-center"
+              style={{
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.05,
+                shadowRadius: 8,
+                elevation: 2,
+              }}
+            >
+              <View className="flex-row items-center justify-between w-full mb-1">
+                <Text className="text-sm font-bold text-gray-900">
+                  Cognitive Profile
+                </Text>
+                <Text className="text-xs text-gray-400">
+                  Avg. accuracy by game
+                </Text>
+              </View>
+              <RadarChart data={radarData} size={220} color="#6366f1" />
+            </Animated.View>
+          ) : null}
 
           <View className="flex-row gap-2 px-6 py-4">
             {easyCount > 0 ? (
@@ -192,13 +314,16 @@ export default function BrainGamesScreen() {
           </View>
 
           <View className="px-6 gap-3">
-            {gamePlan.assignments.map((assignment) => {
+            {gamePlan.assignments.map((assignment, index) => {
               const config = GAME_CONFIGS[assignment.gameId];
               const colors = config.color;
 
               return (
-                <TouchableOpacity
+                <Animated.View
                   key={assignment.gameId}
+                  entering={FadeInUp.delay(160 + index * 90).duration(450).springify().damping(16)}
+                >
+                <TouchableOpacity
                   onPress={async () => {
                     await playSound();
                     router.push({
@@ -265,6 +390,7 @@ export default function BrainGamesScreen() {
                     </View>
                   </View>
                 </TouchableOpacity>
+                </Animated.View>
               );
             })}
           </View>
