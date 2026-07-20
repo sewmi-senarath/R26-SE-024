@@ -5,7 +5,7 @@ import { getGameContent } from '@/src/constants/gameContent';
 import { useQuestionTimer } from '@/src/hooks/useQuestionTimer';
 import { useSaveGameSession } from '@/src/hooks/useSaveGameSession';
 import { useSoundEffects } from '@/src/hooks/useSoundEffects';
-import { AttentionGameConfig, Difficulty, GameSessionResult } from '@/src/types/games.types';
+import { AttentionGameConfig, Difficulty, DifficultyProgressUpdate, GameSessionResult } from '@/src/types/games.types';
 import { useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { SafeAreaView, Text, TouchableOpacity, View } from 'react-native';
@@ -104,6 +104,7 @@ export default function AttentionGame() {
   const [startTime, setStartTime] = useState(0);
   const [totalStarsShown, setTotalStarsShown] = useState(0);
   const [result, setResult] = useState<GameSessionResult | null>(null);
+  const [progress, setProgress] = useState<DifficultyProgressUpdate | null>(null);
   const [flashIndex, setFlashIndex] = useState<number | null>(null);
   const [gridVersion, setGridVersion] = useState(0);
 
@@ -166,7 +167,7 @@ export default function AttentionGame() {
       totalAnswers: finalTaps,
     };
     setResult(nextResult);
-    void saveGameSession(nextResult);
+    saveGameSession(nextResult).then(setProgress);
     setPhase('result');
   }, [config, difficulty, playSound, saveGameSession]);
 
@@ -208,6 +209,7 @@ export default function AttentionGame() {
     setTaps(0);
     tapsRef.current = 0;
     setResult(null);
+    setProgress(null);
     setStartTime(0);
     startTimeRef.current = 0;
     setTotalStarsShown(0);
@@ -247,7 +249,7 @@ export default function AttentionGame() {
   }
 
   if (phase === 'result' && result) {
-    return <GameResultScreen result={result} onPlayAgain={handleReset} />;
+    return <GameResultScreen result={result} progress={progress} onPlayAgain={handleReset} />;
   }
 
   const cellSize = Math.floor(280 / config.gridSize);

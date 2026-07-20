@@ -1,7 +1,11 @@
-import { getPatientGameSessions, GameSessionHistoryItem } from "@/src/api/gameSessionApi";
+import {
+  GameSessionHistoryItem,
+  getPatientGameProgress,
+  getPatientGameSessions,
+} from "@/src/api/gameSessionApi";
 import { GAME_CONFIGS, GAME_ORDER } from "@/src/constants/games";
 import { useAssessment } from "@/src/context/AssessmentContext";
-import { GameId } from "@/src/types/games.types";
+import { GameDifficultyAssignment, GameId, PatientGameProgress } from "@/src/types/games.types";
 import { generateGamePlan } from "@/src/utils/difficultyEngine";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
@@ -47,6 +51,7 @@ export default function BrainGamesScreen() {
   const gamePlan = useMemo(() => generateGamePlan(session), [session]);
 
   const [history, setHistory] = useState<GameSessionHistoryItem[]>([]);
+  const [adaptiveProgress, setAdaptiveProgress] = useState<PatientGameProgress[]>([]);
 
   useFocusEffect(
     useCallback(() => {
@@ -59,11 +64,37 @@ export default function BrainGamesScreen() {
         .catch(() => {
           if (!cancelled) setHistory([]);
         });
+      getPatientGameProgress(patientId)
+        .then((progress) => {
+          if (!cancelled) setAdaptiveProgress(progress);
+        })
+        .catch(() => {
+          if (!cancelled) setAdaptiveProgress([]);
+        });
       return () => {
         cancelled = true;
       };
     }, [patientId]),
   );
+
+  // Once a game has been played at least once, its difficulty is driven by
+  // the patient's actual performance (accuracy + speed) rather than the
+  // one-time assessment score — the assessment plan is just the starting point.
+  const assignments: GameDifficultyAssignment[] = useMemo(() => {
+    const progressByGame = new Map(adaptiveProgress.map((p) => [p.gameId, p]));
+    return gamePlan.assignments.map((assignment) => {
+      const adaptive = progressByGame.get(assignment.gameId);
+      if (!adaptive || adaptive.totalSessions === 0) return assignment;
+
+      return {
+        ...assignment,
+        difficulty: adaptive.difficulty,
+        reason:
+          adaptive.lastChangeReason ??
+          `Adapted from your last ${adaptive.totalSessions} session${adaptive.totalSessions === 1 ? "" : "s"}`,
+      };
+    });
+  }, [gamePlan, adaptiveProgress]);
 
   const trendData: TrendPoint[] = useMemo(() => {
     const sorted = [...history]
@@ -127,13 +158,13 @@ export default function BrainGamesScreen() {
   };
   // --- end sound effect setup ---
 
-  const easyCount = gamePlan.assignments.filter(
+  const easyCount = assignments.filter(
     (assignment) => assignment.difficulty === "easy",
   ).length;
-  const mediumCount = gamePlan.assignments.filter(
+  const mediumCount = assignments.filter(
     (assignment) => assignment.difficulty === "medium",
   ).length;
-  const hardCount = gamePlan.assignments.filter(
+  const hardCount = assignments.filter(
     (assignment) => assignment.difficulty === "hard",
   ).length;
 
@@ -314,7 +345,7 @@ export default function BrainGamesScreen() {
           </View>
 
           <View className="px-6 gap-3">
-            {gamePlan.assignments.map((assignment, index) => {
+            {assignments.map((assignment, index) => {
               const config = GAME_CONFIGS[assignment.gameId];
               const colors = config.color;
 

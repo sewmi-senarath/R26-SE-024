@@ -157,3 +157,24 @@ export interface GamePlan {
   generatedAt: string;
   basedOnSessionId: string;
 }
+
+// Adaptive difficulty — server-computed, updated after every session
+export interface DifficultyProgressUpdate {
+  gameId: GameId;
+  previousDifficulty: Difficulty;
+  difficulty: Difficulty;
+  changed: boolean;
+  reason: string | null;
+  compositeScore: number;
+  totalSessions: number;
+  recentScores: number[];
+}
+
+export interface PatientGameProgress {
+  gameId: GameId;
+  difficulty: Difficulty;
+  totalSessions: number;
+  lastChangeAt: string | null;
+  lastChangeReason: string | null;
+  recentScores: number[];
+}

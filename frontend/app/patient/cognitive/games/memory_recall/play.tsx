@@ -6,7 +6,7 @@ import { usePersonalizedGameContent } from '@/src/hooks/usePersonalizedGameConte
 import { useQuestionTimer } from '@/src/hooks/useQuestionTimer';
 import { useSaveGameSession } from '@/src/hooks/useSaveGameSession';
 import { useSoundEffects } from '@/src/hooks/useSoundEffects';
-import { Difficulty, GameSessionResult, MemoryRecallConfig } from '@/src/types/games.types';
+import { Difficulty, DifficultyProgressUpdate, GameSessionResult, MemoryRecallConfig } from '@/src/types/games.types';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Speech from 'expo-speech';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -75,6 +75,7 @@ export default function MemoryRecallGame() {
   const [score, setScore] = useState(0);
   const [startTime, setStartTime] = useState(0);
   const [result, setResult] = useState<GameSessionResult | null>(null);
+  const [progress, setProgress] = useState<DifficultyProgressUpdate | null>(null);
 
   useEffect(() => {
     if (phase !== 'showing') return;
@@ -156,7 +157,7 @@ export default function MemoryRecallGame() {
       totalAnswers: config.items.length,
     };
     setResult(nextResult);
-    void saveGameSession(nextResult);
+    saveGameSession(nextResult).then(setProgress);
     Speech.speak(`You scored ${correct} out of ${config.items.length}.`);
     setPhase('result');
   }, [selectedIds, config, startTime, difficulty, playSound, saveGameSession]);
@@ -168,6 +169,7 @@ export default function MemoryRecallGame() {
     setSelectedIds([]);
     setScore(0);
     setResult(null);
+    setProgress(null);
   };
 
   const handleGoBack = () => {
@@ -193,7 +195,14 @@ export default function MemoryRecallGame() {
   }
 
   if (phase === 'result' && result) {
-    return <GameResultScreen result={result} onPlayAgain={handleReset} onBack={handleGoBack} />;
+    return (
+      <GameResultScreen
+        result={result}
+        progress={progress}
+        onPlayAgain={handleReset}
+        onBack={handleGoBack}
+      />
+    );
   }
 
   return (

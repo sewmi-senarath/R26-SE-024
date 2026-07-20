@@ -12,7 +12,7 @@ import {
   PuzzleImage,
 } from '@/src/constants/puzzleImages';
 import { useSaveGameSession } from '@/src/hooks/useSaveGameSession';
-import { Difficulty, GameSessionResult, PhotoPuzzleConfig } from '@/src/types/games.types';
+import { Difficulty, DifficultyProgressUpdate, GameSessionResult, PhotoPuzzleConfig } from '@/src/types/games.types';
 import { useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import * as Speech from 'expo-speech';
@@ -287,6 +287,7 @@ export default function PhotoPuzzleGame() {
   const [timeLeft, setTimeLeft] = useState<number | null>(config.timeLimitSeconds);
   const [startTime, setStartTime] = useState(0);
   const [result, setResult] = useState<GameSessionResult | null>(null);
+  const [progress, setProgress] = useState<DifficultyProgressUpdate | null>(null);
   const piecesRef = useRef<PuzzlePiece[]>([]);
   const snappedMapRef = useRef<Record<number, number | null>>({});
   const startTimeRef = useRef(0);
@@ -415,7 +416,7 @@ export default function PhotoPuzzleGame() {
       totalAnswers: pieceCount,
     };
     setResult(nextResult);
-    void saveGameSession(nextResult);
+    saveGameSession(nextResult).then(setProgress);
     Speech.speak(`You solved ${correct} of ${pieceCount} pieces.`);
     setPhase('result');
   }, [calculateCorrectCount, pieceCount, difficulty, saveGameSession]);
@@ -533,6 +534,7 @@ export default function PhotoPuzzleGame() {
     setPieces([]);
     setSnappedMap({});
     setResult(null);
+    setProgress(null);
     setLayoutReady(false);
     setShowConfetti(false);
     setShowReferencePhoto(false);
@@ -589,7 +591,7 @@ export default function PhotoPuzzleGame() {
   }
 
   if (phase === 'result' && result) {
-    return <GameResultScreen result={result} onPlayAgain={handleReset} />;
+    return <GameResultScreen result={result} progress={progress} onPlayAgain={handleReset} />;
   }
 
   const isWarning = timeLeft !== null && timeLeft <= 15;

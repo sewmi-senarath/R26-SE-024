@@ -1,7 +1,7 @@
 // src/components/patient/cognitive/components/games/shared/GameResultScreen.tsx
 
 import { GAME_CONFIGS } from '@/src/constants/games';
-import { GameSessionResult } from '@/src/types/games.types';
+import { DifficultyProgressUpdate, GameSessionResult } from '@/src/types/games.types';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import React, { useEffect, useState } from 'react';
@@ -19,14 +19,17 @@ import Animated, {
   ZoomIn,
 } from 'react-native-reanimated';
 import { CircularProgress } from './CircularProgress';
+import { DifficultyChangeBanner } from './DifficultyChangeBanner';
 
 interface Props {
   result: GameSessionResult;
   onPlayAgain: () => void;
   onBack?: () => void;
+  /** Adaptive-difficulty update returned after saving this session, if any. */
+  progress?: DifficultyProgressUpdate | null;
 }
 
-export function GameResultScreen({ result, onPlayAgain, onBack }: Props) {
+export function GameResultScreen({ result, onPlayAgain, onBack, progress }: Props) {
   const router = useRouter();
   const config = GAME_CONFIGS[result.gameId];
   const pct = Math.round((result.score / result.maxScore) * 100);
@@ -192,6 +195,8 @@ export function GameResultScreen({ result, onPlayAgain, onBack }: Props) {
             </Text>
           </View>
         </Animated.View>
+
+        <DifficultyChangeBanner progress={progress ?? null} />
       </View>
 
       {/* ── Bottom action buttons ───────────────────────────── */}

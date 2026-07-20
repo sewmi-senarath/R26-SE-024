@@ -6,7 +6,7 @@ import { usePersonalizedGameContent } from '@/src/hooks/usePersonalizedGameConte
 import { useQuestionTimer } from '@/src/hooks/useQuestionTimer';
 import { useSaveGameSession } from '@/src/hooks/useSaveGameSession';
 import { useSoundEffects } from '@/src/hooks/useSoundEffects';
-import { Difficulty, GameSessionResult, ObjectRecallConfig } from '@/src/types/games.types';
+import { Difficulty, DifficultyProgressUpdate, GameSessionResult, ObjectRecallConfig } from '@/src/types/games.types';
 import { useLocalSearchParams } from 'expo-router';
 import * as Speech from 'expo-speech';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -40,6 +40,7 @@ export default function ObjectRecallGame() {
   const [phase, setPhase] = useState<Phase>('instruction');
   const [inputs, setInputs] = useState<string[]>(Array(config.objectCount).fill(''));
   const [result, setResult] = useState<GameSessionResult | null>(null);
+  const [progress, setProgress] = useState<DifficultyProgressUpdate | null>(null);
   const [startTime, setStartTime] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
   const warningSpokenRef = useRef(false);
@@ -94,7 +95,7 @@ export default function ObjectRecallGame() {
     }
 
     setResult(nextResult);
-    void saveGameSession(nextResult);
+    saveGameSession(nextResult).then(setProgress);
     setShowConfetti(true);
     Speech.speak(`Great effort. You got ${correct} out of ${config.objectCount}.`);
     setTimeout(() => {
@@ -108,6 +109,7 @@ export default function ObjectRecallGame() {
     setPhase('instruction');
     setInputs(Array(config.objectCount).fill(''));
     setResult(null);
+    setProgress(null);
     setShowConfetti(false);
   };
 
@@ -132,7 +134,7 @@ export default function ObjectRecallGame() {
   }
 
   if (phase === 'result' && result) {
-    return <GameResultScreen result={result} onPlayAgain={handleReset} />;
+    return <GameResultScreen result={result} progress={progress} onPlayAgain={handleReset} />;
   }
 
   return (
