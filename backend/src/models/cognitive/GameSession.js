@@ -10,6 +10,8 @@ const GameSessionSchema = new mongoose.Schema(
         "attention_game",
         "photo_puzzle",
         "word_puzzle",
+        "orientation_game",
+        "face_name_match",
       ],
       required: true,
       index: true,

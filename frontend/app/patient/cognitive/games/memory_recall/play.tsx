@@ -6,13 +6,56 @@ import { usePersonalizedGameContent } from '@/src/hooks/usePersonalizedGameConte
 import { useQuestionTimer } from '@/src/hooks/useQuestionTimer';
 import { useSaveGameSession } from '@/src/hooks/useSaveGameSession';
 import { useSoundEffects } from '@/src/hooks/useSoundEffects';
-import { Difficulty, GameSessionResult, MemoryRecallConfig } from '@/src/types/games.types';
+import { Difficulty, DifficultyProgressUpdate, GameSessionResult, MemoryRecallConfig } from '@/src/types/games.types';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Speech from 'expo-speech';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { SafeAreaView, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Image, SafeAreaView, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import Animated, {
+  BounceIn,
+  FadeIn,
+  ZoomIn,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
 
 type Phase = 'instruction' | 'showing' | 'recall' | 'result';
+
+function SelectableOption({
+  selected,
+  onPress,
+  children,
+}: {
+  selected: boolean;
+  onPress: () => void;
+  children: React.ReactNode;
+}) {
+  const scale = useSharedValue(1);
+
+  useEffect(() => {
+    scale.value = withSpring(selected ? 1.05 : 1, { damping: 10 });
+  }, [selected]);
+
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <Animated.View entering={ZoomIn.duration(300)} style={animStyle}>
+      <TouchableOpacity
+        onPress={onPress}
+        activeOpacity={0.85}
+        style={{ overflow: 'hidden' }}
+        className={`w-40 h-40 rounded-2xl border-2 items-center justify-center ${
+          selected ? 'bg-blue-500 border-blue-500' : 'bg-white border-gray-200'
+        }`}
+      >
+        {children}
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
 
 export default function MemoryRecallGame() {
   const { difficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
@@ -32,6 +75,7 @@ export default function MemoryRecallGame() {
   const [score, setScore] = useState(0);
   const [startTime, setStartTime] = useState(0);
   const [result, setResult] = useState<GameSessionResult | null>(null);
+  const [progress, setProgress] = useState<DifficultyProgressUpdate | null>(null);
 
   useEffect(() => {
     if (phase !== 'showing') return;
@@ -57,7 +101,7 @@ export default function MemoryRecallGame() {
   };
 
   const ALL_OPTIONS = useMemo(() => {
-    const extras = [
+    const extras: typeof config.items = [
       { id: 'd1', emoji: '🎸', label: 'Guitar', category: 'Music' },
       { id: 'd2', emoji: '🚂', label: 'Train', category: 'Vehicle' },
       { id: 'd3', emoji: '🍕', label: 'Pizza', category: 'Food' },
@@ -113,7 +157,7 @@ export default function MemoryRecallGame() {
       totalAnswers: config.items.length,
     };
     setResult(nextResult);
-    void saveGameSession(nextResult);
+    saveGameSession(nextResult).then(setProgress);
     Speech.speak(`You scored ${correct} out of ${config.items.length}.`);
     setPhase('result');
   }, [selectedIds, config, startTime, difficulty, playSound, saveGameSession]);
@@ -125,6 +169,7 @@ export default function MemoryRecallGame() {
     setSelectedIds([]);
     setScore(0);
     setResult(null);
+    setProgress(null);
   };
 
   const handleGoBack = () => {
@@ -150,7 +195,14 @@ export default function MemoryRecallGame() {
   }
 
   if (phase === 'result' && result) {
-    return <GameResultScreen result={result} onPlayAgain={handleReset} onBack={handleGoBack} />;
+    return (
+      <GameResultScreen
+        result={result}
+        progress={progress}
+        onPlayAgain={handleReset}
+        onBack={handleGoBack}
+      />
+    );
   }
 
   return (
@@ -159,6 +211,7 @@ export default function MemoryRecallGame() {
         title="Memory Recall"
         difficulty={difficulty}
         timeLeft={phase === 'recall' ? timer.secondsLeft : null}
+        totalSeconds={config.timeLimitSeconds}
         onBack={handleGoBack}
       />
 
@@ -170,19 +223,58 @@ export default function MemoryRecallGame() {
               Remember this item ({currentShowIndex + 1} of {config.items.length})
             </Text>
             {currentShowIndex < config.items.length ? (
-              <View className="w-56 h-56 bg-white rounded-3xl border border-gray-100 items-center justify-center shadow-sm">
-                <Text style={{ fontSize: 82 }}>{config.items[currentShowIndex].emoji}</Text>
-                <Text className="text-lg font-semibold text-gray-800 mt-2">
-                  {config.items[currentShowIndex].label}
-                </Text>
-                {config.showHints && (
-                  <Text className="text-sm text-gray-400 mt-1">
-                    {config.items[currentShowIndex].category}
-                  </Text>
+              <Animated.View
+                key={currentShowIndex}
+                entering={BounceIn.duration(500)}
+                style={{ overflow: 'hidden' }}
+                className="w-56 h-56 bg-white rounded-3xl border border-gray-100 items-center justify-center shadow-sm"
+              >
+                {config.items[currentShowIndex].image ? (
+                  <>
+                    <Image
+                      source={{ uri: config.items[currentShowIndex].image }}
+                      style={{ position: 'absolute', width: '100%', height: '100%' }}
+                      resizeMode="cover"
+                    />
+                    <View
+                      style={{
+                        position: 'absolute',
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        paddingVertical: 10,
+                        paddingHorizontal: 12,
+                        backgroundColor: 'rgba(17, 24, 39, 0.55)',
+                      }}
+                    >
+                      <Text className="text-lg font-bold text-white text-center">
+                        {config.items[currentShowIndex].label}
+                      </Text>
+                      {config.showHints && (
+                        <Text className="text-xs text-gray-200 text-center mt-0.5">
+                          {config.items[currentShowIndex].category}
+                        </Text>
+                      )}
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <Text style={{ fontSize: 82 }}>{config.items[currentShowIndex].emoji}</Text>
+                    <Text className="text-lg font-semibold text-gray-800 mt-2">
+                      {config.items[currentShowIndex].label}
+                    </Text>
+                    {config.showHints && (
+                      <Text className="text-sm text-gray-400 mt-1">
+                        {config.items[currentShowIndex].category}
+                      </Text>
+                    )}
+                  </>
                 )}
-              </View>
+              </Animated.View>
             ) : (
-              <Text className="text-lg text-gray-500">Get ready...</Text>
+              <Animated.Text entering={FadeIn} className="text-lg text-gray-500">
+                Get ready...
+              </Animated.Text>
             )}
 
             <View className="flex-row gap-2">
@@ -222,21 +314,48 @@ export default function MemoryRecallGame() {
                 {ALL_OPTIONS.map(item => {
                   const selected = selectedIds.includes(item.id);
                   return (
-                    <TouchableOpacity
+                    <SelectableOption
                       key={item.id}
+                      selected={selected}
                       onPress={() => toggleSelect(item.id)}
-                      className={`w-40 h-40 rounded-2xl border-2 items-center justify-center ${
-                        selected ? 'bg-blue-500 border-blue-500' : 'bg-white border-gray-200'
-                      }`}
                     >
-                      <Text style={{ fontSize: 50 }}>{item.emoji}</Text>
-                      <Text className={`text-2xl font-medium mt-1 ${selected ? 'text-white' : 'text-gray-600'}`}>
-                        {item.label}
-                      </Text>
-                      {config.showHints && !selected && (
-                        <Text className="text-xl text-gray-400">{item.category}</Text>
+                      {item.image ? (
+                        <>
+                          <Image
+                            source={{ uri: item.image }}
+                            style={{ position: 'absolute', width: '100%', height: '100%' }}
+                            resizeMode="cover"
+                          />
+                          <View
+                            style={{
+                              position: 'absolute',
+                              bottom: 0,
+                              left: 0,
+                              right: 0,
+                              paddingVertical: 8,
+                              paddingHorizontal: 6,
+                              backgroundColor: selected
+                                ? 'rgba(37, 99, 235, 0.85)'
+                                : 'rgba(17, 24, 39, 0.55)',
+                            }}
+                          >
+                            <Text className="text-lg font-bold text-white text-center">
+                              {item.label}
+                            </Text>
+                          </View>
+                        </>
+                      ) : (
+                        <>
+                          <Text style={{ fontSize: 50 }}>{item.emoji}</Text>
+                          <Text className={`text-2xl font-medium mt-1 ${selected ? 'text-white' : 'text-gray-600'}`}>
+                            {item.label}
+                          </Text>
+                          {config.showHints && !selected && (
+                            <Text className="text-xl text-gray-400">{item.category}</Text>
+                          )}
+                        </>
                       )}
-                    </TouchableOpacity>
+                    </SelectableOption>
                   );
                 })}
               </View>
