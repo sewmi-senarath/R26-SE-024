@@ -218,6 +218,16 @@ export default function CaregiverLayout() {
         options={{
           href: null
         }} />
+      <Tabs.Screen
+        name="dementia-screening"
+        options={{
+          href: null
+        }} />
+      <Tabs.Screen
+        name="patient-report"
+        options={{
+          href: null
+        }} />
     </Tabs>
   );
 }

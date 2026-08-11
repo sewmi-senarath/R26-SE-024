@@ -94,6 +94,15 @@ export default function ActivitySelectorScreen() {
           onPress={() => router.push('/patient/cognitive/assessment')}
         />
 
+        <ActivityCard
+          title="Quick Risk Check"
+          subtitle="A few questions, no test needed"
+          icon="analytics-outline"
+          iconColor="#d97706"
+          iconBackground="bg-amber-100"
+          onPress={() => router.push('/patient/cognitive/risk-screener')}
+        />
+
         <View className="mt-10">
           <ActivityCard
             title="Call for Help"
