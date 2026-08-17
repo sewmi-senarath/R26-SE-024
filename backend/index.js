@@ -18,6 +18,7 @@ const insightRoutes = require("./src/routes/caregiver/insightRoutes");
 const protectedRoutes = require("./src/routes/auth/protectedRoutes");
 const authRoutes = require("./src/routes/auth/authRoutes");
 const cognitivePatientRoutes = require("./src/routes/cognitive/patientRoutes");
+const recommendationRoutes = require('./src/routes/caregiver/recommendationRoutes');
 
 connectDB();
 const app = express();
@@ -34,6 +35,7 @@ app.use("/api/caregiver/patients", patientRoutes);
 app.use("/api/caregiver/profile", caregiverRoutes);
 app.use("/api/caregiver/insights", insightRoutes);
 app.use("/api/caregiver/medications", medicationRoutes);
+app.use('/api/caregiver/recommendations', recommendationRoutes);
 
 // Cognitive Assessment routes
 app.use("/api/cognitive", cognitiveRoutes);

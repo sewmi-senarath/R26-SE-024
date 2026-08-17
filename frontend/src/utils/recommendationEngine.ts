@@ -2,220 +2,344 @@ import { CheckInResult, DailyCheckIn } from '../types/caregiver.types';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 export interface SmartRecommendation {
-  id:          string;
-  category:    'sleep' | 'workload' | 'emotional' | 'physical' | 'social' | 'achievement';
-  title:       string;
-  insight:     string;   // personalized insight based on their specific numbers
-  action:      string;   // specific action to take
-  duration:    string;
-  priority:    'critical' | 'high' | 'medium' | 'low';
-  icon:        string;
-  color:       string;
-  bg:          string;
-  route?:      string;
-  badge?:      string;
+  id:              string;
+  category:        string;
+  title:           string;
+  primaryCause:    string;
+  reason:          string;
+  recommendations: string[];
+  priority:        'High' | 'Medium' | 'Low';
+  expectedBenefit: string;
+  icon:            string;
+  color:           string;
+  bg:              string;
 }
 
-// ── Color map ──────────────────────────────────────────────────────────────
-const COLORS = {
-  sleep:       { color: '#6366F1', bg: '#EEEDFE' },
-  workload:    { color: '#2563EB', bg: '#EFF6FF' },
-  emotional:   { color: '#EF4444', bg: '#FEF2F2' },
-  physical:    { color: '#F97316', bg: '#FFF7ED' },
-  social:      { color: '#8B5CF6', bg: '#F5F3FF' },
-  achievement: { color: '#22C55E', bg: '#F0FDF4' },
-};
-
-// ── Main engine function ───────────────────────────────────────────────────
+// ── Main engine ────────────────────────────────────────────────────────────
 export const generateRecommendations = (
-  form: DailyCheckIn,
-  result: CheckInResult
+  form:       DailyCheckIn,
+  result:     CheckInResult,
+  suppressed: string[] = [],
+  boosted:    string[] = [],
 ): SmartRecommendation[] => {
 
   const recs: SmartRecommendation[] = [];
-  const taskCompletionRate = form.tasksCompleted / Math.max(form.tasksAssigned, 1);
-  const tasksPending       = form.tasksAssigned - form.tasksCompleted;
-  const overallBurden      = form.mentallyExhausted + form.emotionallyDrained + form.emotionalOverwhelm;
+  const pending        = Math.max(0, form.tasksAssigned - form.tasksCompleted);
+  const emotionalTotal = form.emotionalOverwhelm + form.mentallyExhausted + form.emotionallyDrained;
+  const completionPct  = Math.round((form.tasksCompleted / Math.max(form.tasksAssigned, 1)) * 100);
 
-  // ── 1. SLEEP ANALYSIS ────────────────────────────────────────────────────
-  if (form.sleepHours <= 5) {
+  // ── 1. SLEEP ─────────────────────────────────────────────────────────────
+  if (form.sleepHours < 6 && !suppressed.includes('sleep')) {
+    const isCritical = form.sleepHours <= 4;
     recs.push({
-      id:       'sleep-critical',
-      category: 'sleep',
-      priority: 'critical',
-      icon:     'moon-outline',
-      ...COLORS.sleep,
-      badge:    '⚠️ Critical',
-      title:    'Severe Sleep Deficit Detected',
-      insight:  `You only slept ${form.sleepHours} hours. Research shows that below 6 hours, cognitive performance drops by 25% and emotional regulation becomes significantly harder — which explains your current stress levels.`,
-      action:   `Tonight, set a hard stop at 9:30 PM. Ask a colleague to handle any non-urgent tasks after 8 PM so you can wind down properly.`,
-      duration: 'Tonight',
-      route:    '/caregiver/timer',
-    });
-  } else if (form.sleepHours === 6) {
-    recs.push({
-      id:       'sleep-moderate',
-      category: 'sleep',
-      priority: 'high',
-      icon:     'moon-outline',
-      ...COLORS.sleep,
-      title:    'Sleep Quality Needs Attention',
-      insight:  `6 hours is below the recommended 7-8 hours for caregivers. Combined with your current workload of ${form.tasksAssigned} tasks, this creates a compounding stress effect.`,
-      action:   `Try a 20-minute power nap during your lunch break today. Set an alarm — no longer than 20 minutes to avoid grogginess.`,
-      duration: '20 min',
-      route:    '/caregiver/timer',
+      id:           'sleep',
+      category:     'Sleep Management',
+      icon:         'moon-outline',
+      color:        '#6366F1',
+      bg:           '#EEF2FF',
+      title:        isCritical ? 'Severe Sleep Deficit Detected' : 'Insufficient Sleep',
+      primaryCause: 'Sleep Deficit',
+      reason:       `The caregiver slept only ${form.sleepHours} hour${form.sleepHours === 1 ? '' : 's'} last night, which is ${6 - form.sleepHours} hour${6 - form.sleepHours === 1 ? '' : 's'} below the minimum 6-hour threshold. This level of sleep deprivation increases fatigue, impairs decision-making, and significantly raises stress levels. Combined with ${form.hoursCaregiving} hours of caregiving today, the risk of burnout is ${isCritical ? 'very high' : 'elevated'}.`,
+      recommendations: [
+        `Sleep at least ${isCritical ? '8–9' : '7–8'} hours tonight without interruption.`,
+        'Reduce or eliminate overnight caregiving duties this evening.',
+        'Ask a family member or colleague to cover the late shift.',
+        'Maintain a consistent sleep schedule — same bedtime every night.',
+        'Avoid screens and caffeine at least 1 hour before bed.',
+      ],
+      priority:        isCritical ? 'High' : 'High',
+      expectedBenefit: `Reduce fatigue and restore cognitive function within 1–2 nights. Improved sleep will lower your stress score by an estimated 2–3 points and enhance emotional resilience for caregiving.`,
     });
   }
 
-  // ── 2. WORKLOAD ANALYSIS ─────────────────────────────────────────────────
-  if (tasksPending > 5) {
+  // ── 2. EMOTIONAL BURDEN ───────────────────────────────────────────────────
+  if (form.emotionalOverwhelm >= 4 && !suppressed.includes('emotional')) {
+    const isExtreme = emotionalTotal >= 12;
     recs.push({
-      id:       'workload-high',
-      category: 'workload',
-      priority: result.stressLevel === 'High' ? 'critical' : 'high',
-      icon:     'clipboard-outline',
-      ...COLORS.workload,
-      badge:    tasksPending > 8 ? '🔴 Overloaded' : undefined,
-      title:    'Task Overload — Prioritise Now',
-      insight:  `You have ${tasksPending} pending tasks from ${form.tasksAssigned} assigned. That is a ${Math.round((1 - taskCompletionRate) * 100)}% incomplete rate. Some tasks may not need to be done today.`,
-      action:   `Open your task list and mark the bottom 3 tasks as "defer to tomorrow". Focus only on the top ${Math.min(form.tasksCompleted + 2, form.tasksAssigned)} most critical ones.`,
-      duration: '5 min',
-      route:    '/caregiver/tasks',
-    });
-  } else if (taskCompletionRate >= 0.8) {
-    recs.push({
-      id:       'workload-good',
-      category: 'achievement',
-      priority: 'low',
-      icon:     'trophy-outline',
-      ...COLORS.achievement,
-      badge:    '⭐ Great Work',
-      title:    `Strong Performance Today`,
-      insight:  `You completed ${form.tasksCompleted} out of ${form.tasksAssigned} tasks (${Math.round(taskCompletionRate * 100)}%) despite ${form.difficultSituations} difficult situations. That is genuinely impressive.`,
-      action:   `Acknowledge your effort. Write down 1 thing that went well today before you leave — this builds psychological resilience for tomorrow.`,
-      duration: '2 min',
+      id:           'emotional',
+      category:     'Emotional Support',
+      icon:         'heart-outline',
+      color:        '#EF4444',
+      bg:           '#FEF2F2',
+      title:        isExtreme ? 'Critical Emotional Overload' : 'High Emotional Burden',
+      primaryCause: 'Emotional Overload',
+      reason:       `The caregiver reported an emotional overwhelm score of ${form.emotionalOverwhelm}/5, mental exhaustion of ${form.mentallyExhausted}/5, and emotional drain of ${form.emotionallyDrained}/5 — giving a combined emotional burden of ${emotionalTotal}/15. This is ${isExtreme ? 'dangerously high' : 'significantly elevated'} and is the primary driver of today's ${result.stressLevel.toLowerCase()} stress prediction. Handling ${form.difficultSituations} difficult situation${form.difficultSituations !== 1 ? 's' : ''} today has compounded this burden.`,
+      recommendations: [
+        'Practice 5 minutes of deep breathing right now: inhale 4 counts, hold 4, exhale 6.',
+        'Take a 10-minute mindfulness break — focus only on your breathing, nothing else.',
+        isExtreme
+          ? 'Contact a professional counsellor or mental health helpline today — this is urgent.'
+          : 'Talk to a trusted colleague or friend about how you are feeling.',
+        'Journal 3 things you handled well today — acknowledge your own strength.',
+        'Schedule a proper decompression activity tonight: walk, music, or a warm bath.',
+      ],
+      priority:        isExtreme ? 'High' : 'High',
+      expectedBenefit: `Reduce emotional exhaustion and lower cortisol levels within hours. Regular practice of these techniques can reduce your emotional burden score by 30–40% over one week.`,
     });
   }
 
-  // ── 3. DIFFICULT SITUATIONS ANALYSIS ────────────────────────────────────
-  if (form.difficultSituations >= 4) {
+  // ── 3. PENDING TASKS ──────────────────────────────────────────────────────
+  if (pending > 10 && !suppressed.includes('workload-high')) {
     recs.push({
-      id:       'difficult-high',
-      category: 'emotional',
-      priority: 'high',
-      icon:     'shield-outline',
-      ...COLORS.emotional,
-      badge:    form.difficultSituations >= 6 ? '🔴 High Exposure' : undefined,
-      title:    'Emotional Decompression Needed',
-      insight:  `You handled ${form.difficultSituations} difficult situations today. Each one requires emotional labour. Without decompression, these compound into burnout over time.`,
-      action:   `Take a 5-minute "debrief walk" alone. As you walk, mentally replay each difficult situation and consciously "close the file" on it. This is a proven technique used by emergency responders.`,
-      duration: '5 min',
-      route:    '/caregiver/breathing',
+      id:           'workload-high',
+      category:     'Workload Management',
+      icon:         'clipboard-outline',
+      color:        '#2563EB',
+      bg:           '#EFF6FF',
+      title:        'Critical Task Overload',
+      primaryCause: 'Excessive Pending Tasks',
+      reason:       `The caregiver has ${pending} tasks still pending from ${form.tasksAssigned} assigned today, achieving only a ${completionPct}% completion rate. With ${pending} unfinished tasks, the accumulated workload pressure is a major contributor to the current ${result.stressLevel.toLowerCase()} stress level. This volume of unfinished work creates cognitive overload and anxiety that persists beyond the shift.`,
+      recommendations: [
+        `Immediately identify the top 3 most critical tasks from the ${pending} pending — focus only on those.`,
+        'Delegate non-urgent tasks to available family members or colleagues right now.',
+        `Defer at least ${Math.floor(pending / 2)} of the lower-priority tasks to tomorrow with supervisor approval.`,
+        'Communicate your workload situation clearly to your supervisor today.',
+        'Use a simple priority matrix: list tasks as Urgent/Important vs Can Wait.',
+      ],
+      priority:        'High',
+      expectedBenefit: `Reducing your active task load to under 5 tasks will significantly lower anxiety and improve focus, potentially reducing your stress score by 2–3 points immediately.`,
+    });
+  } else if (pending > 5 && pending <= 10 && !suppressed.includes('workload-moderate')) {
+    recs.push({
+      id:           'workload-moderate',
+      category:     'Workload Management',
+      icon:         'clipboard-outline',
+      color:        '#2563EB',
+      bg:           '#EFF6FF',
+      title:        'Workload Needs Attention',
+      primaryCause: 'Elevated Task Backlog',
+      reason:       `The caregiver completed ${form.tasksCompleted} out of ${form.tasksAssigned} assigned tasks today (${completionPct}% completion), leaving ${pending} tasks pending. While not critical, this backlog creates ongoing stress and risks escalating if not addressed. The combination of ${form.hoursCaregiving} hours of caregiving and ${pending} unfinished tasks is unsustainable.`,
+      recommendations: [
+        'Review the pending tasks and rank them by urgency before leaving today.',
+        `Delegate at least ${Math.ceil(pending / 2)} of the ${pending} pending tasks to a colleague.`,
+        'Block the first 30 minutes of tomorrow to clear the most important pending tasks.',
+        'Discuss workload distribution with your supervisor if this pattern continues.',
+      ],
+      priority:        'Medium',
+      expectedBenefit: `Clearing the task backlog will reduce end-of-shift anxiety and improve your starting position tomorrow, lowering overall stress by an estimated 15–20%.`,
     });
   }
 
-  // ── 4. PHYSICAL TIREDNESS ANALYSIS ───────────────────────────────────────
-  if (form.physicalTiredness >= 4) {
+  // ── 4. BREAKS ─────────────────────────────────────────────────────────────
+  if (form.breaksTaken === 0 && !suppressed.includes('no-breaks')) {
     recs.push({
-      id:       'physical-tired',
-      category: 'physical',
-      priority: form.physicalTiredness === 5 ? 'critical' : 'high',
-      icon:     'body-outline',
-      ...COLORS.physical,
-      badge:    form.physicalTiredness === 5 ? '🔴 Extreme' : undefined,
-      title:    form.physicalTiredness === 5
-        ? 'Extreme Physical Fatigue — Act Now'
-        : 'High Physical Fatigue',
-      insight:  `Your physical tiredness is ${form.physicalTiredness}/5 after ${form.hoursCaregiving} hours of caregiving. Physical exhaustion at this level directly impairs your ability to make good care decisions.`,
-      action:   form.physicalTiredness === 5
-        ? `Stop all non-urgent activities immediately. Sit down, do 5 slow deep breaths, drink water. If this persists, inform your supervisor — you may need to reduce your load today.`
-        : `Do a 3-minute seated stretch right now. Focus on neck rolls, shoulder shrugs, and wrist rotations — areas most stressed by caregiving work.`,
-      duration: form.physicalTiredness === 5 ? '10 min' : '3 min',
-      route:    '/caregiver/stretching',
+      id:           'no-breaks',
+      category:     'Time Management',
+      icon:         'cafe-outline',
+      color:        '#22C55E',
+      bg:           '#F0FDF4',
+      title:        'Zero Breaks in Entire Shift',
+      primaryCause: 'No Recovery Time',
+      reason:       `The caregiver took zero breaks during ${form.hoursCaregiving} hours of continuous caregiving today. Research consistently shows that performance degrades by approximately 20% every 2 hours without a break, and the risk of caregiving errors increases significantly. No breaks also means no physical or mental recovery time, which directly contributes to the ${result.stressLevel.toLowerCase()} stress level recorded today.`,
+      recommendations: [
+        'Take a 10–15 minute break RIGHT NOW — step completely away from your duties.',
+        'During your break: go outside, sit quietly, or do gentle stretching — nothing work-related.',
+        'Set a recurring phone alarm every 90–120 minutes for future break reminders.',
+        'Eat something nutritious during your next break — skipping meals worsens stress.',
+        'Even a 5-minute walk to a different room significantly improves mental clarity.',
+      ],
+      priority:        'High',
+      expectedBenefit: `Taking regular breaks can restore up to 80% of your cognitive performance. A single 15-minute break now will improve your focus, reduce irritability, and lower your stress hormones measurably within the hour.`,
+    });
+  } else if (form.breaksTaken <= 1 && form.hoursCaregiving >= 6 && !suppressed.includes('few-breaks')) {
+    recs.push({
+      id:           'few-breaks',
+      category:     'Time Management',
+      icon:         'cafe-outline',
+      color:        '#22C55E',
+      bg:           '#F0FDF4',
+      title:        'Insufficient Break Frequency',
+      primaryCause: 'Inadequate Rest Periods',
+      reason:       `The caregiver took only ${form.breaksTaken} break${form.breaksTaken === 1 ? '' : 's'} during ${form.hoursCaregiving} hours of caregiving. The recommended minimum is one break every 2 hours. With only ${form.breaksTaken} break${form.breaksTaken === 1 ? '' : 's'}, your body and mind have had insufficient time to recover from the physical and emotional demands of caregiving today.`,
+      recommendations: [
+        `For the remaining ${Math.max(1, form.hoursCaregiving - 6)} hours of your shift, take at least one more break immediately.`,
+        'Each break should be at least 10 minutes and away from the caregiving environment.',
+        'Combine breaks with hydration — drink a full glass of water each time.',
+        'Plan tomorrow\'s breaks in advance: schedule them as non-negotiable appointments.',
+      ],
+      priority:        'Medium',
+      expectedBenefit: `Increasing break frequency will restore energy levels and reduce cumulative fatigue. Caregivers who take regular breaks report 35% lower end-of-shift exhaustion scores.`,
     });
   }
 
-  // ── 5. EMOTIONAL WELLBEING ANALYSIS ──────────────────────────────────────
-  if (overallBurden >= 11) {
+  // ── 5. MOOD ───────────────────────────────────────────────────────────────
+  if (form.mood <= 2 && !suppressed.includes('mood')) {
     recs.push({
-      id:       'emotional-critical',
-      category: 'emotional',
-      priority: 'critical',
-      icon:     'heart-outline',
-      ...COLORS.emotional,
-      badge:    '🔴 Burnout Risk',
-      title:    'Burnout Warning Signs Present',
-      insight:  `Your combined emotional burden score is ${overallBurden}/15 (exhausted: ${form.mentallyExhausted}, drained: ${form.emotionallyDrained}, overwhelmed: ${form.emotionalOverwhelm}). This pattern is a clinical indicator of early burnout.`,
-      action:   `Please speak to your supervisor or a trusted colleague today — not about tasks, but about how you are feeling. If this pattern continues for 3+ days, consider speaking to a healthcare professional.`,
-      duration: '10 min',
-    });
-  } else if (form.mood <= 2) {
-    recs.push({
-      id:       'mood-low',
-      category: 'emotional',
-      priority: 'high',
-      icon:     'sunny-outline',
-      ...COLORS.emotional,
-      title:    'Low Mood Detected',
-      insight:  `Your mood is ${form.mood}/5 today. Low mood combined with caregiving work creates a risk of compassion fatigue — where you feel too emotionally depleted to connect with patients.`,
-      action:   `Do one small thing for yourself in the next 30 minutes — make a cup of tea, call a friend, step outside for 3 minutes. Small positive actions break the low-mood cycle.`,
-      duration: '3 min',
+      id:           'mood',
+      category:     'Relaxation Activities',
+      icon:         'sunny-outline',
+      color:        '#EC4899',
+      bg:           '#FDF2F8',
+      title:        form.mood === 1 ? 'Very Low Mood — Urgent Support Needed' : 'Low Mood Detected',
+      primaryCause: 'Low Mood',
+      reason:       `The caregiver rated their mood at only ${form.mood}/5 today. This significantly low mood — particularly in the context of ${form.difficultSituations} difficult situation${form.difficultSituations !== 1 ? 's' : ''} and a ${result.stressLevel.toLowerCase()} stress prediction — indicates a risk of compassion fatigue. Low mood in caregivers directly impairs the quality of patient interactions and increases the likelihood of burnout if unaddressed.`,
+      recommendations: [
+        'Listen to your favourite calming or uplifting music for at least 10 minutes now.',
+        'Step outside for a 5-minute walk — natural light and fresh air are evidence-based mood boosters.',
+        'Call or message a trusted friend or family member — connection is a powerful antidote to low mood.',
+        'Write down one thing — however small — that went well today. Finding positives rewires your stress response.',
+        form.mood === 1
+          ? 'If this low mood persists for several days, please speak to a mental health professional.'
+          : 'Treat yourself to one small act of self-care this evening — you have earned it.',
+      ],
+      priority:        form.mood === 1 ? 'High' : 'Medium',
+      expectedBenefit: `These activities can elevate mood within 20–30 minutes through natural neurotransmitter release. Addressing low mood early prevents escalation to clinical depression, which affects 1 in 3 long-term caregivers.`,
     });
   }
 
-  // ── 6. BREAKS ANALYSIS ───────────────────────────────────────────────────
-  if (form.breaksTaken === 0 && form.hoursCaregiving >= 6) {
+  // ── 6. PHYSICAL TIREDNESS ────────────────────────────────────────────────
+  if (form.physicalTiredness >= 4 && !suppressed.includes('physical')) {
+    const isExtreme = form.physicalTiredness === 5;
     recs.push({
-      id:       'breaks-none',
-      category: 'physical',
-      priority: 'high',
-      icon:     'cafe-outline',
-      ...COLORS.physical,
-      badge:    '⚠️ No Breaks',
-      title:    `Zero Breaks in ${form.hoursCaregiving} Hours`,
-      insight:  `You have taken no breaks during ${form.hoursCaregiving} hours of caregiving. Research shows performance degrades by 20% every 2 hours without a break — and your patients receive lower quality care as a result.`,
-      action:   `Take a 10-minute break RIGHT NOW. Leave the ward/room, sit somewhere quiet, and do nothing work-related. Set a timer so you do not feel guilty.`,
-      duration: '10 min',
-      route:    '/caregiver/timer',
+      id:           'physical',
+      category:     'Physical Wellbeing',
+      icon:         'body-outline',
+      color:        '#F97316',
+      bg:           '#FFF7ED',
+      title:        isExtreme ? 'Extreme Physical Exhaustion' : 'High Physical Fatigue',
+      primaryCause: 'Physical Exhaustion',
+      reason:       `The caregiver reported physical tiredness of ${form.physicalTiredness}/5 after ${form.hoursCaregiving} hours of caregiving. At this level of physical fatigue, the risk of caregiving errors increases by up to 40% according to healthcare research. Physical exhaustion also amplifies emotional stress — the two feed each other in a cycle that accelerates burnout.`,
+      recommendations: [
+        isExtreme
+          ? 'Stop all non-essential physical activities immediately and inform your supervisor.'
+          : 'Request a reduction in physically demanding tasks for the remainder of your shift.',
+        'Drink a full glass of water now — dehydration dramatically worsens physical fatigue.',
+        'Do a 3-minute seated stretch: neck rolls, shoulder shrugs, ankle rotations, wrist circles.',
+        'Eat a small nutritious snack if you have not eaten recently — low blood sugar intensifies fatigue.',
+        'Schedule proper rest periods into tomorrow\'s shift plan before it begins.',
+      ],
+      priority:        isExtreme ? 'High' : 'Medium',
+      expectedBenefit: `Addressing physical fatigue now prevents compounding exhaustion. Hydration alone can reduce fatigue symptoms by 15–20% within 30 minutes. Planned rest periods will restore physical capacity for safe caregiving.`,
     });
   }
 
-  // ── 7. HYDRATION REMINDER (always) ───────────────────────────────────────
-  if (form.hoursCaregiving >= 5) {
+  // ── 7. DIFFICULT SITUATIONS ───────────────────────────────────────────────
+  if (form.difficultSituations >= 4 && !suppressed.includes('difficult')) {
+    const isSevere = form.difficultSituations >= 6;
     recs.push({
-      id:       'hydration',
-      category: 'physical',
-      priority: 'low',
-      icon:     'water-outline',
-      ...COLORS.physical,
-      title:    'Hydration Check',
-      insight:  `After ${form.hoursCaregiving} hours of caregiving, you have likely lost fluids through activity and stress. Even mild dehydration (1-2%) worsens fatigue and mood.`,
-      action:   `Drink a full glass of water now. Keep a water bottle visible at your workstation — if you can see it, you are 3x more likely to stay hydrated.`,
-      duration: '1 min',
-      route:    '/caregiver/hydration',
+      id:           'difficult',
+      category:     'Stress Management',
+      icon:         'shield-outline',
+      color:        '#8B5CF6',
+      bg:           '#F5F3FF',
+      title:        isSevere ? 'High Exposure to Trauma Events' : 'Emotional Decompression Needed',
+      primaryCause: 'High Exposure to Difficult Situations',
+      reason:       `The caregiver encountered ${form.difficultSituations} difficult situation${form.difficultSituations !== 1 ? 's' : ''} today — including patient confusion and agitation episodes. Each of these events requires significant emotional labour and leaves a physiological stress residue. Without deliberate decompression, these accumulate into secondary traumatic stress and eventual burnout. This is one of the key factors in today's ${result.stressLevel.toLowerCase()} stress prediction.`,
+      recommendations: [
+        'Take a 5-minute "debrief walk" alone right now — mentally review each situation and consciously release it.',
+        'Use the 4-7-8 breathing technique: inhale 4, hold 7, exhale 8 counts. Repeat 4 times.',
+        isSevere
+          ? 'Speak to your supervisor or a mental health professional about today\'s experiences — this level of exposure requires formal debriefing.'
+          : 'Share the experience with a trusted colleague — verbalising difficult events reduces their psychological weight.',
+        'Write briefly about what happened — journalling trauma events reduces their emotional impact by 30%.',
+        'Remind yourself: these patient behaviours are symptoms of dementia, not personal.',
+      ],
+      priority:        isSevere ? 'High' : 'Medium',
+      expectedBenefit: `Deliberate decompression after difficult incidents prevents accumulation of traumatic stress. Caregivers who debrief regularly report 45% lower burnout rates and sustain higher quality care over time.`,
     });
   }
 
-  // ── Sort by priority ──────────────────────────────────────────────────────
-  const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
-  recs.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
+  // ── 8. COUNSELLING (very high stress + emotional) ─────────────────────────
+  if (
+    result.stressLevel === 'High' &&
+    emotionalTotal >= 11 &&
+    !suppressed.includes('counselling')
+  ) {
+    recs.push({
+      id:           'counselling',
+      category:     'Professional Counselling',
+      icon:         'chatbubbles-outline',
+      color:        '#06B6D4',
+      bg:           '#ECFEFF',
+      title:        'Professional Support Recommended',
+      primaryCause: 'Sustained High Stress Pattern',
+      reason:       `The caregiver's combined stress indicators — ${result.stressLevel} stress level, emotional burden of ${emotionalTotal}/15, and ${form.difficultSituations} difficult situation${form.difficultSituations !== 1 ? 's' : ''} today — suggest that professional psychological support would be significantly beneficial. Self-care strategies alone may be insufficient at this stress level without professional guidance.`,
+      recommendations: [
+        'Schedule an appointment with a counsellor or psychologist this week — do not delay.',
+        'Contact a caregiver-specific support helpline for immediate telephone support.',
+        'Speak honestly with your supervisor about your current mental health state.',
+        'Join a dementia caregiver support group to connect with others who understand your experience.',
+        'Ask your GP about caregiver mental health support programmes available in your area.',
+      ],
+      priority:        'High',
+      expectedBenefit: `Professional counselling has demonstrated a 60% reduction in caregiver burnout symptoms in clinical studies. Early intervention prevents escalation to clinical depression and extends your capacity to provide quality care.`,
+    });
+  }
 
-  // Return max 5 recommendations
+  // ── 9. FAMILY SUPPORT ────────────────────────────────────────────────────
+  if (
+    result.stressLevel !== 'Low' &&
+    pending > 5 &&
+    !suppressed.includes('family')
+  ) {
+    recs.push({
+      id:           'family',
+      category:     'Family Support',
+      icon:         'people-outline',
+      color:        '#F59E0B',
+      bg:           '#FFFBEB',
+      title:        'Involve Family in Caregiving',
+      primaryCause: 'Caregiver Isolation',
+      reason:       `With ${pending} pending tasks and ${result.stressLevel.toLowerCase()} stress, the caregiver appears to be managing too much alone. Research shows that caregivers with active family support systems experience 40% lower burnout rates. Sharing the ${form.tasksAssigned} daily tasks across family members creates a more sustainable caregiving model.`,
+      recommendations: [
+        'Contact a family member today with a specific, concrete request for help — not a general "I need help."',
+        'List which of the ${pending} pending tasks can be handled by non-professional family members.',
+        'Schedule a family meeting this week to redistribute caregiving responsibilities fairly.',
+        'Share this stress assessment with family to help them understand the urgency.',
+        'Remember: asking for help is a sign of strength, not weakness.',
+      ],
+      priority:        'Medium',
+      expectedBenefit: `Distributing caregiving responsibilities across family members can reduce your personal task load by 30–50%, directly lowering stress scores and preventing long-term burnout.`,
+    });
+  }
+
+  // ── 10. HYDRATION ─────────────────────────────────────────────────────────
+  if (form.hoursCaregiving >= 5 && !suppressed.includes('hydration')) {
+    recs.push({
+      id:           'hydration',
+      category:     'Healthy Lifestyle',
+      icon:         'water-outline',
+      color:        '#84CC16',
+      bg:           '#F7FEE7',
+      title:        'Hydration & Nutrition Check',
+      primaryCause: 'Dehydration Risk',
+      reason:       `After ${form.hoursCaregiving} hours of active caregiving, the body loses significant fluids through physical activity and stress-related perspiration. Even mild dehydration of just 1–2% of body weight worsens fatigue by 15%, impairs concentration, and negatively affects mood — all of which compound the already ${result.stressLevel.toLowerCase()} stress state recorded today.`,
+      recommendations: [
+        'Drink a full glass of water (250ml) right now before doing anything else.',
+        'Keep a visible water bottle at your workstation — visibility increases consumption by 3x.',
+        'Aim for 8 glasses (2 litres) of water throughout the day.',
+        'Eat a nutritious meal or snack within the next hour if you have not done so.',
+        'Avoid excessive coffee — it dehydrates and increases anxiety at high stress levels.',
+      ],
+      priority:        'Low',
+      expectedBenefit: `Proper hydration can reduce fatigue symptoms by 15–20% within 30 minutes and improve mood and concentration. Consistent hydration throughout caregiving shifts is one of the simplest and most effective wellbeing interventions.`,
+    });
+  }
+
+  // ── Sort: priority order, then boost ──────────────────────────────────────
+  const ORDER = { High: 0, Medium: 1, Low: 2 };
+  recs.sort((a, b) => {
+    const aBoost = boosted.includes(a.id) ? -1 : 0;
+    const bBoost = boosted.includes(b.id) ? -1 : 0;
+    if (aBoost !== bBoost) return aBoost - bBoost;
+    return ORDER[a.priority] - ORDER[b.priority];
+  });
+
   return recs.slice(0, 5);
 };
 
-// ── Helper: get summary message ────────────────────────────────────────────
+// ── Summary message ────────────────────────────────────────────────────────
 export const getSummaryMessage = (
-  form: DailyCheckIn,
-  result: CheckInResult
+  form:   DailyCheckIn,
+  result: CheckInResult,
 ): string => {
-  const taskRate = Math.round((form.tasksCompleted / Math.max(form.tasksAssigned, 1)) * 100);
+  const rate    = Math.round((form.tasksCompleted / Math.max(form.tasksAssigned, 1)) * 100);
+  const pending = form.tasksAssigned - form.tasksCompleted;
 
   if (result.stressLevel === 'High') {
-    return `You completed ${taskRate}% of tasks despite a tough day with ${form.difficultSituations} difficult situations. Here is what will help most right now:`;
+    return `You completed ${rate}% of tasks (${form.tasksCompleted}/${form.tasksAssigned}) despite a tough day with ${form.difficultSituations} difficult situation${form.difficultSituations !== 1 ? 's' : ''}. Here is what will help most right now:`;
   } else if (result.stressLevel === 'Moderate') {
-    return `You are managing well with ${taskRate}% task completion. A few targeted actions can help you finish the day stronger:`;
-  } else {
-    return `Excellent day! ${taskRate}% task completion and low stress. Here are ways to maintain this balance:`;
+    return `You are managing well with ${rate}% task completion and ${form.breaksTaken} break${form.breaksTaken !== 1 ? 's' : ''} taken. A few targeted actions can help you finish the day stronger:`;
   }
+  return `Excellent work today — ${rate}% task completion with low stress. Here are tips to maintain this positive balance:`;
 };
