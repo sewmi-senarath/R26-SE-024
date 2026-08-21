@@ -13,6 +13,14 @@ export const Colors = {
   purple: '#8B5CF6',
   purpleSoft: '#F5F3FF',
 
+  // Component Specific
+  sageGreen: '#88B04B',
+  sageGreenSoft: '#F4F9EC',
+  pastelBlue: '#A2C2E1',
+  pastelBlueSoft: '#F0F7FF',
+  warmCoral: '#F08080',
+  warmCoralSoft: '#FFF5F5',
+
   // Neutrals
   white: '#FFFFFF',
   background: '#F0F4FF',
