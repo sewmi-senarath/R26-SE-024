@@ -8,7 +8,8 @@ export default function RoleSelectScreen() {
   const router = useRouter();
 
   const roles = [
-    { id: 'patient', title: 'I am a Patient', sub: 'I need help with my daily routine', icon: 'heart', color: '#E11D48' },
+    { id: 'patient', title: 'I am a Patient', sub: 'Standard login for patients', icon: 'heart', color: '#E11D48' },
+    { id: 'patient-face', title: 'Patient Face Login', sub: 'Log in instantly using your face', icon: 'scan-circle-outline', color: '#8B5CF6' },
     { id: 'caregiver', title: 'I am a Caregiver', sub: 'I manage care for others', icon: 'shield-checkmark', color: '#2563EB' },
     { id: 'admin', title: 'I am Admin', sub: 'System administration and management', icon: 'settings', color: Colors.sageGreen },
     { id: 'family', title: 'I am Family', sub: 'I want to stay connected', icon: 'people', color: '#0891B2' },
@@ -33,7 +34,8 @@ export default function RoleSelectScreen() {
               onPress={() => {
                 if (role.id === 'caregiver') router.push('/auth/login');
                 else if (role.id === 'admin') router.push('/auth/admin-login');
-                else if (role.id === 'patient') router.push('/patient/auth');
+                else if (role.id === 'patient-face') router.push('/patient/auth');
+                else if (role.id === 'patient') router.push('/auth/login'); // Or whatever the dev branch uses for patient
                 else router.push('/patient');
               }}
             >
