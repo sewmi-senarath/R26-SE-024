@@ -245,6 +245,132 @@ router.post('/mobile-login', async (req, res) => {
   }
 });
 
+// ─── Face Recognition Registration (Enroll Face) ──────────────────
+router.post('/register-face', upload.single('file'), async (req, res) => {
+  try {
+    const { patientId, customerCode } = req.body;
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: 'No face image provided' });
+    }
+
+    let patient = null;
+    if (patientId) patient = await Patient.findById(patientId);
+    else if (customerCode) patient = await Patient.findOne({ customerCode });
+
+    if (!patient) {
+      if (req.file?.path) try { fs.unlinkSync(req.file.path); } catch {}
+      return res.status(404).json({ success: false, error: 'Patient not found' });
+    }
+
+    const FormData = require('form-data');
+    const form = new FormData();
+    form.append('file', fs.createReadStream(req.file.path), {
+      filename: req.file.originalname || 'face.jpg',
+      contentType: req.file.mimetype || 'image/jpeg'
+    });
+
+    const aiRes = await axios.post(`${AI_SERVICE_URL}/extract-embedding`, form, {
+      headers: form.getHeaders(),
+      timeout: 25000
+    });
+
+    if (req.file?.path) try { fs.unlinkSync(req.file.path); } catch {}
+
+    if (!aiRes.data || aiRes.data.status !== 'success') {
+      return res.status(400).json({
+        success: false,
+        error: aiRes.data?.message || 'Could not detect face clearly in image'
+      });
+    }
+
+    patient.faceEmbedding = aiRes.data.embedding;
+    patient.isFaceRegistered = true;
+    await patient.save();
+
+    res.json({
+      success: true,
+      message: 'Face registered successfully',
+      patientId: patient._id
+    });
+  } catch (err) {
+    if (req.file?.path) try { fs.unlinkSync(req.file.path); } catch {}
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ─── Face Recognition Login (Scan Face to Login) ──────────────────
+router.post('/face-login', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: 'No photo provided for face login' });
+    }
+
+    const FormData = require('form-data');
+    const form = new FormData();
+    form.append('file', fs.createReadStream(req.file.path), {
+      filename: req.file.originalname || 'login.jpg',
+      contentType: req.file.mimetype || 'image/jpeg'
+    });
+
+    const aiRes = await axios.post(`${AI_SERVICE_URL}/extract-embedding`, form, {
+      headers: form.getHeaders(),
+      timeout: 25000
+    });
+
+    if (req.file?.path) try { fs.unlinkSync(req.file.path); } catch {}
+
+    if (!aiRes.data || aiRes.data.status !== 'success') {
+      return res.status(400).json({
+        success: false,
+        message: 'Could not clearly detect a face. Please hold still and look at the camera.'
+      });
+    }
+
+    // Find all patients with face embeddings registered
+    const patients = await Patient.find({ isFaceRegistered: true, faceEmbedding: { $ne: null } });
+    if (!patients || patients.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No face-registered patients found in database. Please register your face first.'
+      });
+    }
+
+    const matchRes = await axios.post(`${AI_SERVICE_URL}/match-face`, {
+      target_embedding: aiRes.data.embedding,
+      known_patients: patients.map(p => ({
+        patientId: p._id.toString(),
+        embedding: p.faceEmbedding
+      }))
+    });
+
+    if (matchRes.data?.status === 'match' && matchRes.data.patientId) {
+      const patient = await Patient.findById(matchRes.data.patientId);
+      if (!patient) {
+        return res.status(404).json({ success: false, message: 'Matched patient record not found.' });
+      }
+      return res.json({
+        success: true,
+        confidence: matchRes.data.confidence,
+        patient: {
+          id: patient._id,
+          name: `${patient.firstName} ${patient.lastName}`,
+          firstName: patient.firstName,
+          customerCode: patient.customerCode,
+          patientImage: patient.patientImage
+        }
+      });
+    } else {
+      return res.status(404).json({
+        success: false,
+        message: 'Face not recognized. Please try again or log in with your Registration Number.'
+      });
+    }
+  } catch (err) {
+    if (req.file?.path) try { fs.unlinkSync(req.file.path); } catch {}
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // ─── Behavior Stats for Reports ───────────────────────────────────
 router.get('/stats', async (req, res) => {
   try {

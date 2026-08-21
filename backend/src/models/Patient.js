@@ -23,6 +23,8 @@ const PatientSchema = new mongoose.Schema({
 
   // Biometrics
   patientImage: { type: String }, // Cloudinary URL
+  faceEmbedding: { type: [Number], default: null }, // 512-dim face feature vector
+  isFaceRegistered: { type: Boolean, default: false },
 
   // Dependant / Guardian
   guardian: {

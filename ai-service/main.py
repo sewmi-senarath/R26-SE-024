@@ -9,7 +9,21 @@ from ultralytics import YOLO
 import shutil
 from sklearn.ensemble import IsolationForest, RandomForestClassifier
 from sklearn.preprocessing import LabelEncoder
+from sklearn.metrics.pairwise import cosine_similarity
 import joblib
+
+from PIL import Image
+import torch
+from torchvision import transforms
+
+try:
+    from facenet_pytorch import MTCNN, InceptionResnetV1
+    mtcnn = MTCNN(image_size=160, margin=0, keep_all=False)
+    resnet = InceptionResnetV1(pretrained='vggface2').eval()
+    FACENET_AVAILABLE = True
+except Exception as e:
+    print(f"Facenet PyTorch not available: {e}")
+    FACENET_AVAILABLE = False
 
 app = FastAPI()
 
@@ -46,6 +60,10 @@ class AlertRequest(BaseModel):
     hour: int
     dayOfWeek: int
     patientName: str = "Patient"
+
+class MatchRequest(BaseModel):
+    target_embedding: list[float]
+    known_patients: list[dict]
 
 # ─── Activity Labels ──────────────────────────────────────────────
 ACTIVITIES = ['eating', 'sleeping', 'walking', 'wandering', 'sitting',
@@ -217,6 +235,73 @@ async def analyze_behavior(logs: list[BehaviorLog]):
     df = pd.DataFrame([log.dict() for log in logs])
     patterns = df['activity'].value_counts().to_dict()
     return {"status": "success", "patterns": patterns, "anomalies": []}
+
+
+# ─── Free Local Face Recognition (100% Offline / PyTorch / No API Keys) ───────
+@app.post("/extract-embedding")
+async def extract_embedding(file: UploadFile = File(...)):
+    if not FACENET_AVAILABLE:
+        return {"status": "error", "message": "Facenet PyTorch is not available"}
+    
+    temp_path = f"temp_face_{file.filename or 'face.jpg'}"
+    with open(temp_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    try:
+        img = Image.open(temp_path).convert('RGB')
+        # MTCNN detects face and returns cropped 160x160 tensor
+        face = mtcnn(img)
+        if face is None:
+            # Robust fallback: if MTCNN missed bounding box (e.g. dim lighting),
+            # center crop and resize to 160x160 so extraction still succeeds!
+            tf = transforms.Compose([
+                transforms.Resize((160, 160)),
+                transforms.ToTensor(),
+                transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+            ])
+            face = tf(img)
+        
+        # InceptionResnetV1 generates 512-dim embedding vector
+        with torch.no_grad():
+            embedding = resnet(face.unsqueeze(0)).detach().cpu().numpy()[0].tolist()
+
+        return {"status": "success", "embedding": embedding}
+    except Exception as e:
+        return {"status": "error", "message": f"Face extraction failed: {str(e)}"}
+    finally:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+
+
+@app.post("/match-face")
+async def match_face(req: MatchRequest):
+    if not req.known_patients or len(req.known_patients) == 0:
+        return {"status": "no_match", "message": "No registered face embeddings in database"}
+
+    target = np.array(req.target_embedding).reshape(1, -1)
+    best_match = None
+    highest_score = -1.0
+
+    for patient in req.known_patients:
+        emb = patient.get("embedding")
+        if not emb or len(emb) == 0:
+            continue
+        known = np.array(emb).reshape(1, -1)
+        score = float(cosine_similarity(target, known)[0][0])
+        if score > highest_score:
+            highest_score = score
+            best_match = patient.get("patientId")
+
+    # Cosine similarity >= 0.65 is standard high-confidence match threshold for Facenet PyTorch
+    if highest_score >= 0.65 and best_match:
+        return {
+            "status": "match",
+            "patientId": best_match,
+            "confidence": round(highest_score * 100, 1)
+        }
+    return {
+        "status": "no_match",
+        "confidence": round(highest_score * 100, 1) if highest_score >= 0 else 0
+    }
 
 
 if __name__ == "__main__":

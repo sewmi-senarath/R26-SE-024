@@ -7,3 +7,4 @@ opencv-python
 python-multipart
 scikit-learn
 transformers
+facenet-pytorch

@@ -80,5 +80,12 @@
     "eslint-import-resolver-typescript": "^4.4.4",
     "typescript": "~5.9.2"
   },
-  "private": true
+  "private": true,
+  "overrides": {
+    "@tensorflow/tfjs-react-native": {
+      "@react-native-async-storage/async-storage": "$@react-native-async-storage/async-storage",
+      "expo-camera": "$expo-camera",
+      "expo-gl": "$expo-gl"
+    }
+  }
 }
