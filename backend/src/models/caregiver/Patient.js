@@ -19,6 +19,11 @@ const patientSchema = new mongoose.Schema(
     condition_notes:       { type: String, default: 'No notes added' },
     condition_description: { type: String, default: 'No description provided.' },
     routines:              { type: [routineSchema], default: [] },
+    registeredPatientId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
     caregiverId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',

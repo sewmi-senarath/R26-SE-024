@@ -632,26 +632,28 @@ const MED_FORMS = ['Tablet', 'Capsule', 'Patch', 'Liquid', 'Injection', 'Drops']
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface FormData {
-  title: string;
-  time: string;
-  medName: string;
-  medDose: string;
-  medForm: string;
+  title:    string;
+  time:     string;
+  medName:  string;
+  medDose:  string;
+  medForm:  string;
   medNotes: string;
 }
 
 interface FormErrors {
-  title?: string;
-  time?: string;
+  title?:   string;
+  time?:    string;
   medName?: string;
   medDose?: string;
 }
 
 interface AddRoutineModalProps {
-  visible: boolean;
-  patientName: string;
-  onClose: () => void;
-  onSubmit: (routine: Omit<Routine, 'id'>) => Promise<void>; // ← Promise<void>
+  visible:      boolean;
+  patientName:  string;
+  patientId:    string;    // ✅
+  patientColor?: string;   // ✅
+  onClose:      () => void;
+  onSubmit:     (routine: Omit<Routine, 'id'>) => Promise<void>;
 }
 
 // ── Inline TextInput ──────────────────────────────────────────────────────────
@@ -664,7 +666,7 @@ const TextInputInline: React.FC<TextInputProps> = (props) => (
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export const AddRoutineModal: React.FC<AddRoutineModalProps> = ({
-  visible, patientName, onClose, onSubmit,
+  visible, patientName, patientId, patientColor, onClose, onSubmit, // ✅ FIXED
 }) => {
   const [form, setForm] = useState<FormData>({
     title: '', time: '',
@@ -722,17 +724,42 @@ export const AddRoutineModal: React.FC<AddRoutineModalProps> = ({
     if (!validate()) return;
     setLoading(true);
     try {
+      if (isMedicationMode) {
+        // ✅ Save medication to database
+        const { createMedication } = await import(
+          '../../../services/caregiver/medicationService'
+        );
+
+        const preset   = MEDICATION_TIME_PRESETS.find(p => p.time === form.time);
+        const timeSlot = preset?.slot || 'morning';
+
+        await createMedication({
+          name:            form.medName,
+          dose:            form.medDose,
+          form:            form.medForm,
+          notes:           form.medNotes,
+          time:            form.time,
+          timeSlot,
+          patientId:       patientId,  // ✅ FIXED
+          patientName:     patientName,
+          patientInitials: patientName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2),
+          patientColor:    patientColor || '#4F8EF7',  // ✅ FIXED
+        });
+      }
+
       const finalTitle = isMedicationMode && form.medName
         ? `${form.medName} (${form.medDose})`
         : form.title.trim();
+
       await onSubmit({
         title:     finalTitle,
         time:      form.time.trim(),
         completed: false,
       });
+
       handleClose();
     } catch (error) {
-      // error is handled in patients.tsx via Alert
+      console.log('Submit error:', error);
     } finally {
       setLoading(false);
     }
@@ -1081,7 +1108,7 @@ export const AddRoutineModal: React.FC<AddRoutineModalProps> = ({
                   }}>
                     {activeTimePresets.map((preset) => {
                       const selected    = selectedPreset === preset.time;
-                      const activeColor = isMedicationMode ? Colors.danger  : Colors.primary;
+                      const activeColor = isMedicationMode ? Colors.danger     : Colors.primary;
                       const activeBg    = isMedicationMode ? Colors.dangerSoft : Colors.primaryLight;
                       return (
                         <TouchableOpacity

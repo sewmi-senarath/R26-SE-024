@@ -47,7 +47,7 @@ export function SerialSubtractionRenderer({ question, onAnswer }: Props) {
               Start from 100
             </Text>
             <Text className="text-center text-blue-500 text-sm mt-1">
-              Subtract 10 each time
+              Subtract 7 each time
             </Text>
           </View>
 

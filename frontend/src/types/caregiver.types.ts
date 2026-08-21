@@ -180,3 +180,56 @@ export interface CaregiverProfile {
   hoursThisWeek: number;
   profileImage?: string; 
 }
+
+// ── Daily Check-in ─────────────────────────────────────────────────────────
+export interface DailyCheckIn {
+  sleepHours:          number;
+  physicalTiredness:   number;
+  mood:                number;
+  emotionalOverwhelm:  number;
+  hoursCaregiving:     number;
+  tasksAssigned:       number;
+  tasksCompleted:      number;
+  difficultSituations: number;
+  breaksTaken:         number;
+  mentallyExhausted:   number;
+  difficultyManaging:  number;
+  emotionallyDrained:  number;
+}
+
+export interface CheckInResult {
+  stressLevel:  'Low' | 'Moderate' | 'High';
+  stressScore:  number;
+  confidence:   number;
+  message:      string;
+  tips:         string[];
+  submittedAt:  string;
+  burnout?:     BurnoutRisk;     // ← add
+  weeklyData?:  WeeklyData[];    // ← add
+  stats?: {                       // ← add
+    avgSleep:       number;
+    activeHours:    number;
+    tasksCompleted: number;
+    breaksTaken:    number;
+  };
+}
+
+// ── Burnout Risk ───────────────────────────────────────────────────────────
+export interface BurnoutFactor {
+  factor:      string;
+  severity:    'high' | 'moderate' | 'low';
+  description: string;
+  icon:        string;
+}
+
+export interface BurnoutRisk {
+  riskScore:        number;
+  riskLevel:        'Low' | 'Moderate' | 'High';
+  trend:            'worsening' | 'stable' | 'improving';
+  forecast:         string;
+  factors:          BurnoutFactor[];
+  daysAnalyzed:     number;
+  avgStressScore?:  number;
+  avgSleep?:        number;
+  consecutiveHigh?: number;
+}

@@ -1,7 +1,8 @@
-import React from 'react';
-import { Tabs } from 'expo-router';
-import { View, Text, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Tabs, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Platform, Text, View } from 'react-native';
+import { getStoredRole } from '../../src/api/authApi';
 import { Colors } from '../../src/constants/colors';
 
 // ── Custom Tab Icon ───────────────────────────────────────────────────────────
@@ -37,6 +38,38 @@ const TabBarIcon: React.FC<TabIconProps> = ({ name, color, size, badge }) => (
 
 // ── Layout ────────────────────────────────────────────────────────────────────
 export default function CaregiverLayout() {
+  const router = useRouter();
+  const [isChecking, setIsChecking] = useState(true);
+
+  useEffect(() => {
+    const checkRole = async () => {
+      try {
+        const role = await getStoredRole();
+        if (!role) {
+          router.replace('/auth/login');
+          return;
+        }
+        if (role !== 'caregiver') {
+          if (role === 'patient') router.replace('/patient/activity-selector');
+          else if (role === 'family') router.replace('/family');
+          return;
+        }
+      } catch (error) {
+        router.replace('/auth/login');
+      } finally {
+        setIsChecking(false);
+      }
+    };
+    checkRole();
+  }, []);
+
+  if (isChecking) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+      </View>
+    );
+  }
   return (
     <Tabs
       screenOptions={{
