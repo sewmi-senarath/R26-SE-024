@@ -30,9 +30,9 @@ export function InstructionActionRenderer({ question, onAnswer }: Props) {
       <View className="px-6 gap-6 pb-8">
         {/* Instruction Box */}
         <View className="bg-blue-50 rounded-2xl p-6">
-          <Text className="text-center text-blue-700 font-semibold text-lg mb-4">
+          {/* <Text className="text-center text-blue-700 font-semibold text-lg mb-4">
             {question.prompt}
-          </Text>
+          </Text> */}
 
           {/* Display subPrompt if available (like "CLOSE YOUR EYES") */}
           {question.subPrompt && (
@@ -62,9 +62,9 @@ export function InstructionActionRenderer({ question, onAnswer }: Props) {
 
         {/* Patient Action Indicator */}
         <View className="bg-green-50 rounded-2xl p-4 border border-green-200">
-          <Text className="text-center text-green-700 font-semibold">
+          {/* <Text className="text-center text-green-700 font-semibold">
             👁️ Patient is performing the action
-          </Text>
+          </Text> */}
           <Text className="text-center text-gray-600 text-sm mt-2">
             Observe and verify if the instruction was followed correctly
           </Text>

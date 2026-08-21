@@ -6,14 +6,17 @@
   "scripts": {
     "dev": "nodemon index.js",
     "start": "node index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "seed:questions": "node src/seeder/seedQuestions.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "an-array-of-english-words": "^2.0.0",
     "axios": "^1.16.0",
+    "bcryptjs": "^3.0.3",
     "body-parser": "^2.2.2",
     "cloudinary": "^1.41.3",
     "cors": "^2.8.6",
@@ -21,14 +24,19 @@
     "csv-parser": "^3.2.0",
     "dotenv": "^17.4.1",
     "express": "^5.2.1",
+    "express-validator": "^7.3.2",
     "form-data": "^4.0.5",
+    "jsonwebtoken": "^9.0.3",
     "mongodb": "^7.1.1",
     "mongoose": "^9.4.1",
     "multer": "^2.1.1",
     "multer-storage-cloudinary": "^4.0.0",
+    "openai": "^6.45.0",
     "socket.io": "^4.8.3"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.10",
     "nodemon": "^3.1.14"
   }
 }

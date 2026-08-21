@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, Modal, TouchableOpacity, ScrollView,
   KeyboardAvoidingView, Platform, TouchableWithoutFeedback,
@@ -14,10 +14,11 @@ interface EditProfileModalProps {
   visible: boolean;
   profile: CaregiverProfile;
   onClose: () => void;
-  onSave: (updated: Partial<CaregiverProfile> & { profileImage?: string }) => void;
+  onSave: (
+    updated: Partial<CaregiverProfile> & { profileImage?: string }
+  ) => Promise<void>;
 }
 
-// ── Inline field component ────────────────────────────────────────────────────
 interface FieldProps {
   label: string;
   value: string;
@@ -27,8 +28,10 @@ interface FieldProps {
   icon: keyof typeof Ionicons.glyphMap;
 }
 
+// ── Field Component ───────────────────────────────────────────────────────────
 const Field: React.FC<FieldProps> = ({
-  label, value, onChangeText, placeholder, keyboardType = 'default', icon,
+  label, value, onChangeText,
+  placeholder, keyboardType = 'default', icon,
 }) => (
   <View style={{ marginBottom: 16 }}>
     <Text style={{
@@ -63,69 +66,108 @@ const Field: React.FC<FieldProps> = ({
 export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   visible, profile, onClose, onSave,
 }) => {
-  const [name, setName]           = useState(profile.name);
-  const [role, setRole]           = useState(profile.role);
-  const [email, setEmail]         = useState(profile.email);
+  const [name, setName]                 = useState(profile.name);
+  const [role, setRole]                 = useState(profile.role);
+  const [email, setEmail]               = useState(profile.email);
   const [profileImage, setProfileImage] = useState<string | null>(
     (profile as any).profileImage ?? null,
   );
-  const [loading, setLoading]     = useState(false);
+  const [loading, setLoading]           = useState(false);
+
+  // Sync form when profile prop changes
+  useEffect(() => {
+    setName(profile.name);
+    setRole(profile.role);
+    setEmail(profile.email);
+    setProfileImage((profile as any).profileImage ?? null);
+  }, [profile]);
 
   const initials = name
     .split(' ')
+    .filter(Boolean)
     .map((n) => n[0])
     .join('')
     .toUpperCase()
     .slice(0, 2);
 
-  // ── Image picker ────────────────────────────────────────────────────────────
+  // ── KEY FIX: Convert image to base64 ──────────────────────────────────────
+  // Blob URLs only work in browser session and can't be stored in MongoDB
+  // Base64 strings can be stored in MongoDB and loaded anywhere
+  const convertToBase64 = async (uri: string): Promise<string> => {
+    const response = await fetch(uri);
+    const blob     = await response.blob();
+    return new Promise((resolve, reject) => {
+      const reader  = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  };
+
+  // ── Image Picker ───────────────────────────────────────────────────────────
   const handlePickImage = async () => {
-    // Ask permission
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert(
-        'Permission Required',
-        'Please allow access to your photo library in Settings to upload a profile picture.',
-        [{ text: 'OK' }],
-      );
+      Alert.alert('Permission Required', 'Please allow photo library access.');
       return;
     }
-
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes:    ['images'],
       allowsEditing: true,
-      aspect: [1, 1],       // ← square crop
-      quality: 0.8,
+      aspect:        [1, 1],
+      quality:       0.5, // ← lower quality = smaller base64 size
+      base64:        true, // ← request base64 directly from expo
     });
 
     if (!result.canceled && result.assets.length > 0) {
-      setProfileImage(result.assets[0].uri);
+      const asset = result.assets[0];
+      // Use base64 directly from expo if available
+      if (asset.base64) {
+        const base64Image = `data:image/jpeg;base64,${asset.base64}`;
+        setProfileImage(base64Image);
+      } else {
+        // Fallback: convert uri to base64
+        try {
+          const base64Image = await convertToBase64(asset.uri);
+          setProfileImage(base64Image);
+        } catch (error) {
+          Alert.alert('Error', 'Failed to process image.');
+        }
+      }
     }
   };
 
   const handleTakePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert(
-        'Permission Required',
-        'Please allow camera access in Settings to take a profile photo.',
-        [{ text: 'OK' }],
-      );
+      Alert.alert('Permission Required', 'Please allow camera access.');
       return;
     }
-
     const result = await ImagePicker.launchCameraAsync({
       allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
+      aspect:        [1, 1],
+      quality:       0.5, // ← lower quality = smaller base64 size
+      base64:        true, // ← request base64 directly from expo
     });
 
     if (!result.canceled && result.assets.length > 0) {
-      setProfileImage(result.assets[0].uri);
+      const asset = result.assets[0];
+      // Use base64 directly from expo if available
+      if (asset.base64) {
+        const base64Image = `data:image/jpeg;base64,${asset.base64}`;
+        setProfileImage(base64Image);
+      } else {
+        // Fallback: convert uri to base64
+        try {
+          const base64Image = await convertToBase64(asset.uri);
+          setProfileImage(base64Image);
+        } catch (error) {
+          Alert.alert('Error', 'Failed to process image.');
+        }
+      }
     }
   };
 
-  // Show action sheet style options
   const handleImagePress = () => {
     Alert.alert(
       'Profile Photo',
@@ -133,35 +175,41 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
       [
         { text: 'Choose from Library', onPress: handlePickImage },
         { text: 'Take a Photo',        onPress: handleTakePhoto },
-        profileImage
-          ? { text: 'Remove Photo', style: 'destructive', onPress: () => setProfileImage(null) }
-          : null,
-        { text: 'Cancel', style: 'cancel' },
+        profileImage ? {
+          text:    'Remove Photo',
+          style:   'destructive' as const,
+          onPress: () => setProfileImage(null),
+        } : null,
+        { text: 'Cancel', style: 'cancel' as const },
       ].filter(Boolean) as any[],
     );
   };
 
-  // ── Save ────────────────────────────────────────────────────────────────────
+  // ── Save ───────────────────────────────────────────────────────────────────
   const handleSave = async () => {
     if (!name.trim()) {
       Alert.alert('Required', 'Please enter your full name.');
       return;
     }
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 700));
-    onSave({
-      name:         name.trim(),
-      role:         role.trim(),
-      email:        email.trim(),
-      initials,
-      profileImage: profileImage ?? undefined,
-    });
-    setLoading(false);
-    onClose();
+    try {
+      await onSave({
+        name:         name.trim(),
+        role:         role.trim(),
+        email:        email.trim(),
+        initials,
+        profileImage: profileImage ?? undefined,
+      });
+      onClose();
+    } catch (error) {
+      // error alert shown in more.tsx
+    } finally {
+      setLoading(false);
+    }
   };
 
+  // ── Cancel ─────────────────────────────────────────────────────────────────
   const handleClose = () => {
-    // Reset to profile values on cancel
     setName(profile.name);
     setRole(profile.role);
     setEmail(profile.email);
@@ -169,7 +217,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
     onClose();
   };
 
-  // ── Render ───────────────────────────────────────────────────────────────────
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <Modal
       visible={visible}
@@ -179,20 +227,25 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
       onRequestClose={handleClose}
     >
       <TouchableWithoutFeedback onPress={handleClose}>
-        <View style={{ flex: 1, backgroundColor: 'rgba(15,23,42,0.55)', justifyContent: 'flex-end' }}>
+        <View style={{
+          flex: 1,
+          backgroundColor: 'rgba(15,23,42,0.55)',
+          justifyContent: 'flex-end',
+        }}>
           <TouchableWithoutFeedback>
-            <View
-              style={{
-                height: '92%',
-                backgroundColor: Colors.white,
-                borderTopLeftRadius: 28, borderTopRightRadius: 28,
-                overflow: 'hidden',
-              }}
-            >
+            <View style={{
+              height: '92%',
+              backgroundColor: Colors.white,
+              borderTopLeftRadius: 28,
+              borderTopRightRadius: 28,
+              overflow: 'hidden',
+            }}>
+
               {/* Handle */}
               <View style={{
                 width: 40, height: 4, borderRadius: 2,
-                backgroundColor: Colors.border, alignSelf: 'center',
+                backgroundColor: Colors.border,
+                alignSelf: 'center',
                 marginTop: 12, marginBottom: 4,
               }} />
 
@@ -204,7 +257,9 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                 borderBottomWidth: 1, borderBottomColor: Colors.borderLight,
               }}>
                 <View>
-                  <Text style={{ fontSize: 18, fontWeight: '800', color: Colors.textPrimary }}>
+                  <Text style={{
+                    fontSize: 18, fontWeight: '800', color: Colors.textPrimary,
+                  }}>
                     Edit Profile
                   </Text>
                   <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 2 }}>
@@ -233,10 +288,9 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                   keyboardShouldPersistTaps="handled"
                   showsVerticalScrollIndicator={false}
                 >
-                  {/* ── Profile Photo Section ── */}
-                  <View style={{ alignItems: 'center', marginBottom: 28 }}>
 
-                    {/* Avatar / photo */}
+                  {/* Photo Section */}
+                  <View style={{ alignItems: 'center', marginBottom: 28 }}>
                     <TouchableOpacity
                       onPress={handleImagePress}
                       activeOpacity={0.85}
@@ -282,7 +336,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                       </View>
                     </TouchableOpacity>
 
-                    {/* Upload options */}
+                    {/* Photo Buttons */}
                     <View style={{ flexDirection: 'row', gap: 10 }}>
                       <TouchableOpacity
                         onPress={handlePickImage}
@@ -338,9 +392,11 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                   </View>
 
                   {/* Divider */}
-                  <View style={{ height: 1, backgroundColor: Colors.borderLight, marginBottom: 20 }} />
+                  <View style={{
+                    height: 1, backgroundColor: Colors.borderLight, marginBottom: 20,
+                  }} />
 
-                  {/* ── Form Fields ── */}
+                  {/* Personal Info */}
                   <Text style={{
                     fontSize: 11, fontWeight: '700', color: Colors.textMuted,
                     textTransform: 'uppercase', letterSpacing: 1, marginBottom: 16,
@@ -374,9 +430,11 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                   />
 
                   {/* Divider */}
-                  <View style={{ height: 1, backgroundColor: Colors.borderLight, marginVertical: 8 }} />
+                  <View style={{
+                    height: 1, backgroundColor: Colors.borderLight, marginVertical: 8,
+                  }} />
 
-                  {/* Save button */}
+                  {/* Save Button */}
                   <TouchableOpacity
                     onPress={handleSave}
                     disabled={loading}
@@ -393,11 +451,16 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                     }}
                   >
                     {loading ? (
-                      <ActivityIndicator color={Colors.primary} size="small" />
+                      <ActivityIndicator color={Colors.white} size="small" />
                     ) : (
                       <>
-                        <Ionicons name="checkmark-circle-outline" size={20} color={Colors.white} />
-                        <Text style={{ color: Colors.white, fontWeight: '700', fontSize: 15 }}>
+                        <Ionicons
+                          name="checkmark-circle-outline"
+                          size={20} color={Colors.white}
+                        />
+                        <Text style={{
+                          color: Colors.white, fontWeight: '700', fontSize: 15,
+                        }}>
                           Save Changes
                         </Text>
                       </>

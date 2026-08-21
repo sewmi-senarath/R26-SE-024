@@ -6,8 +6,21 @@ const http = require("http");
 const { Server } = require("socket.io");
 const connectDB = require("./src/config/db");
 
-const taskRoutes = require('./src/routes/caregiver/taskRoutes');
-const patientRoutes = require('./src/routes/caregiver/patientRoutes');
+// Routes from dev
+const medicationRoutes = require("./src/routes/caregiver/medicationRoutes");
+const taskRoutes = require("./src/routes/caregiver/taskRoutes");
+const patientRoutes = require("./src/routes/caregiver/patientRoutes");
+const caregiverRoutes = require("./src/routes/caregiver/caregiverRoutes");
+const cognitiveRoutes = require("./src/routes/cognitive");
+const gameRoutes = require("./src/routes/cognitive/gameSessionRoutes");
+const insightRoutes = require("./src/routes/caregiver/insightRoutes");
+const protectedRoutes = require("./src/routes/auth/protectedRoutes");
+const authRoutes = require("./src/routes/auth/authRoutes");
+const cognitivePatientRoutes = require("./src/routes/cognitive/patientRoutes");
+const recommendationRoutes = require('./src/routes/caregiver/recommendationRoutes');
+const { notFoundHandler, errorHandler } = require("./src/middleware/errorHandler");
+
+// Routes from HEAD
 const lifeLoggingRoutes = require('./src/routes/life-logging-memory-vault');
 const adminPatientRoutes = require('./src/routes/patientRoutes');
 const behaviorRoutes = require('./src/routes/behaviorRoutes');
@@ -23,12 +36,12 @@ const io = new Server(server, {
   }
 });
 
-app.use(express.json());
+app.use(express.json({ limit: "25mb" }));
 app.use(express.static(path.join(__dirname, "public")));
 app.use('/uploads', express.static(path.join(__dirname, "uploads")));
 app.use(cors());
 
-// Training Progress Simulation Endpoint
+// Training Progress Simulation Endpoint (from HEAD)
 app.post('/api/admin/train/:patientId', (req, res) => {
   const { patientId } = req.params;
   let percentage = 0;
@@ -47,13 +60,36 @@ app.post('/api/admin/train/:patientId', (req, res) => {
   res.json({ success: true, message: "Training started" });
 });
 
-// Routes
-app.use('/api/caregiver/tasks', taskRoutes);
-app.use('/api/caregiver/patients', patientRoutes);
-app.use('/api/life-logging', lifeLoggingRoutes);
-app.use('/api/admin/patients', adminPatientRoutes);
-app.use('/api/admin/behavior', behaviorRoutes);
-app.use('/api/admin/personal-objects', personalObjectRoutes);
+// Auth Routes
+app.use("/api/auth", authRoutes);
+
+// Caregiver Portal routes ...
+app.use("/api/caregiver/tasks", taskRoutes);
+app.use("/api/caregiver/patients", patientRoutes);
+app.use("/api/caregiver/profile", caregiverRoutes);
+app.use("/api/caregiver/insights", insightRoutes);
+app.use("/api/caregiver/medications", medicationRoutes);
+app.use('/api/caregiver/recommendations', recommendationRoutes);
+
+// Cognitive Assessment routes
+app.use("/api/cognitive", cognitiveRoutes);
+
+// Other API routes (from HEAD & dev)
+app.use("/api/life-logging", lifeLoggingRoutes);
+app.use("/api/admin/patients", adminPatientRoutes);
+app.use("/api/admin/behavior", behaviorRoutes);
+app.use("/api/admin/personal-objects", personalObjectRoutes);
+app.use("/api/patients", cognitivePatientRoutes);
+app.use("/api", protectedRoutes);
+
+// Health check
+app.get("/health", (req, res) => {
+  res.json({ status: "MemoCare API is running ✅" });
+});
+
+// Error handling
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 io.on("connection", (socket) => {
   console.log("MemoCare Client Connected:", socket.id);
@@ -62,5 +98,5 @@ io.on("connection", (socket) => {
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
-  console.log(`EchoCare Backend: Running on PORT ${PORT}`);
+  console.log(`Listening on PORT ${PORT} : http://localhost:${PORT}`);
 });

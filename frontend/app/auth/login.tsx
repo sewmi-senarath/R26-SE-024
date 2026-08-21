@@ -1,224 +1,161 @@
-import { useRouter } from "expo-router";
-import { useState } from "react";
-import { Image, Text, TextInput, TouchableOpacity, View, StyleSheet, Alert, SafeAreaView } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { Colors } from "../../src/constants/colors";
+import { loginUser } from '@/src/api/authApi';
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
 export default function Login() {
   const router = useRouter();
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
-  const handleLogin = () => {
-    // Caregiver login logic (to be implemented with backend)
-    Alert.alert("Notice", "Caregiver login logic will be connected to the backend.");
-  };
+const handleLogin = async () => {
+  if (!email || !password) {
+    Alert.alert('Error', 'Please enter email and password');
+    return;
+  }
+  setLoading(true);
+  try {
+    const result = await loginUser(email, password);
+    if (result.success) {
+      const role = result.data.user.role;
+
+      // ── Save caregiverId for web + mobile ──────────────────────────────
+      const userId = result.data.user._id || result.data.user.id;
+      const token  = result.data.token;
+
+      // Web (browser)
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('caregiverId', userId);
+        localStorage.setItem('token', token);
+      }
+
+      // Mobile (AsyncStorage)
+      try {
+        const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+        await AsyncStorage.setItem('caregiverId', userId);
+        await AsyncStorage.setItem('token', token);
+      } catch {}
+      // ──────────────────────────────────────────────────────────────────
+
+      if (role === 'patient') router.replace('/patient/activity-selector');
+      else if (role === 'caregiver') router.replace('/caregiver');
+      else if (role === 'family') router.replace('/family');
+    } else {
+      Alert.alert('Login Failed', result.message);
+    }
+  } catch {
+    Alert.alert('Error', 'Cannot connect to server.');
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        {/* MemoCare Logo */}
-        <View style={styles.logoSection}>
-          <View style={styles.logoCircle}>
-             <Ionicons name="heart" size={40} color={Colors.primary} />
-          </View>
-          <Text style={styles.logoText}>MemoCare</Text>
-        </View>
+    <ScrollView
+      style={{ flex: 1, backgroundColor: '#fff' }}
+      contentContainerStyle={{ padding: 24, paddingTop: 48 }}
+    >
+      {/* Back */}
+      <TouchableOpacity onPress={() => router.back()} style={{ marginBottom: 16 }}>
+        <Text style={{ color: '#6b7280', fontSize: 16 }}>← Back</Text>
+      </TouchableOpacity>
 
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Welcome Back!</Text>
-          <Text style={styles.subtitle}>Sign in to your dashboard</Text>
-        </View>
+      {/* Logo */}
+      <View style={{ alignItems: 'center', marginBottom: 32 }}>
+        <Image
+          source={require('../../assets/images/logo.png')}
+          style={{ width: 120, height: 120 }}
+          resizeMode="contain"
+        />
+        <Text style={{ fontSize: 28, fontWeight: 'bold', color: '#1f2937', marginTop: 16 }}>
+          Welcome Back!
+        </Text>
+        <Text style={{ color: '#6b7280', marginTop: 4, fontSize: 15 }}>
+          Sign in to your account
+        </Text>
+      </View>
 
-        {/* Form */}
-        <View style={styles.form}>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Username</Text>
-            <View style={styles.inputWrapper}>
-              <Ionicons name="person-outline" size={20} color="#94A3B8" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Enter your username"
-                placeholderTextColor="#94A3B8"
-                value={username}
-                onChangeText={setUsername}
-              />
-            </View>
-          </View>
+      {/* Email */}
+      <Text style={{ fontWeight: '600', color: '#374151', marginBottom: 8 }}>
+        Email
+      </Text>
+      <TextInput
+        style={{
+          borderWidth: 1, borderColor: '#d1d5db', borderRadius: 10,
+          paddingHorizontal: 16, paddingVertical: 12,
+          fontSize: 16, marginBottom: 16, backgroundColor: '#f9fafb',
+        }}
+        placeholder="Enter your email"
+        placeholderTextColor="#9ca3af"
+        value={email}
+        onChangeText={setEmail}
+        keyboardType="email-address"
+        autoCapitalize="none"
+      />
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Password</Text>
-            <View style={styles.inputWrapper}>
-              <Ionicons name="lock-closed-outline" size={20} color="#94A3B8" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Enter your password"
-                placeholderTextColor="#94A3B8"
-                secureTextEntry
-                value={password}
-                onChangeText={setPassword}
-              />
-            </View>
-          </View>
-
-          <TouchableOpacity style={styles.loginBtn} onPress={handleLogin}>
-            <Text style={styles.loginBtnText}>Sign In</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Footer */}
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>Don't have an account? </Text>
-          <TouchableOpacity onPress={() => router.push("/role/select")}>
-            <Text style={styles.signUpText}>Sign Up</Text>
-          </TouchableOpacity>
-        </View>
-
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={styles.backBtnText}>← Go back</Text>
+      {/* Password */}
+      <Text style={{ fontWeight: '600', color: '#374151', marginBottom: 8 }}>
+        Password
+      </Text>
+      <View style={{
+        borderWidth: 1, borderColor: '#d1d5db', borderRadius: 10,
+        flexDirection: 'row', alignItems: 'center',
+        marginBottom: 24, backgroundColor: '#f9fafb',
+      }}>
+        <TextInput
+          style={{ flex: 1, paddingHorizontal: 16, paddingVertical: 12, fontSize: 16 }}
+          placeholder="Enter your password"
+          placeholderTextColor="#9ca3af"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry={!showPassword}
+        />
+        <TouchableOpacity
+          onPress={() => setShowPassword(!showPassword)}
+          style={{ paddingHorizontal: 16 }}
+        >
+          <Text style={{ color: '#6b7280', fontSize: 14 }}>
+            {showPassword ? 'Hide' : 'Show'}
+          </Text>
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+
+      {/* Login Button */}
+      <TouchableOpacity
+        onPress={handleLogin}
+        disabled={loading}
+        style={{
+          backgroundColor: '#2563eb', paddingVertical: 16,
+          borderRadius: 12, alignItems: 'center', marginBottom: 16,
+          shadowColor: '#2563eb', shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.3, shadowRadius: 8, elevation: 5,
+        }}
+      >
+        {loading
+          ? <ActivityIndicator color="white" />
+          : <Text style={{ color: 'white', fontSize: 18, fontWeight: 'bold' }}>Sign In</Text>
+        }
+      </TouchableOpacity>
+
+      {/* Register Link */}
+      <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 8 }}>
+        <Text style={{ color: '#6b7280' }}>Do not have an account? </Text>
+        <TouchableOpacity onPress={() => router.push('/role/select')}>
+          <Text style={{ color: '#2563eb', fontWeight: 'bold' }}>Sign Up</Text>
+        </TouchableOpacity>
+      </View>
+
+    </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 30,
-    justifyContent: 'center',
-    maxWidth: 450,
-    alignSelf: 'center',
-    width: '100%',
-  },
-  logoSection: {
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  logoCircle: {
-    width: 90,
-    height: 90,
-    borderRadius: 28,
-    backgroundColor: '#F8FAFC',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 15,
-  },
-  logoText: {
-    fontFamily: 'Open Sans',
-    fontSize: 26,
-    fontWeight: '800',
-    color: Colors.primary,
-    letterSpacing: -0.5,
-  },
-  header: {
-    marginBottom: 40,
-    alignItems: 'center',
-  },
-  title: {
-    fontFamily: 'Open Sans',
-    fontSize: 34,
-    fontWeight: '900',
-    color: '#0F172A',
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontFamily: 'Inter',
-    fontSize: 16,
-    color: '#64748B',
-    textAlign: 'center',
-    fontWeight: '500',
-  },
-  form: {
-    width: '100%',
-  },
-  inputGroup: {
-    marginBottom: 24,
-  },
-  label: {
-    fontFamily: 'Inter',
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#475569',
-    marginBottom: 10,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    paddingHorizontal: 18,
-  },
-  inputIcon: {
-    marginRight: 12,
-  },
-  input: {
-    fontFamily: 'Inter',
-    flex: 1,
-    paddingVertical: 16,
-    fontSize: 16,
-    color: '#1E293B',
-    fontWeight: '500',
-  },
-  loginBtn: {
-    backgroundColor: Colors.primary,
-    borderRadius: 18,
-    paddingVertical: 18,
-    alignItems: 'center',
-    marginTop: 10,
-    shadowColor: Colors.primary,
-    shadowOpacity: 0.25,
-    shadowRadius: 15,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 8,
-  },
-  loginBtnText: {
-    fontFamily: 'Inter',
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: '800',
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 35,
-  },
-  footerText: {
-    fontFamily: 'Inter',
-    color: '#64748B',
-    fontSize: 15,
-    fontWeight: '500',
-  },
-  signUpText: {
-    fontFamily: 'Inter',
-    color: Colors.primary,
-    fontWeight: '800',
-    fontSize: 15,
-  },
-  backBtn: {
-    marginTop: 50,
-    alignSelf: 'center',
-    padding: 10,
-  },
-  backBtnText: {
-    fontFamily: 'Inter',
-    color: '#94A3B8',
-    fontWeight: '700',
-    fontSize: 14,
-  }
-});
