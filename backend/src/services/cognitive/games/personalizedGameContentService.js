@@ -1,10 +1,38 @@
 const mongoose = require("mongoose");
 const Patient = require("../../../models/caregiver/Patient");
 const User = require("../../../models/auth/User");
-const { getStaticGameContent } = require("./staticGameContent");
+const { getStaticGameContent, buildFaceQuestions, FALLBACK_FACES } = require("./staticGameContent");
+const { buildTimeOrientationQuestions } = require("./orientationFacts");
+const { shuffle, pickDistractors } = require("./gameContentUtils");
+const {
+  generateLlmGameContent,
+  generateOrientationDistractors,
+  generateFaceNameDecoys,
+} = require("./llmGameContentService");
 
-const VALID_GAMES = new Set(["memory_recall", "object_recall", "word_puzzle"]);
+const VALID_GAMES = new Set([
+  "memory_recall",
+  "object_recall",
+  "word_puzzle",
+  "orientation_game",
+  "face_name_match",
+]);
+// Games whose entire content the LLM is trusted to generate directly.
+const LLM_FULL_CONTENT_GAMES = new Set(["memory_recall", "object_recall", "word_puzzle"]);
 const VALID_DIFFICULTIES = new Set(["easy", "medium", "hard"]);
+
+const FESTIVAL_DISPLAY_NAMES = {
+  vesak: "Vesak",
+  christmas: "Christmas",
+  eid: "Eid",
+  deepavali: "Deepavali",
+};
+const EXTRA_FESTIVALS = ["Easter", "Thanksgiving", "Halloween", "New Year's Day"];
+const FALLBACK_CITIES = [
+  "Colombo", "Kandy", "Galle", "Jaffna", "Negombo",
+  "Kurunegala", "Anuradhapura", "Matara", "Trincomalee", "Batticaloa",
+];
+const FILLER_NAMES = ["Alex", "Maria", "Sam", "Grace", "John", "Emma", "Leo", "Nina", "Ray", "Zoe"];
 
 const FAMILY_EMOJIS = {
   daughter: "\u{1F469}",
@@ -161,6 +189,40 @@ function normalizeKey(value) {
   return String(value || "").trim().toLowerCase();
 }
 
+function normalizePhotoValue(value) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.toLowerCase().startsWith("blob:")) return null;
+  return trimmed;
+}
+
+function buildFamilyPhotoMap(patient) {
+  const map = new Map();
+  (patient.familyMembers || []).forEach((member) => {
+    const name = member?.name?.trim();
+    const photo = normalizePhotoValue(member?.photo);
+    if (!photo) return;
+
+    if (name) map.set(normalizeKey(name), photo);
+
+    // The LLM sometimes echoes the relation ("Mom") instead of the literal
+    // name — index that too so the real photo still gets matched.
+    const relation = member?.relation?.trim();
+    if (relation && !map.has(normalizeKey(relation))) {
+      map.set(normalizeKey(relation), photo);
+    }
+  });
+  return map;
+}
+
+function attachFamilyPhotos(items, photoMap) {
+  if (!photoMap || !photoMap.size || !Array.isArray(items)) return items;
+  return items.map((item) => {
+    const photo = photoMap.get(normalizeKey(item.label));
+    return photo ? { ...item, image: photo } : item;
+  });
+}
+
 function titleCase(value) {
   return String(value || "")
     .trim()
@@ -180,6 +242,8 @@ function hasProfileData(patient) {
       patient.favoritePlacesText ||
       patient.festivalsCelebrated?.length ||
       patient.foodsPreferred?.length ||
+      patient.hobbies?.length ||
+      patient.interests?.length ||
       patient.preferredSports?.length ||
       patient.preferredSportsText ||
       patient.languagesPreferred?.length ||
@@ -226,12 +290,16 @@ function emojiForPlace(place) {
 function buildMemoryItems(patient) {
   const familyItems = (patient.familyMembers || [])
     .filter((member) => member?.name)
-    .map((member, index) => ({
-      id: `pf${index + 1}`,
-      emoji: emojiForRelation(member.relation),
-      label: member.name.trim(),
-      category: "Family",
-    }));
+    .map((member, index) => {
+      const photo = normalizePhotoValue(member.photo);
+      return {
+        id: `pf${index + 1}`,
+        emoji: emojiForRelation(member.relation),
+        label: member.name.trim(),
+        category: "Family",
+        ...(photo ? { image: photo } : {}),
+      };
+    });
 
   const foodItems = (patient.foodsPreferred || [])
     .filter((food) => food?.name)
@@ -257,6 +325,18 @@ function buildMemoryItems(patient) {
   return [...familyItems, ...foodItems, ...placeItems];
 }
 
+function buildFamilyObjectItems(patient) {
+  return (patient.familyMembers || [])
+    .filter((member) => member?.name && normalizePhotoValue(member.photo))
+    .map((member, index) => ({
+      id: `pfo${index + 1}`,
+      emoji: emojiForRelation(member.relation),
+      label: member.name.trim(),
+      category: "Family",
+      image: normalizePhotoValue(member.photo),
+    }));
+}
+
 function buildObjectItems(patient) {
   const occupationItems = compactStrings(patient.occupations).flatMap((occupation) => {
     const occupationKey = Object.keys(OCCUPATION_OBJECTS).find((key) =>
@@ -276,10 +356,14 @@ function buildObjectItems(patient) {
     .map((food) => FOOD_OBJECTS[normalizeKey(food?.name)])
     .filter(Boolean);
 
-  return [...occupationItems, ...festivalItems, ...foodItems].map((item, index) => ({
+  const genericItems = [...occupationItems, ...festivalItems, ...foodItems].map((item, index) => ({
     id: `po${index + 1}`,
     ...item,
   }));
+
+  // Family members with a real photo take priority — recalling a loved one's
+  // face and name is more meaningful than a generic occupation/food object.
+  return [...buildFamilyObjectItems(patient), ...genericItems];
 }
 
 function cleanWord(value) {
@@ -337,6 +421,102 @@ function buildWordCandidates(patient, requiredLength) {
   );
 }
 
+function buildFestivalQuestion(patient, optionsCount, extraDistractors = []) {
+  const celebrated = compactStrings(patient.festivalsCelebrated);
+  if (!celebrated.length) return null;
+
+  const correctAnswer = titleCase(celebrated[Math.floor(Math.random() * celebrated.length)]);
+  const distractorPool = [
+    ...Object.values(FESTIVAL_DISPLAY_NAMES),
+    ...EXTRA_FESTIVALS,
+    ...extraDistractors,
+  ].filter((name) => !celebrated.some((c) => normalizeKey(c) === normalizeKey(name)));
+
+  return {
+    id: "of-festival",
+    question: "Which festival does your family celebrate?",
+    icon: "\u{1F389}",
+    category: "Festival",
+    correctAnswer,
+    options: shuffle([
+      correctAnswer,
+      ...pickDistractors(distractorPool, [correctAnswer], optionsCount - 1),
+    ]),
+  };
+}
+
+function buildPlaceQuestion(patient, optionsCount, extraDistractors = []) {
+  const home =
+    patient.hometown ||
+    compactStrings(patient.favoritePlaces)[0] ||
+    splitFreeText(patient.favoritePlacesText)[0];
+  if (!home) return null;
+
+  const correctAnswer = titleCase(home);
+  const distractorPool = [...FALLBACK_CITIES, ...extraDistractors].filter(
+    (city) => normalizeKey(city) !== normalizeKey(correctAnswer)
+  );
+
+  return {
+    id: "of-place",
+    question: "Which city or town do you call home?",
+    icon: "\u{1F3E0}",
+    category: "Place",
+    correctAnswer,
+    options: shuffle([
+      correctAnswer,
+      ...pickDistractors(distractorPool, [correctAnswer], optionsCount - 1),
+    ]),
+  };
+}
+
+function buildOrientationItems(patient, optionsCount, llmDistractors) {
+  const personalizedQuestions = [
+    buildFestivalQuestion(patient, optionsCount, llmDistractors?.festivalDistractors),
+    buildPlaceQuestion(patient, optionsCount, llmDistractors?.cityDistractors),
+  ].filter(Boolean);
+
+  const timeQuestions = buildTimeOrientationQuestions(optionsCount);
+
+  return {
+    all: [...personalizedQuestions, ...timeQuestions],
+    personalizedCount: personalizedQuestions.length,
+  };
+}
+
+function buildFaceNameItems(patient, optionsCount, llmDecoyNames) {
+  const realPeople = shuffle(
+    (patient.familyMembers || [])
+      .filter((member) => member?.name)
+      .map((member) => ({
+        name: member.name.trim(),
+        relationLabel: member.relation ? `Who is your ${member.relation}?` : "Who is this?",
+        emoji: emojiForRelation(member.relation),
+        image: normalizePhotoValue(member.photo) || undefined,
+      }))
+  );
+
+  if (!realPeople.length) return [];
+
+  const realNames = realPeople.map((p) => p.name);
+  const fillerPool = [...FILLER_NAMES, ...(llmDecoyNames || [])].filter(
+    (name) => !realNames.some((real) => normalizeKey(real) === normalizeKey(name))
+  );
+  const distractorPool = [...realNames, ...fillerPool];
+
+  return realPeople.map((person, index) => ({
+    id: `pface${index + 1}`,
+    emoji: person.emoji,
+    ...(person.image ? { image: person.image } : {}),
+    relationLabel: person.relationLabel,
+    correctAnswer: person.name,
+    options: shuffle([
+      person.name,
+      ...pickDistractors(distractorPool, [person.name], optionsCount - 1),
+    ]),
+  }));
+}
+
 async function isAuthorizedForPatient(requestUser, patientId) {
   if (requestUser.role === "patient") {
     return requestUser.userId.toString() === patientId;
@@ -384,12 +564,97 @@ async function getPersonalizedGameContent({ gameId, patientId, difficulty, reque
   }
 
   const patient = await User.findOne({ _id: patientId, role: "patient" }).select(
-    "familyMembers.name familyMembers.relation lifeEvents countriesLived occupations " +
+    "age preferredLanguage cognitiveLevel hometown hobbies interests " +
+      "familyMembers.name familyMembers.relation familyMembers.photo lifeEvents countriesLived occupations " +
       "favoritePlaces favoritePlacesText festivalsCelebrated foodsPreferred preferredSports " +
-      "preferredSportsText languagesPreferred hometown"
+      "preferredSportsText languagesPreferred"
   );
   if (!hasProfileData(patient)) {
     return { config: staticConfig, personalized: false };
+  }
+
+  const familyPhotoMap = buildFamilyPhotoMap(patient);
+
+  if (gameId === "orientation_game") {
+    // The correct answer for every question here is either a real fact from
+    // the patient's profile or the actual current date/time — never
+    // LLM-generated — so a hallucination can never surface as "correct".
+    // The LLM is only ever asked for plausible extra wrong-answer options.
+    let llmDistractors = null;
+    try {
+      llmDistractors = await generateOrientationDistractors({ patient });
+    } catch (error) {
+      console.warn("[game-content] Orientation distractor generation failed:", error.message);
+    }
+
+    const requiredCount = staticConfig.questionCount;
+    const { all, personalizedCount } = buildOrientationItems(
+      patient,
+      staticConfig.optionsCount,
+      llmDistractors
+    );
+
+    return {
+      config: { ...staticConfig, questions: all.slice(0, requiredCount) },
+      personalized: personalizedCount > 0,
+    };
+  }
+
+  if (gameId === "face_name_match") {
+    // The correct name for a photo always comes from the patient's own
+    // family records — the LLM only ever supplies extra decoy first names.
+    const realNames = compactStrings((patient.familyMembers || []).map((m) => m?.name));
+    let llmDecoyNames = null;
+    try {
+      llmDecoyNames = await generateFaceNameDecoys({ patient, realNames });
+    } catch (error) {
+      console.warn("[game-content] Face-name decoy generation failed:", error.message);
+    }
+
+    const requiredCount = staticConfig.questionCount;
+    const personalItems = buildFaceNameItems(patient, staticConfig.optionsCount, llmDecoyNames);
+    const remaining = requiredCount - personalItems.length;
+    const genericPeople = FALLBACK_FACES.filter(
+      (face) => !realNames.some((name) => normalizeKey(name) === normalizeKey(face.name))
+    );
+    const fallbackItems =
+      remaining > 0 ? buildFaceQuestions(genericPeople, remaining, staticConfig.optionsCount) : [];
+
+    return {
+      config: { ...staticConfig, questions: [...personalItems, ...fallbackItems].slice(0, requiredCount) },
+      personalized: personalItems.length > 0,
+    };
+  }
+
+  try {
+    const llmContent = await generateLlmGameContent({
+      gameId,
+      difficulty,
+      patient,
+      staticConfig,
+    });
+
+    if (llmContent) {
+      // Overlay real family photos onto any matching item the LLM generated,
+      // so a relative's actual photo replaces the generic emoji when possible.
+      const personalizedContent = { ...llmContent };
+      if (personalizedContent.items) {
+        personalizedContent.items = attachFamilyPhotos(personalizedContent.items, familyPhotoMap);
+      }
+      if (personalizedContent.objects) {
+        personalizedContent.objects = attachFamilyPhotos(personalizedContent.objects, familyPhotoMap);
+      }
+
+      return {
+        config: { ...staticConfig, ...personalizedContent },
+        personalized: true,
+      };
+    }
+  } catch (error) {
+    console.warn(
+      "[game-content] LLM generation failed, falling back to rule-based content:",
+      error.message
+    );
   }
 
   if (gameId === "memory_recall") {

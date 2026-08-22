@@ -1,9 +1,13 @@
 import {
   AttentionGameConfig,
   Difficulty,
+  FaceNameMatchConfig,
+  FaceNameQuestion,
   GameId,
   MemoryRecallConfig,
   ObjectRecallConfig,
+  OrientationGameConfig,
+  OrientationQuestion,
   PhotoPuzzleConfig,
   WordPuzzleConfig,
 } from "../types/games.types";
@@ -24,6 +28,98 @@ function sampleItems<T>(items: T[], count: number): T[] {
 
 function matchesWordLength(word: string, wordLength: number): boolean {
   return wordLength === 8 ? word.length >= 8 : word.length === wordLength;
+}
+
+function pickDistractors<T>(pool: T[], exclude: T[], count: number): T[] {
+  const seen = new Set(exclude.map((v) => String(v).trim().toLowerCase()));
+  const candidates: T[] = [];
+  pool.forEach((value) => {
+    const key = String(value).trim().toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    candidates.push(value);
+  });
+  return sampleItems(candidates, count);
+}
+
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const TIMES_OF_DAY = ["Morning", "Afternoon", "Evening", "Night"];
+
+function getTimeOfDay(hour: number): string {
+  if (hour >= 5 && hour < 12) return "Morning";
+  if (hour >= 12 && hour < 17) return "Afternoon";
+  if (hour >= 17 && hour < 21) return "Evening";
+  return "Night";
+}
+
+// Deterministic, real-clock questions — never LLM-generated, so "what day is
+// it" can never be answered wrong. Mirrors backend/orientationFacts.js.
+function buildTimeOrientationQuestions(optionsCount: number): OrientationQuestion[] {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = MONTHS[now.getMonth()];
+  const weekday = WEEKDAYS[now.getDay()];
+  const timeOfDay = getTimeOfDay(now.getHours());
+  const yearPool = [year - 2, year - 1, year, year + 1, year + 2].map(String);
+
+  const build = (
+    id: string,
+    question: string,
+    icon: string,
+    correctAnswer: string,
+    pool: string[],
+  ): OrientationQuestion => ({
+    id,
+    question,
+    icon,
+    category: "Time",
+    correctAnswer,
+    options: sampleItems(
+      [correctAnswer, ...pickDistractors(pool, [correctAnswer], optionsCount - 1)],
+      optionsCount,
+    ),
+  });
+
+  return [
+    build("ot-year", "What year is it right now?", "📅", String(year), yearPool),
+    build("ot-weekday", "What day of the week is it today?", "📆", weekday, WEEKDAYS),
+    build("ot-month", "What month is it right now?", "🗓️", month, MONTHS),
+    build("ot-timeofday", "Is it morning, afternoon, evening, or night right now?", "⏰", timeOfDay, TIMES_OF_DAY),
+  ];
+}
+
+const FALLBACK_FACES: { id: string; emoji: string; name: string }[] = [
+  { id: "f1", emoji: "🧑", name: "Alex" },
+  { id: "f2", emoji: "👩", name: "Maria" },
+  { id: "f3", emoji: "👨", name: "Sam" },
+  { id: "f4", emoji: "👵", name: "Grace" },
+  { id: "f5", emoji: "👴", name: "John" },
+  { id: "f6", emoji: "👧", name: "Emma" },
+  { id: "f7", emoji: "👦", name: "Leo" },
+];
+
+function buildFaceQuestions(
+  people: { id: string; emoji: string; name: string }[],
+  requiredCount: number,
+  optionsCount: number,
+): FaceNameQuestion[] {
+  const pool = people.map((p) => p.name);
+  const chosen = sampleItems(people, requiredCount);
+
+  return chosen.map((person, index) => ({
+    id: `face${index + 1}`,
+    emoji: person.emoji,
+    relationLabel: "Who is this?",
+    correctAnswer: person.name,
+    options: sampleItems(
+      [person.name, ...pickDistractors(pool, [person.name], optionsCount - 1)],
+      optionsCount,
+    ),
+  }));
 }
 
 function buildMemoryRecallConfig(
@@ -144,7 +240,23 @@ const WORD_PUZZLE: Record<Difficulty, WordPuzzleConfig> = {
   hard: buildWordPuzzleConfig(8, false, 45, true),
 };
 
-export const GAME_CONTENT: Record<GameId, Record<Difficulty, any>> = {
+// orientation_game and face_name_match are always regenerated fresh in
+// getGameContent() below (they depend on the real clock / need reshuffling
+// each play), so there is no eagerly-built module-level config for them —
+// unlike the other five games, nothing here would ever be read.
+const ORIENTATION_META: Record<Difficulty, { questionCount: number; optionsCount: number; timeLimitSeconds: number | null }> = {
+  easy: { questionCount: 4, optionsCount: 3, timeLimitSeconds: null },
+  medium: { questionCount: 5, optionsCount: 3, timeLimitSeconds: 30 },
+  hard: { questionCount: 6, optionsCount: 4, timeLimitSeconds: 20 },
+};
+
+const FACE_NAME_META: Record<Difficulty, { questionCount: number; optionsCount: number; timeLimitSeconds: number | null }> = {
+  easy: { questionCount: 3, optionsCount: 3, timeLimitSeconds: null },
+  medium: { questionCount: 4, optionsCount: 3, timeLimitSeconds: 20 },
+  hard: { questionCount: 5, optionsCount: 4, timeLimitSeconds: 15 },
+};
+
+export const GAME_CONTENT: Record<Exclude<GameId, "orientation_game" | "face_name_match">, Record<Difficulty, any>> = {
   memory_recall: MEMORY_RECALL,
   object_recall: OBJECT_RECALL,
   attention_game: ATTENTION_GAME,
@@ -178,6 +290,18 @@ export function getGameContent<T>(gameId: GameId, difficulty: Difficulty): T {
       ...config,
       words: sampleItems(matchingWords, config.words.length),
     } as T;
+  }
+
+  if (gameId === "orientation_game") {
+    const meta = ORIENTATION_META[difficulty];
+    const questions = buildTimeOrientationQuestions(meta.optionsCount).slice(0, meta.questionCount);
+    return { ...meta, questions } as T;
+  }
+
+  if (gameId === "face_name_match") {
+    const meta = FACE_NAME_META[difficulty];
+    const questions = buildFaceQuestions(FALLBACK_FACES, meta.questionCount, meta.optionsCount);
+    return { ...meta, questions } as T;
   }
 
   return GAME_CONTENT[gameId][difficulty] as T;

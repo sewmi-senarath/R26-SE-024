@@ -6,12 +6,19 @@ import { usePersonalizedGameContent } from '@/src/hooks/usePersonalizedGameConte
 import { useQuestionTimer } from '@/src/hooks/useQuestionTimer';
 import { useSaveGameSession } from '@/src/hooks/useSaveGameSession';
 import { useSoundEffects } from '@/src/hooks/useSoundEffects';
-import { Difficulty, GameSessionResult, WordPuzzleConfig } from '@/src/types/games.types';
+import { Difficulty, DifficultyProgressUpdate, GameSessionResult, WordPuzzleConfig } from '@/src/types/games.types';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Speech from 'expo-speech';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Image, SafeAreaView, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import ConfettiCannon from 'react-native-confetti-cannon';
+import Animated, {
+  ZoomIn,
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 
 type Phase = 'instruction' | 'playing' | 'result';
 
@@ -33,10 +40,28 @@ export default function WordPuzzleGame() {
   const [score, setScore] = useState(0);
   const [startTime, setStartTime] = useState(0);
   const [result, setResult] = useState<GameSessionResult | null>(null);
+  const [progress, setProgress] = useState<DifficultyProgressUpdate | null>(null);
   const [feedback, setFeedback] = useState<'correct' | 'incorrect' | null>(null);
   const [hintLevel, setHintLevel] = useState(0);
   const [revealedAnswer, setRevealedAnswer] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
+  const shakeX = useSharedValue(0);
+
+  useEffect(() => {
+    if (feedback === 'incorrect') {
+      shakeX.value = withSequence(
+        withTiming(-10, { duration: 60 }),
+        withTiming(10, { duration: 60 }),
+        withTiming(-8, { duration: 60 }),
+        withTiming(8, { duration: 60 }),
+        withTiming(0, { duration: 60 }),
+      );
+    }
+  }, [feedback]);
+
+  const shakeStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: shakeX.value }],
+  }));
 
   const timer = useQuestionTimer({
     limitSeconds: revealedAnswer ? null : (config.timeLimitSeconds || null),
@@ -138,7 +163,7 @@ export default function WordPuzzleGame() {
       totalAnswers: config.words.length,
     };
     setResult(nextResult);
-    void saveGameSession(nextResult);
+    saveGameSession(nextResult).then(setProgress);
     setPhase('result');
   };
 
@@ -149,6 +174,7 @@ export default function WordPuzzleGame() {
     setUserAnswer('');
     setScore(0);
     setResult(null);
+    setProgress(null);
     setFeedback(null);
     setHintLevel(0);
     setRevealedAnswer(false);
@@ -188,7 +214,14 @@ export default function WordPuzzleGame() {
   }
 
   if (phase === 'result' && result) {
-    return <GameResultScreen result={result} onPlayAgain={handleReset} onBack={handleGoBack} />;
+    return (
+      <GameResultScreen
+        result={result}
+        progress={progress}
+        onPlayAgain={handleReset}
+        onBack={handleGoBack}
+      />
+    );
   }
 
   return (
@@ -198,6 +231,7 @@ export default function WordPuzzleGame() {
         title="Word Puzzle"
         difficulty={difficulty}
         timeLeft={config.timeLimitSeconds && !revealedAnswer ? timer.secondsLeft : null}
+        totalSeconds={config.timeLimitSeconds}
       />
 
       <ScrollView
@@ -244,7 +278,9 @@ export default function WordPuzzleGame() {
             {currentWord?.image ? (
               <Image source={{ uri: currentWord.image }} style={{ width: 170, height: 126, borderRadius: 18 }} />
             ) : (
-              <View
+              <Animated.View
+                key={currentWord?.id}
+                entering={ZoomIn.duration(400).springify().damping(11)}
                 style={{
                   width: 132,
                   height: 132,
@@ -257,7 +293,7 @@ export default function WordPuzzleGame() {
                 }}
               >
                 <Text style={{ fontSize: 64 }}>{visualCue}</Text>
-              </View>
+              </Animated.View>
             )}
             {currentWord?.category && (
               <Text className="text-sm font-semibold text-indigo-600">
@@ -306,13 +342,14 @@ export default function WordPuzzleGame() {
               <Text className="text-xs text-gray-400 uppercase tracking-wide">Unscramble these letters</Text>
               <View className="flex-row flex-wrap justify-center gap-3">
                 {scrambledWord.split('').map((letter, i) => (
-                  <View
-                    key={i}
+                  <Animated.View
+                    key={`${currentWord?.id}-${i}`}
+                    entering={ZoomIn.delay(i * 60).duration(350).springify().damping(12)}
                     // increased size for easier tapping/reading
                     style={{ width: 72, height: 72, backgroundColor: '#fff', borderRadius: 18, borderWidth: 2, borderColor: '#e5e7eb', alignItems: 'center', justifyContent: 'center' }}
                   >
                     <Text style={{ fontSize: 28, fontWeight: '700', color: '#1f2937' }}>{letter}</Text>
-                  </View>
+                  </Animated.View>
                 ))}
               </View>
             </View>
@@ -329,35 +366,37 @@ export default function WordPuzzleGame() {
 
           {/* Input field */}
           <View className="gap-2">
-            <TextInput
-              value={userAnswer}
-              onChangeText={setUserAnswer}
-              placeholder="Type your answer..."
-              placeholderTextColor="#9ca3af"
-              returnKeyType="done"
-              onSubmitEditing={handleSubmit}
-              // keep editable unless the user already got it correct
-              editable={feedback !== 'correct' && !revealedAnswer}
-              autoCapitalize="none"
-              autoCorrect={false}
-              maxLength={config.wordLength + 4}
-              style={{
-                height: 72,
-                backgroundColor: '#ffffff',
-                borderWidth: 2,
-                borderColor:
-                  feedback === 'correct'
-                    ? '#10b981'
-                    : feedback === 'incorrect'
-                      ? '#ef4444'
-                      : '#e5e7eb',
-                borderRadius: 20,
-                paddingHorizontal: 20,
-                fontSize: 20,
-                fontWeight: '700',
-                color: '#1f2937',
-              }}
-            />
+            <Animated.View style={shakeStyle}>
+              <TextInput
+                value={userAnswer}
+                onChangeText={setUserAnswer}
+                placeholder="Type your answer..."
+                placeholderTextColor="#9ca3af"
+                returnKeyType="done"
+                onSubmitEditing={handleSubmit}
+                // keep editable unless the user already got it correct
+                editable={feedback !== 'correct' && !revealedAnswer}
+                autoCapitalize="none"
+                autoCorrect={false}
+                maxLength={config.wordLength + 4}
+                style={{
+                  height: 72,
+                  backgroundColor: '#ffffff',
+                  borderWidth: 2,
+                  borderColor:
+                    feedback === 'correct'
+                      ? '#10b981'
+                      : feedback === 'incorrect'
+                        ? '#ef4444'
+                        : '#e5e7eb',
+                  borderRadius: 20,
+                  paddingHorizontal: 20,
+                  fontSize: 20,
+                  fontWeight: '700',
+                  color: '#1f2937',
+                }}
+              />
+            </Animated.View>
 
             {/* Feedback */}
             {feedback && (

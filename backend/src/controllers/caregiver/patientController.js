@@ -273,6 +273,7 @@ const createPatient = async (req, res) => {
   }
 };
 
+
 // ── UPDATE patient ─────────────────────────────────────────────────────────
 const updatePatient = async (req, res) => {
   try {
