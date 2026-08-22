@@ -35,14 +35,31 @@ print("CAREGIVER STRESS - MAXIMUM ACCURACY TUNING")
 print("=" * 60)
 
 # ── Load ───────────────────────────────────────────────────────────────────
-df = pd.read_excel('MemoCare_Caregiver_Stress_Dataset_Cleaned (1).xlsx')
-df = df.drop(columns=['Timestamp'], errors='ignore')
+df = pd.read_excel('MemoCare_Caregiver_Stress_Dataset.xlsx')
+df.columns = df.columns.str.strip()                              # fixes the KeyError
+df = df.drop(columns=['Timestamp', 'Column 19'], errors='ignore')
 print(f"Loaded: {df.shape[0]} rows")
 
 # ── Encode ─────────────────────────────────────────────────────────────────
-df['age_encoded']  = df['Age Group'].map({'18-25':0,'18–25':0,'26-35':1,'26–35':1,'36-50':2,'36–50':2,'50+':3}).fillna(1)
-df['type_encoded'] = df['Caregiver Type'].map({'Professional caregiver':0,'Nursing staff':1}).fillna(0)
-df['exp_encoded']  = df['How many years of caregiving experience do you have?'].map({'Less than 1 year':0,'1-3 years':1,'1–3 years':1,'3-5 years':2,'3–5 years':2,'5-10 years':3,'5–10 years':3,'More than 10 years':4}).fillna(1)
+df['age_encoded']  = df['Age Group'].map(
+    {'18-25':0,'18–25':0,'26-35':1,'26–35':1,'36-50':2,'36–50':2,'50+':3}
+).fillna(1)
+
+df['type_encoded'] = df['Caregiver Type'].map({
+    'Family caregiver':0,
+    'Professional caregiver':1,
+    'Nursing staff':2,
+}).fillna(0)
+
+df['exp_encoded']  = df['How many years of caregiving experience do you have?'].map({
+    'Less than 1 year':0,
+    '1-3 years':1,'1–3 years':1,
+    '3-5 years':2,'3–5 years':2,
+    '5-10 years':3,'5–10 years':3,
+    'More than 5 years':3,
+    'More than 10 years':4,
+}).fillna(1)
+
 df['sup_encoded']  = df['Do you have support from others?'].map({'Yes':1,'No':0}).fillna(1)
 
 num_cols = [

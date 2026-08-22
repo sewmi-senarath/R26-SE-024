@@ -742,9 +742,9 @@ const StepSlider: React.FC<{
             <View style={{
               height: 30, borderRadius: 6,
               backgroundColor:
-                step === value   ? Colors.primary
-                : step < value   ? Colors.primaryLight
-                : Colors.borderLight,
+                step === value ? Colors.primary
+                  : step < value ? Colors.primaryLight
+                    : Colors.borderLight,
               justifyContent: 'center', alignItems: 'center',
             }}>
               <Text style={{
@@ -752,8 +752,8 @@ const StepSlider: React.FC<{
                 fontWeight: step === value ? '700' : '500',
                 color:
                   step === value ? Colors.white
-                  : step < value ? Colors.primary
-                  : Colors.textMuted,
+                    : step < value ? Colors.primary
+                      : Colors.textMuted,
               }}>
                 {step}
               </Text>
@@ -818,14 +818,14 @@ const NumberStepper: React.FC<{
 
 // ── Result Banner ──────────────────────────────────────────────────────────
 const ResultBanner: React.FC<{
-  result:       CheckInResult;
-  form:         DailyCheckIn;
+  result: CheckInResult;
+  form: DailyCheckIn;
   onNewCheckIn: () => void;
 }> = ({ result, form, onNewCheckIn }) => {
   const config = {
-    Low:      { color: Colors.success, bg: Colors.successSoft, emoji: '😊' },
+    Low: { color: Colors.success, bg: Colors.successSoft, emoji: '😊' },
     Moderate: { color: Colors.warning, bg: Colors.warningSoft, emoji: '😐' },
-    High:     { color: Colors.danger,  bg: Colors.dangerSoft,  emoji: '😟' },
+    High: { color: Colors.danger, bg: Colors.dangerSoft, emoji: '😟' },
   }[result.stressLevel];
 
   const handleViewPlan = () => {
@@ -834,7 +834,8 @@ const ResultBanner: React.FC<{
       params: {
         stressLevel: result.stressLevel,
         stressScore: String(result.stressScore),
-        formData:    JSON.stringify(form),
+        formData: JSON.stringify(form),
+        burnout: result.burnout ? JSON.stringify(result.burnout) : undefined, 
       },
     } as any);
   };
@@ -904,8 +905,8 @@ const ResultBanner: React.FC<{
 
 // ── Check-in Modal ─────────────────────────────────────────────────────────
 const CheckInModal: React.FC<{
-  visible:  boolean;
-  onClose:  () => void;
+  visible: boolean;
+  onClose: () => void;
   onResult: (result: CheckInResult, form: DailyCheckIn) => void;
 }> = ({ visible, onClose, onResult }) => {
   const [loading, setLoading] = useState(false);
@@ -1062,16 +1063,16 @@ const CheckInModal: React.FC<{
 
 // ── MAIN SCREEN ────────────────────────────────────────────────────────────
 export default function InsightsScreen() {
-  const [stressLevel, setStressLevel]         = useState<StressLevel>('Moderate');
-  const [stressScore, setStressScore]         = useState(65);
-  const [checkInResult, setCheckInResult]     = useState<CheckInResult | null>(null);
-  const [lastForm, setLastForm]               = useState<DailyCheckIn | null>(null);
-  const [burnoutRisk, setBurnoutRisk]         = useState<BurnoutRisk | null>(null);
-  const [showCheckIn, setShowCheckIn]         = useState(false);
+  const [stressLevel, setStressLevel] = useState<StressLevel>('Moderate');
+  const [stressScore, setStressScore] = useState(65);
+  const [checkInResult, setCheckInResult] = useState<CheckInResult | null>(null);
+  const [lastForm, setLastForm] = useState<DailyCheckIn | null>(null);
+  const [burnoutRisk, setBurnoutRisk] = useState<BurnoutRisk | null>(null);
+  const [showCheckIn, setShowCheckIn] = useState(false);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
-  const [refreshing, setRefreshing]           = useState(false);
-  const [stats, setStats]                     = useState<WellbeingStatsType>(DEFAULT_STATS);
-  const [weekly, setWeekly]                   = useState<WeeklyData[]>(DEFAULT_WEEKLY);
+  const [refreshing, setRefreshing] = useState(false);
+  const [stats, setStats] = useState<WellbeingStatsType>(DEFAULT_STATS);
+  const [weekly, setWeekly] = useState<WeeklyData[]>(DEFAULT_WEEKLY);
 
   // ── Load data on mount (persists across reload) ────────────────────────
   const loadData = useCallback(async () => {
@@ -1106,10 +1107,10 @@ export default function InsightsScreen() {
     // Real stats from backend
     if (result.stats) {
       setStats({
-        avgSleep:       Math.round((result.stats.avgSleep || 0) * 10) / 10,
-        activeHours:    result.stats.activeHours || 0,
+        avgSleep: Math.round((result.stats.avgSleep || 0) * 10) / 10,
+        activeHours: result.stats.activeHours || 0,
         tasksCompleted: result.stats.tasksCompleted || 0,
-        breaksTaken:    Math.round((result.stats.breaksTaken || 0) * 10) / 10,
+        breaksTaken: Math.round((result.stats.breaksTaken || 0) * 10) / 10,
       });
     }
   };
