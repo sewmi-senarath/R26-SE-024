@@ -6,11 +6,12 @@ import { usePersonalizedGameContent } from '@/src/hooks/usePersonalizedGameConte
 import { useQuestionTimer } from '@/src/hooks/useQuestionTimer';
 import { useSaveGameSession } from '@/src/hooks/useSaveGameSession';
 import { useSoundEffects } from '@/src/hooks/useSoundEffects';
-import { Difficulty, GameSessionResult, ObjectRecallConfig } from '@/src/types/games.types';
+import { Difficulty, DifficultyProgressUpdate, GameSessionResult, ObjectRecallConfig } from '@/src/types/games.types';
 import { useLocalSearchParams } from 'expo-router';
 import * as Speech from 'expo-speech';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
@@ -21,6 +22,7 @@ import {
   View
 } from 'react-native';
 import ConfettiCannon from 'react-native-confetti-cannon';
+import Animated, { FadeInDown, FadeInUp, ZoomIn } from 'react-native-reanimated';
 
 type Phase = 'instruction' | 'study' | 'recall' | 'result';
 
@@ -38,6 +40,7 @@ export default function ObjectRecallGame() {
   const [phase, setPhase] = useState<Phase>('instruction');
   const [inputs, setInputs] = useState<string[]>(Array(config.objectCount).fill(''));
   const [result, setResult] = useState<GameSessionResult | null>(null);
+  const [progress, setProgress] = useState<DifficultyProgressUpdate | null>(null);
   const [startTime, setStartTime] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
   const warningSpokenRef = useRef(false);
@@ -92,7 +95,7 @@ export default function ObjectRecallGame() {
     }
 
     setResult(nextResult);
-    void saveGameSession(nextResult);
+    saveGameSession(nextResult).then(setProgress);
     setShowConfetti(true);
     Speech.speak(`Great effort. You got ${correct} out of ${config.objectCount}.`);
     setTimeout(() => {
@@ -106,6 +109,7 @@ export default function ObjectRecallGame() {
     setPhase('instruction');
     setInputs(Array(config.objectCount).fill(''));
     setResult(null);
+    setProgress(null);
     setShowConfetti(false);
   };
 
@@ -130,7 +134,7 @@ export default function ObjectRecallGame() {
   }
 
   if (phase === 'result' && result) {
-    return <GameResultScreen result={result} onPlayAgain={handleReset} />;
+    return <GameResultScreen result={result} progress={progress} onPlayAgain={handleReset} />;
   }
 
   return (
@@ -142,6 +146,7 @@ export default function ObjectRecallGame() {
         title="Object Recall"
         difficulty={difficulty}
         timeLeft={phase === 'recall' ? timer.secondsLeft : null}
+        totalSeconds={config.timeLimitSeconds}
       />
 
       {/* ── STUDY phase ──────────────────────────────────── */}
@@ -167,9 +172,10 @@ export default function ObjectRecallGame() {
               marginTop: 24,
             }}
           >
-            {config.objects.map(obj => (
-              <View
+            {config.objects.map((obj, index) => (
+              <Animated.View
                 key={obj.id}
+                entering={ZoomIn.delay(index * 100).duration(400).springify().damping(12)}
                 style={{
                   width: 126,
                   height: 132,
@@ -179,6 +185,7 @@ export default function ObjectRecallGame() {
                   borderColor: '#dbeafe',
                   alignItems: 'center',
                   justifyContent: 'center',
+                  overflow: 'hidden',
                   shadowColor: '#000',
                   shadowOffset: { width: 0, height: 1 },
                   shadowOpacity: 0.1,
@@ -186,18 +193,48 @@ export default function ObjectRecallGame() {
                   elevation: 4,
                 }}
               >
-                <Text style={{ fontSize: 52 }}>{obj.emoji}</Text>
-                <Text
-                  style={{
-                    fontSize: 14,
-                    fontWeight: '600',
-                    color: '#1f2937',
-                    marginTop: 6,
-                  }}
-                >
-                  {obj.label}
-                </Text>
-              </View>
+                {obj.image ? (
+                  <>
+                    <Image
+                      source={{ uri: obj.image }}
+                      style={{ position: 'absolute', width: '100%', height: '100%' }}
+                      resizeMode="cover"
+                    />
+                    <View
+                      style={{
+                        position: 'absolute',
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        paddingVertical: 6,
+                        paddingHorizontal: 6,
+                        backgroundColor: 'rgba(17, 24, 39, 0.55)',
+                      }}
+                    >
+                      <Text
+                        style={{ fontSize: 13, fontWeight: '700', color: '#ffffff', textAlign: 'center' }}
+                        numberOfLines={1}
+                      >
+                        {obj.label}
+                      </Text>
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <Text style={{ fontSize: 52 }}>{obj.emoji}</Text>
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        fontWeight: '600',
+                        color: '#1f2937',
+                        marginTop: 6,
+                      }}
+                    >
+                      {obj.label}
+                    </Text>
+                  </>
+                )}
+              </Animated.View>
             ))}
           </View>
         </View>
@@ -263,8 +300,9 @@ export default function ObjectRecallGame() {
             {Array(config.objectCount)
               .fill(null)
               .map((_, i) => (
-                <View
+                <Animated.View
                   key={i}
+                  entering={FadeInDown.delay(i * 80).duration(350)}
                   style={{
                     flexDirection: 'row',
                     alignItems: 'center',
@@ -326,11 +364,13 @@ export default function ObjectRecallGame() {
                       color: '#111827',
                     }}
                   />
-                </View>
+                </Animated.View>
               ))}
 
+            <Animated.View entering={FadeInUp.delay(config.objectCount * 80 + 100).duration(350)}>
             <TouchableOpacity
               onPress={finishGame}
+              activeOpacity={0.85}
               style={{
                 marginTop: 20,
                 backgroundColor: '#3b82f6',
@@ -349,6 +389,7 @@ export default function ObjectRecallGame() {
                 Submit Answers
               </Text>
             </TouchableOpacity>
+            </Animated.View>
           </ScrollView>
         </KeyboardAvoidingView>
       )}

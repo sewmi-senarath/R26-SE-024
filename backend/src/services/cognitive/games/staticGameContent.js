@@ -1,6 +1,8 @@
 const fs = require("fs");
 const path = require("path");
 const vm = require("vm");
+const { pickDistractors, shuffle } = require("./gameContentUtils");
+const { buildTimeOrientationQuestions } = require("./orientationFacts");
 
 const CONTENT_DIR = path.resolve(
   __dirname,
@@ -72,6 +74,33 @@ const FALLBACK_PUZZLE_WORDS = [
   { id: "w8", word: "UMBRELLA", hint: "Used in rain", category: "Objects" },
   { id: "w9", word: "ELEPHANT", hint: "Large animal", category: "Animals" },
 ];
+
+const FALLBACK_FACES = [
+  { id: "f1", emoji: "\u{1F471}", name: "Alex" },
+  { id: "f2", emoji: "\u{1F469}", name: "Maria" },
+  { id: "f3", emoji: "\u{1F468}", name: "Sam" },
+  { id: "f4", emoji: "\u{1F475}", name: "Grace" },
+  { id: "f5", emoji: "\u{1F474}", name: "John" },
+  { id: "f6", emoji: "\u{1F467}", name: "Emma" },
+  { id: "f7", emoji: "\u{1F466}", name: "Leo" },
+];
+
+function buildFaceQuestions(people, requiredCount, optionsCount) {
+  const pool = people.map((p) => p.name);
+  const chosen = shuffle(people).slice(0, requiredCount);
+
+  return chosen.map((person, index) => ({
+    id: `face${index + 1}`,
+    emoji: person.emoji,
+    ...(person.image ? { image: person.image } : {}),
+    relationLabel: person.relationLabel || "Who is this?",
+    correctAnswer: person.name,
+    options: shuffle([
+      person.name,
+      ...pickDistractors(pool, [person.name], optionsCount - 1),
+    ]),
+  }));
+}
 
 const SEQUENCE_ITEMS = loadFrontendContent(
   "sequence_items.ts",
@@ -153,6 +182,16 @@ const GAME_CONTENT = {
       wordCount: 5,
     },
   },
+  orientation_game: {
+    easy: { questionCount: 4, optionsCount: 3, timeLimitSeconds: null },
+    medium: { questionCount: 5, optionsCount: 3, timeLimitSeconds: 30 },
+    hard: { questionCount: 6, optionsCount: 4, timeLimitSeconds: 20 },
+  },
+  face_name_match: {
+    easy: { questionCount: 3, optionsCount: 3, timeLimitSeconds: null },
+    medium: { questionCount: 4, optionsCount: 3, timeLimitSeconds: 20 },
+    hard: { questionCount: 5, optionsCount: 4, timeLimitSeconds: 15 },
+  },
 };
 
 function buildStaticConfig(gameId, difficulty) {
@@ -186,6 +225,25 @@ function buildStaticConfig(gameId, difficulty) {
     };
   }
 
+  if (gameId === "orientation_game") {
+    // No profile data available yet — only the deterministic, real-clock
+    // time questions are available (no festival/place to personalize with).
+    const timeQuestions = buildTimeOrientationQuestions(config.optionsCount);
+    const questionCount = Math.min(config.questionCount, timeQuestions.length);
+    return {
+      ...config,
+      questions: timeQuestions.slice(0, questionCount),
+    };
+  }
+
+  if (gameId === "face_name_match") {
+    const questionCount = Math.min(config.questionCount, FALLBACK_FACES.length);
+    return {
+      ...config,
+      questions: buildFaceQuestions(FALLBACK_FACES, questionCount, config.optionsCount),
+    };
+  }
+
   return JSON.parse(JSON.stringify(config));
 }
 
@@ -197,4 +255,6 @@ function getStaticGameContent(gameId, difficulty) {
 module.exports = {
   GAME_CONTENT,
   getStaticGameContent,
+  buildFaceQuestions,
+  FALLBACK_FACES,
 };

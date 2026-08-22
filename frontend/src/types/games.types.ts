@@ -3,7 +3,9 @@ export type GameId =
   | "object_recall"
   | "attention_game"
   | "photo_puzzle"
-  | "word_puzzle";
+  | "word_puzzle"
+  | "orientation_game"
+  | "face_name_match";
 
 export type Difficulty = "easy" | "medium" | "hard";
 export type GamePhase = "instruction" | "playing" | "result";
@@ -21,6 +23,8 @@ export interface SequenceItem {
   emoji: string;
   label: string;
   category: string;
+  /** Real personal photo (e.g. a family member's photo) — shown instead of the emoji when present. */
+  image?: string;
 }
 
 //  Object Recall config
@@ -36,6 +40,8 @@ export interface RecallObject {
   emoji: string;
   label: string;
   category: string;
+  /** Real personal photo (e.g. a family member's photo) — shown instead of the emoji when present. */
+  image?: string;
 }
 
 // ── Attention Game config
@@ -73,13 +79,48 @@ export interface PuzzleWord {
   image?: string;
 }
 
+// ── Orientation Game config
+export interface OrientationGameConfig {
+  questionCount: number;
+  optionsCount: number;
+  timeLimitSeconds: number | null;
+  questions: OrientationQuestion[];
+}
+export interface OrientationQuestion {
+  id: string;
+  question: string;
+  icon: string;
+  category: "Time" | "Place" | "Festival";
+  correctAnswer: string;
+  options: string[];
+}
+
+// ── Face-Name Match config
+export interface FaceNameMatchConfig {
+  questionCount: number;
+  optionsCount: number;
+  timeLimitSeconds: number | null;
+  questions: FaceNameQuestion[];
+}
+export interface FaceNameQuestion {
+  id: string;
+  emoji: string;
+  /** Real family photo — shown instead of the emoji when present. */
+  image?: string;
+  relationLabel: string;
+  correctAnswer: string;
+  options: string[];
+}
+
 // Union type — any game config
 export type GameConfig =
   | MemoryRecallConfig
   | ObjectRecallConfig
   | AttentionGameConfig
   | PhotoPuzzleConfig
-  | WordPuzzleConfig;
+  | WordPuzzleConfig
+  | OrientationGameConfig
+  | FaceNameMatchConfig;
 
 // Result tracked after each game session
 export interface GameSessionResult {
@@ -115,4 +156,25 @@ export interface GamePlan {
   assignments: GameDifficultyAssignment[];
   generatedAt: string;
   basedOnSessionId: string;
+}
+
+// Adaptive difficulty — server-computed, updated after every session
+export interface DifficultyProgressUpdate {
+  gameId: GameId;
+  previousDifficulty: Difficulty;
+  difficulty: Difficulty;
+  changed: boolean;
+  reason: string | null;
+  compositeScore: number;
+  totalSessions: number;
+  recentScores: number[];
+}
+
+export interface PatientGameProgress {
+  gameId: GameId;
+  difficulty: Difficulty;
+  totalSessions: number;
+  lastChangeAt: string | null;
+  lastChangeReason: string | null;
+  recentScores: number[];
 }

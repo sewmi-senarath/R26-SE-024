@@ -130,12 +130,58 @@ export const GAME_CONFIGS: Record<GameId, GameConfigEntry> = {
       hard: "8-letter words, time limited, scrambled",
     },
   },
+
+  orientation_game: {
+    id: "orientation_game",
+    title: "Orientation Quiz",
+    description: "Answer questions about today's date, your home, and your festivals",
+    icon: "🧭",
+    color: {
+      bg: "bg-sky-50",
+      icon: "bg-sky-100",
+      badge: "bg-sky-100",
+      badgeText: "text-sky-700",
+      border: "border-sky-200",
+    },
+    targetSection: "Orientation",
+    sectionMax: 10,
+    difficultyThresholds: { hard: 80, medium: 50 },
+    difficultyDescriptions: {
+      easy: "4 questions, 3 choices each, no time limit",
+      medium: "5 questions, 3 choices each, 30s per question",
+      hard: "6 questions, 4 choices each, 20s per question",
+    },
+  },
+
+  face_name_match: {
+    id: "face_name_match",
+    title: "Who Is This?",
+    description: "Match family photos to their names",
+    icon: "👪",
+    color: {
+      bg: "bg-fuchsia-50",
+      icon: "bg-fuchsia-100",
+      badge: "bg-fuchsia-100",
+      badgeText: "text-fuchsia-700",
+      border: "border-fuchsia-200",
+    },
+    targetSection: "Recall",
+    sectionMax: 3,
+    difficultyThresholds: { hard: 80, medium: 50 },
+    difficultyDescriptions: {
+      easy: "3 photos, 3 choices each, no time limit",
+      medium: "4 photos, 3 choices each, 20s per question",
+      hard: "5 photos, 4 choices each, 15s per question",
+    },
+  },
 };
 
 export const GAME_ORDER: GameId[] = [
-  "memory_recall",
-  "object_recall",
+  "orientation_game",
+  "face_name_match",
   "attention_game",
   "photo_puzzle",
   "word_puzzle",
+  "memory_recall",
+  "object_recall",
 ];

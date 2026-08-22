@@ -1,9 +1,10 @@
 // src/components/patient/cognitive/components/games/shared/GameResultScreen.tsx
 
 import { GAME_CONFIGS } from '@/src/constants/games';
-import { GameSessionResult } from '@/src/types/games.types';
+import { DifficultyProgressUpdate, GameSessionResult } from '@/src/types/games.types';
 import { useRouter } from 'expo-router';
-import React from 'react';
+import * as Haptics from 'expo-haptics';
+import React, { useEffect, useState } from 'react';
 import {
   Platform,
   StatusBar,
@@ -11,21 +12,38 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import ConfettiCannon from 'react-native-confetti-cannon';
+import Animated, {
+  FadeInDown,
+  FadeInUp,
+  ZoomIn,
+} from 'react-native-reanimated';
+import { CircularProgress } from './CircularProgress';
+import { DifficultyChangeBanner } from './DifficultyChangeBanner';
 
 interface Props {
   result: GameSessionResult;
   onPlayAgain: () => void;
   onBack?: () => void;
+  /** Adaptive-difficulty update returned after saving this session, if any. */
+  progress?: DifficultyProgressUpdate | null;
 }
 
-export function GameResultScreen({ result, onPlayAgain, onBack }: Props) {
+export function GameResultScreen({ result, onPlayAgain, onBack, progress }: Props) {
   const router = useRouter();
   const config = GAME_CONFIGS[result.gameId];
   const pct = Math.round((result.score / result.maxScore) * 100);
   const passed = pct >= 60;
+  const [showConfetti, setShowConfetti] = useState(passed);
 
-  const difficultyLabel =
-    result.difficulty.charAt(0).toUpperCase() + result.difficulty.slice(1);
+  useEffect(() => {
+    Haptics.notificationAsync(
+      passed
+        ? Haptics.NotificationFeedbackType.Success
+        : Haptics.NotificationFeedbackType.Warning,
+    ).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <View
@@ -35,6 +53,16 @@ export function GameResultScreen({ result, onPlayAgain, onBack }: Props) {
         paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
       }}
     >
+      {showConfetti && (
+        <ConfettiCannon
+          count={110}
+          origin={{ x: 200, y: 0 }}
+          fadeOut
+          fallSpeed={2600}
+          onAnimationEnd={() => setShowConfetti(false)}
+        />
+      )}
+
       {/* ── Top section — centred content ──────────────────── */}
       <View
         style={{
@@ -42,11 +70,12 @@ export function GameResultScreen({ result, onPlayAgain, onBack }: Props) {
           paddingHorizontal: 24,
           paddingTop: 48,
           alignItems: 'center',
-          justifyContent: 'center',  // ← vertically centres content in available space
+          justifyContent: 'center',
         }}
       >
         {/* Result emoji circle */}
-        <View
+        <Animated.View
+          entering={ZoomIn.duration(500).springify().damping(11)}
           style={{
             width: 100,
             height: 100,
@@ -58,31 +87,45 @@ export function GameResultScreen({ result, onPlayAgain, onBack }: Props) {
           }}
         >
           <Text style={{ fontSize: 48 }}>{passed ? '🎉' : '💪'}</Text>
-        </View>
+        </Animated.View>
 
         {/* Heading */}
-        <Text
+        <Animated.Text
+          entering={FadeInDown.delay(120).duration(400)}
           style={{
-            fontSize:35 ,
+            fontSize: 32,
             fontWeight: '800',
             color: '#111827',
-            marginBottom: 6,
+            marginBottom: 4,
             textAlign: 'center',
           }}
         >
           {passed ? 'Well done!' : 'Keep trying!'}
-        </Text>
+        </Animated.Text>
+        <Animated.Text
+          entering={FadeInDown.delay(180).duration(400)}
+          style={{
+            fontSize: 15,
+            color: '#9ca3af',
+            marginBottom: 20,
+            textAlign: 'center',
+            fontWeight: '600',
+          }}
+        >
+          {config.title} · {result.difficulty.charAt(0).toUpperCase() + result.difficulty.slice(1)}
+        </Animated.Text>
 
         {/* Score card */}
-        <View
+        <Animated.View
+          entering={FadeInUp.delay(220).duration(500).springify().damping(14)}
           style={{
             width: '100%',
             backgroundColor: '#ffffff',
-            borderRadius: 20,
+            borderRadius: 24,
             borderWidth: 1,
             borderColor: '#f3f4f6',
             padding: 24,
-            // Shadow
+            alignItems: 'center',
             shadowColor: '#000',
             shadowOffset: { width: 0, height: 2 },
             shadowOpacity: 0.06,
@@ -90,112 +133,75 @@ export function GameResultScreen({ result, onPlayAgain, onBack }: Props) {
             elevation: 3,
           }}
         >
-          {/* Three stat columns */}
+          {/* Accuracy ring chart */}
+          <CircularProgress
+            percent={pct}
+            size={132}
+            strokeWidth={14}
+            color={passed ? '#22c55e' : '#f59e0b'}
+            sublabel="Accuracy"
+          />
+
+          {/* Score / Time stat row */}
           <View
             style={{
               flexDirection: 'row',
-              justifyContent: 'space-between',
-              marginBottom: 20,
+              width: '100%',
+              justifyContent: 'space-around',
+              marginTop: 22,
+              paddingTop: 18,
+              borderTopWidth: 1,
+              borderTopColor: '#f3f4f6',
             }}
           >
-            {/* Score */}
             <View style={{ alignItems: 'center', flex: 1 }}>
-              <Text
-                style={{
-                  fontSize: 35,
-                  fontWeight: '800',
-                  color: '#111827',
-                  lineHeight: 42,
-                }}
-              >
+              <Text style={{ fontSize: 24, fontWeight: '800', color: '#111827' }}>
                 {result.score}/{result.maxScore}
               </Text>
-              <Text style={{ fontSize: 20, color: '#9ca3af818181', marginTop: 4 }}>
+              <Text style={{ fontSize: 12, color: '#9ca3af', marginTop: 2, fontWeight: '600' }}>
                 Score
               </Text>
             </View>
 
-            {/* Vertical divider */}
-            <View
-              style={{ width: 4, backgroundColor: '#f3f4f6', marginVertical: 1 }}
-            />
+            <View style={{ width: 1, backgroundColor: '#f3f4f6' }} />
 
-            {/* Accuracy */}
             <View style={{ alignItems: 'center', flex: 1 }}>
-              <Text
-                style={{
-                  fontSize: 35,
-                  fontWeight: '800',
-                  color: '#111827',
-                  lineHeight: 42,
-                }}
-              >
-                {pct}%
-              </Text>
-              <Text style={{ fontSize: 20, color: '#9ca3af818181', marginTop: 4 }}>
-                Accuracy
-              </Text>
-            </View>
-
-            {/* Vertical divider */}
-            <View
-              style={{ width: 4, backgroundColor: '#f3f4f6', marginVertical: 1 }}
-            />
-
-            {/* Time */}
-            <View style={{ alignItems: 'center', flex: 1 }}>
-              <Text
-                style={{
-                  fontSize: 35,
-                  fontWeight: '800',
-                  color: '#111827',
-                  lineHeight: 42,
-                }}
-              >
+              <Text style={{ fontSize: 24, fontWeight: '800', color: '#111827' }}>
                 {result.timeTakenSeconds}s
               </Text>
-              <Text style={{ fontSize: 20, color: '#9ca3af818181', marginTop: 4 }}>
+              <Text style={{ fontSize: 12, color: '#9ca3af', marginTop: 2, fontWeight: '600' }}>
                 Time
               </Text>
             </View>
           </View>
 
-          {/* Progress bar */}
           <View
             style={{
-              height: 10,
-              backgroundColor: '#f3f4f6',
+              marginTop: 16,
+              paddingHorizontal: 14,
+              paddingVertical: 6,
               borderRadius: 999,
-              overflow: 'hidden',
+              backgroundColor: passed ? '#dcfce7' : '#fef3c7',
             }}
           >
-            <View
+            <Text
               style={{
-                height: '100%',
-                borderRadius: 999,
-                backgroundColor: passed ? '#22c55e' : '#f59e0b',
-                width: `${pct}%`,
+                fontSize: 13,
+                color: passed ? '#16a34a' : '#d97706',
+                fontWeight: '700',
               }}
-            />
+            >
+              {passed ? '✓ Passed' : 'Not passed yet'}
+            </Text>
           </View>
+        </Animated.View>
 
-          {/* Pass / fail label under bar */}
-          <Text
-            style={{
-              fontSize: 20,
-              color: passed ? '#16a34a' : '#d97706',
-              textAlign: 'right',
-              marginTop: 6,
-              fontWeight: '600',
-            }}
-          >
-            {passed ? '✓ Passed' : 'Not passed yet'}
-          </Text>
-        </View>
+        <DifficultyChangeBanner progress={progress ?? null} />
       </View>
 
       {/* ── Bottom action buttons ───────────────────────────── */}
-      <View
+      <Animated.View
+        entering={FadeInUp.delay(360).duration(400)}
         style={{
           paddingHorizontal: 24,
           paddingBottom: Platform.OS === 'ios' ? 36 : 24,
@@ -206,6 +212,7 @@ export function GameResultScreen({ result, onPlayAgain, onBack }: Props) {
         {/* Play Again */}
         <TouchableOpacity
           onPress={onPlayAgain}
+          activeOpacity={0.85}
           style={{
             backgroundColor: '#3b82f6',
             paddingVertical: 16,
@@ -213,7 +220,7 @@ export function GameResultScreen({ result, onPlayAgain, onBack }: Props) {
             alignItems: 'center',
           }}
         >
-          <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 20 }}>
+          <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 18 }}>
             Play Again
           </Text>
         </TouchableOpacity>
@@ -221,6 +228,7 @@ export function GameResultScreen({ result, onPlayAgain, onBack }: Props) {
         {/* Back to Games */}
         <TouchableOpacity
           onPress={onBack ?? (() => router.replace('/patient/games'))}
+          activeOpacity={0.85}
           style={{
             borderWidth: 1.5,
             borderColor: '#e5e7eb',
@@ -230,11 +238,11 @@ export function GameResultScreen({ result, onPlayAgain, onBack }: Props) {
             backgroundColor: '#ffffff',
           }}
         >
-          <Text style={{ color: '#374151', fontWeight: '600', fontSize: 20 }}>
+          <Text style={{ color: '#374151', fontWeight: '600', fontSize: 18 }}>
             Back to Games
           </Text>
         </TouchableOpacity>
-      </View>
+      </Animated.View>
     </View>
   );
 }

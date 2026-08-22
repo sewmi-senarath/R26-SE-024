@@ -46,6 +46,27 @@ export default function RoleSelect() {
         <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
       </TouchableOpacity>
 
+      {/* Patient Face Login → /patient/auth */}
+      <TouchableOpacity
+        onPress={() => router.push('/patient/auth')}
+        style={{
+          backgroundColor: 'white', borderRadius: 16, padding: 20,
+          flexDirection: 'row', alignItems: 'center', marginBottom: 16,
+          borderLeftWidth: 5, borderLeftColor: '#8B5CF6',
+          shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.08, shadowRadius: 8, elevation: 3,
+        }}
+      >
+        <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: '#EDE9FE', alignItems: 'center', justifyContent: 'center', marginRight: 16 }}>
+          <Ionicons name="scan-circle-outline" size={26} color="#8B5CF6" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 17, fontWeight: 'bold', color: '#1f2937' }}>Patient Face Login</Text>
+          <Text style={{ color: '#6b7280', marginTop: 2 }}>Log in instantly using your face</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+      </TouchableOpacity>
+
       {/* Caregiver → /auth/register/caregiver */}
       <TouchableOpacity
         onPress={() => router.push('/auth/register/caregiver')}

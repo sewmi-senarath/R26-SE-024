@@ -20,6 +20,8 @@ export default function GamesLayout() {
         <Stack.Screen name="attention_game/play" options={{ headerShown: false }} />
         <Stack.Screen name="photo_puzzle/play" options={{ headerShown: false }} />
         <Stack.Screen name="word_puzzle/play" options={{ headerShown: false }} />
+        <Stack.Screen name="orientation_game/play" options={{ headerShown: false }} />
+        <Stack.Screen name="face_name_match/play" options={{ headerShown: false }} />
       </Stack>
     </AssessmentProvider>
   );
