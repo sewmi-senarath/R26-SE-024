@@ -127,7 +127,8 @@ def predict():
         rule_prediction = rule_based_severity(total_score)
         agrees          = (ml_prediction == rule_prediction)
 
-        print(f"[Dementia API] ML -> {ml_prediction} ({confidence*100:.1f}%)  |  Rule -> {rule_prediction}")
+        print(f"[Dementia API] ML -> {ml_prediction} ({confidence*100:.1f}%)  |  Rule -> {rule_prediction}"
+              f"  |  Model: {model_name} (test acc {test_acc*100:.1f}%, macro-F1 {test_mf1*100:.1f}%)")
 
         return jsonify({
             'success':        True,
@@ -237,5 +238,13 @@ if __name__ == '__main__':
     print("  DEMENTIA ML API — PORT 5002")
     print("  /predict       - severity classifier")
     print("  /predict-risk  - behavioral risk screener")
+    print("-" * 50)
+    if model:
+        print(f"  Severity model : {model_name}")
+        print(f"  Test accuracy  : {test_acc*100:.1f}%")
+        print(f"  Test macro-F1  : {test_mf1*100:.1f}%")
+        print(f"  CV macro-F1    : {cv_mf1*100:.1f}%")
+    else:
+        print("  Severity model : NOT LOADED (run train.py first)")
     print("=" * 50)
     app.run(host='0.0.0.0', port=5002, debug=True)

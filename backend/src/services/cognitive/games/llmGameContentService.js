@@ -364,8 +364,57 @@ async function generateFaceNameDecoys({ patient, realNames }) {
     .filter((value) => value && !containsBlockedTerm(value) && !realSet.has(value.toLowerCase()));
 }
 
+// Turn a batch of game items into short, concrete visual descriptions for a
+// text-to-image model. One Groq call per batch keeps it cheap. `items` is
+// [{ term, category, hint }]. Returns a plain object mapping term -> visual
+// description, or {} on any failure so callers can fall back to a heuristic.
+async function generateImagePrompts(items) {
+  const groq = getClient();
+  if (!groq || !Array.isArray(items) || !items.length) return {};
+
+  const list = items
+    .map((it) => ({
+      term: cleanText(it.term, MAX_LABEL_LENGTH),
+      category: cleanText(it.category, MAX_LABEL_LENGTH),
+      hint: cleanText(it.hint, MAX_HINT_LENGTH),
+    }))
+    .filter((it) => it.term);
+  if (!list.length) return {};
+
+  const system = [
+    "You write short, concrete visual descriptions for a text-to-image model.",
+    "Each description illustrates ONE everyday object or simple scene for a flashcard shown to elderly dementia patients.",
+    "Rules: depict a single, clear, instantly recognizable subject, plainly and literally. No people's faces, no text or writing in the image, nothing abstract, medical, or distressing. 6 to 14 words each.",
+    'Respond with JSON only: {"prompts": {"<term>": "<visual description>", ...}} reusing each term below verbatim as the key.',
+  ].join("\n");
+
+  const user = `Items:\n${JSON.stringify(list, null, 2)}`;
+
+  const response = await groq.chat.completions.create({
+    model: config.groqModel,
+    messages: [
+      { role: "system", content: system },
+      { role: "user", content: user },
+    ],
+    response_format: { type: "json_object" },
+    temperature: 0.5,
+  });
+
+  const parsed = extractResponseJson(response);
+  const prompts =
+    parsed && parsed.prompts && typeof parsed.prompts === "object" ? parsed.prompts : {};
+
+  const out = {};
+  Object.keys(prompts).forEach((key) => {
+    const desc = cleanText(prompts[key], 120);
+    if (desc && !containsBlockedTerm(desc)) out[key] = desc;
+  });
+  return out;
+}
+
 module.exports = {
   generateLlmGameContent,
   generateOrientationDistractors,
   generateFaceNameDecoys,
+  generateImagePrompts,
 };

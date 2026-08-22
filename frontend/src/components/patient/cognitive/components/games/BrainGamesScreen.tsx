@@ -3,9 +3,9 @@ import {
   getPatientGameProgress,
   getPatientGameSessions,
 } from "@/src/api/gameSessionApi";
-import { GAME_CONFIGS, GAME_ORDER } from "@/src/constants/games";
+import { GAME_CONFIGS } from "@/src/constants/games";
 import { useAssessment } from "@/src/context/AssessmentContext";
-import { GameDifficultyAssignment, GameId, PatientGameProgress } from "@/src/types/games.types";
+import { GameDifficultyAssignment, PatientGameProgress } from "@/src/types/games.types";
 import { generateGamePlan } from "@/src/utils/difficultyEngine";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
@@ -26,17 +26,6 @@ import {
 import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
 import { DifficultyBadge } from "./DifficultyBadge";
 import { DonutChart, TrendBarChart, TrendPoint } from "./shared/ProgressCharts";
-import { RadarChart, RadarPoint } from "./shared/RadarChart";
-
-const GAME_SHORT_LABELS: Record<GameId, string> = {
-  memory_recall: "Memory",
-  object_recall: "Objects",
-  attention_game: "Attention",
-  photo_puzzle: "Puzzle",
-  word_puzzle: "Words",
-  orientation_game: "Orientation",
-  face_name_match: "Faces",
-};
 
 export default function BrainGamesScreen() {
   const router = useRouter();
@@ -106,18 +95,6 @@ export default function BrainGamesScreen() {
       label: `#${i + 1}`,
       percent: s.maxScore > 0 ? Math.round((s.score / s.maxScore) * 100) : 0,
     }));
-  }, [history]);
-
-  const radarData: RadarPoint[] = useMemo(() => {
-    return GAME_ORDER.map((gameId) => {
-      const sessions = history.filter((s) => s.gameId === gameId && s.maxScore > 0);
-      const avgPercent = sessions.length
-        ? Math.round(
-            sessions.reduce((sum, s) => sum + (s.score / s.maxScore) * 100, 0) / sessions.length,
-          )
-        : 0;
-      return { label: GAME_SHORT_LABELS[gameId], value: avgPercent };
-    });
   }, [history]);
 
   // --- Sound effect setup ---
@@ -268,7 +245,7 @@ export default function BrainGamesScreen() {
                 elevation: 2,
               }}
             >
-              <View className="flex-row items-center justify-between mb-3">
+              <View className="flex-row items-center justify-between mb-5">
                 <Text className="text-sm font-bold text-gray-900">
                   Your Progress
                 </Text>
@@ -276,7 +253,7 @@ export default function BrainGamesScreen() {
                   Last {trendData.length} sessions
                 </Text>
               </View>
-              <View className="flex-row items-center gap-4">
+              <View className="flex-row items-center gap-4 mt-1">
                 <DonutChart
                   segments={[
                     { value: easyCount, color: "#22c55e", label: "Easy" },
@@ -290,30 +267,6 @@ export default function BrainGamesScreen() {
                   <TrendBarChart data={trendData} height={64} />
                 </View>
               </View>
-            </Animated.View>
-          ) : null}
-
-          {history.length > 0 ? (
-            <Animated.View
-              entering={FadeInUp.delay(140).duration(450)}
-              className="mx-6 mt-2 mb-1 rounded-3xl border border-gray-100 bg-white p-5 items-center"
-              style={{
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.05,
-                shadowRadius: 8,
-                elevation: 2,
-              }}
-            >
-              <View className="flex-row items-center justify-between w-full mb-1">
-                <Text className="text-sm font-bold text-gray-900">
-                  Cognitive Profile
-                </Text>
-                <Text className="text-xs text-gray-400">
-                  Avg. accuracy by game
-                </Text>
-              </View>
-              <RadarChart data={radarData} size={220} color="#6366f1" />
             </Animated.View>
           ) : null}
 

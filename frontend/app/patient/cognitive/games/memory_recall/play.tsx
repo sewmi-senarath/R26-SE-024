@@ -63,13 +63,28 @@ export default function MemoryRecallGame() {
   const { playSound } = useSoundEffects();
   const saveGameSession = useSaveGameSession();
   const { patientId } = useAssessment();
-  const { config } = usePersonalizedGameContent<MemoryRecallConfig>(
+  const { config: liveConfig, loading } = usePersonalizedGameContent<MemoryRecallConfig>(
     'memory_recall',
     difficulty,
     patientId,
   );
 
+  // Freeze the content for the duration of a round. Without this, a late
+  // personalized response would swap the words mid-game — which looked like the
+  // items "reloading" a second or two after they first appeared.
+  const [frozenConfig, setFrozenConfig] = useState<MemoryRecallConfig | null>(null);
+  const config = frozenConfig ?? liveConfig;
+
   const [phase, setPhase] = useState<Phase>('instruction');
+  // A generated image that fails to load (e.g. a cold URL that timed out) is
+  // treated as "no image" so the item falls back to its emoji instead of a
+  // blank card.
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
+  const markImageFailed = useCallback((uri?: string) => {
+    if (!uri) return;
+    setFailedImages(prev => (prev.has(uri) ? prev : new Set(prev).add(uri)));
+  }, []);
+  const canShowImage = (uri?: string) => !!uri && !failedImages.has(uri);
   const [currentShowIndex, setCurrentShowIndex] = useState(0);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [score, setScore] = useState(0);
@@ -95,6 +110,7 @@ export default function MemoryRecallGame() {
 
   const handleStart = () => {
     playSound('click');
+    setFrozenConfig(liveConfig);
     setPhase('showing');
     setCurrentShowIndex(0);
     setStartTime(Date.now());
@@ -164,6 +180,7 @@ export default function MemoryRecallGame() {
 
   const handleReset = () => {
     playSound('click');
+    setFrozenConfig(null);
     setPhase('instruction');
     setCurrentShowIndex(0);
     setSelectedIds([]);
@@ -190,6 +207,8 @@ export default function MemoryRecallGame() {
         ]}
         onStart={handleStart}
         onBack={handleGoBack}
+        startDisabled={loading}
+        startLabel={loading ? 'Preparing your game…' : 'Start Game'}
       />
     );
   }
@@ -229,12 +248,13 @@ export default function MemoryRecallGame() {
                 style={{ overflow: 'hidden' }}
                 className="w-56 h-56 bg-white rounded-3xl border border-gray-100 items-center justify-center shadow-sm"
               >
-                {config.items[currentShowIndex].image ? (
+                {canShowImage(config.items[currentShowIndex].image) ? (
                   <>
                     <Image
                       source={{ uri: config.items[currentShowIndex].image }}
                       style={{ position: 'absolute', width: '100%', height: '100%' }}
                       resizeMode="cover"
+                      onError={() => markImageFailed(config.items[currentShowIndex].image)}
                     />
                     <View
                       style={{
@@ -319,12 +339,13 @@ export default function MemoryRecallGame() {
                       selected={selected}
                       onPress={() => toggleSelect(item.id)}
                     >
-                      {item.image ? (
+                      {canShowImage(item.image) ? (
                         <>
                           <Image
                             source={{ uri: item.image }}
                             style={{ position: 'absolute', width: '100%', height: '100%' }}
                             resizeMode="cover"
+                            onError={() => markImageFailed(item.image)}
                           />
                           <View
                             style={{

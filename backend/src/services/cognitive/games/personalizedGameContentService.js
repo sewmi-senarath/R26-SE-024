@@ -157,6 +157,17 @@ const COMMON_WORDS = new Set([
   "medicine", "mountain", "umbrella",
 ]);
 
+// One line per served request so it's obvious in the backend console which
+// content tier actually answered: "llm (groq)" means Groq generated it,
+// "rule-based" means it was built from the patient's profile, and "static"
+// means neither fired and the hardcoded fallback was used.
+function logTier(tier, { gameId, difficulty, patientId, personalized }) {
+  console.log(
+    `[game-content] served: ${tier} | game=${gameId} difficulty=${difficulty} ` +
+      `patient=${patientId} personalized=${personalized}`
+  );
+}
+
 function assertValidRequest(gameId, difficulty) {
   if (!VALID_GAMES.has(gameId)) {
     const error = new Error("Personalized content is only available for memory_recall, object_recall, and word_puzzle.");
@@ -446,10 +457,10 @@ function buildFestivalQuestion(patient, optionsCount, extraDistractors = []) {
 }
 
 function buildPlaceQuestion(patient, optionsCount, extraDistractors = []) {
-  const home =
-    patient.hometown ||
-    compactStrings(patient.favoritePlaces)[0] ||
-    splitFreeText(patient.favoritePlacesText)[0];
+  // Only a real hometown answers "which town do you call home". A favorite
+  // place (e.g. "Village") is not necessarily where the patient is from, so we
+  // no longer fall back to it — the question is simply skipped without one.
+  const home = (patient.hometown || "").trim();
   if (!home) return null;
 
   const correctAnswer = titleCase(home);
@@ -570,6 +581,7 @@ async function getPersonalizedGameContent({ gameId, patientId, difficulty, reque
       "preferredSportsText languagesPreferred"
   );
   if (!hasProfileData(patient)) {
+    logTier("static (no profile data)", { gameId, difficulty, patientId, personalized: false });
     return { config: staticConfig, personalized: false };
   }
 
@@ -594,6 +606,10 @@ async function getPersonalizedGameContent({ gameId, patientId, difficulty, reque
       llmDistractors
     );
 
+    logTier(
+      llmDistractors ? "rule-based + groq distractors (orientation)" : "rule-based (orientation)",
+      { gameId, difficulty, patientId, personalized: personalizedCount > 0 }
+    );
     return {
       config: { ...staticConfig, questions: all.slice(0, requiredCount) },
       personalized: personalizedCount > 0,
@@ -620,6 +636,10 @@ async function getPersonalizedGameContent({ gameId, patientId, difficulty, reque
     const fallbackItems =
       remaining > 0 ? buildFaceQuestions(genericPeople, remaining, staticConfig.optionsCount) : [];
 
+    logTier(
+      llmDecoyNames ? "rule-based + groq decoys (face-name)" : "rule-based (face-name)",
+      { gameId, difficulty, patientId, personalized: personalItems.length > 0 }
+    );
     return {
       config: { ...staticConfig, questions: [...personalItems, ...fallbackItems].slice(0, requiredCount) },
       personalized: personalItems.length > 0,
@@ -645,11 +665,18 @@ async function getPersonalizedGameContent({ gameId, patientId, difficulty, reque
         personalizedContent.objects = attachFamilyPhotos(personalizedContent.objects, familyPhotoMap);
       }
 
+      logTier("llm (groq)", { gameId, difficulty, patientId, personalized: true });
       return {
         config: { ...staticConfig, ...personalizedContent },
         personalized: true,
       };
     }
+
+    // Reached only when Groq returned but nothing survived validation
+    // (bad JSON, blocked terms, too-short words, etc.).
+    console.log(
+      `[game-content] groq returned no usable content for game=${gameId}, falling back to rule-based`
+    );
   } catch (error) {
     console.warn(
       "[game-content] LLM generation failed, falling back to rule-based content:",
@@ -664,6 +691,9 @@ async function getPersonalizedGameContent({ gameId, patientId, difficulty, reque
       staticConfig.items,
       requiredCount
     );
+    logTier(personalized ? "rule-based (groq fallback)" : "static (groq fallback)", {
+      gameId, difficulty, patientId, personalized,
+    });
     return {
       config: { ...staticConfig, items },
       personalized,
@@ -677,6 +707,9 @@ async function getPersonalizedGameContent({ gameId, patientId, difficulty, reque
       staticConfig.objects,
       requiredCount
     );
+    logTier(personalized ? "rule-based (groq fallback)" : "static (groq fallback)", {
+      gameId, difficulty, patientId, personalized,
+    });
     return {
       config: { ...staticConfig, objects: items },
       personalized,
@@ -690,6 +723,9 @@ async function getPersonalizedGameContent({ gameId, patientId, difficulty, reque
     requiredCount
   );
 
+  logTier(personalized ? "rule-based (groq fallback)" : "static (groq fallback)", {
+    gameId, difficulty, patientId, personalized,
+  });
   return {
     config: { ...staticConfig, words: items },
     personalized,
