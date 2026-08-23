@@ -1,3 +1,4 @@
+import { AIPredictionCard } from "@/src/components/patient/cognitive/components/screening-test/AIPredictionCard";
 import { useAssessmentSession } from "@/src/hooks/useAssessmentSession";
 import { getSeverityInfo } from "@/src/utils/scoring";
 import { useRouter } from "expo-router";
@@ -220,6 +221,9 @@ export default function ResultsScreen() {
             </Text>
           </View>
         )}
+
+        {/* ── AI severity prediction (ML model, alongside the rule-based score above) ── */}
+        {session.patientId && <AIPredictionCard patientId={session.patientId} />}
 
         {/* ── Section breakdown ──────────────────────────────── */}
         <View className="mx-6 mb-4">

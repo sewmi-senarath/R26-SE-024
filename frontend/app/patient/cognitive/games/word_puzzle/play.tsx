@@ -28,12 +28,18 @@ export default function WordPuzzleGame() {
   const { playSound } = useSoundEffects();
   const saveGameSession = useSaveGameSession();
   const { patientId } = useAssessment();
-  const { config } = usePersonalizedGameContent<WordPuzzleConfig>(
+  const { config: liveConfig, loading } = usePersonalizedGameContent<WordPuzzleConfig>(
     'word_puzzle',
     difficulty,
     patientId,
   );
-  
+
+  // Freeze the content for the duration of a round. Without this, a late
+  // personalized response would swap the words mid-game — which looked like the
+  // items "reloading" a second or two after they first appeared.
+  const [frozenConfig, setFrozenConfig] = useState<WordPuzzleConfig | null>(null);
+  const config = frozenConfig ?? liveConfig;
+
   const [phase, setPhase] = useState<Phase>('instruction');
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
   const [userAnswer, setUserAnswer] = useState('');
@@ -46,6 +52,13 @@ export default function WordPuzzleGame() {
   const [revealedAnswer, setRevealedAnswer] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const shakeX = useSharedValue(0);
+  // A generated clue image that fails to load falls back to the emoji cue.
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
+  const markImageFailed = useCallback((uri?: string) => {
+    if (!uri) return;
+    setFailedImages(prev => (prev.has(uri) ? prev : new Set(prev).add(uri)));
+  }, []);
+  const canShowImage = (uri?: string) => !!uri && !failedImages.has(uri);
 
   useEffect(() => {
     if (feedback === 'incorrect') {
@@ -169,6 +182,7 @@ export default function WordPuzzleGame() {
 
   const handleReset = () => {
     playSound('click');
+    setFrozenConfig(null);
     setPhase('instruction');
     setCurrentWordIndex(0);
     setUserAnswer('');
@@ -200,6 +214,7 @@ export default function WordPuzzleGame() {
         ]}
         onStart={() => {
           playSound('click');
+          setFrozenConfig(liveConfig);
           setPhase('playing');
           setStartTime(Date.now());
           setCurrentWordIndex(0);
@@ -209,6 +224,8 @@ export default function WordPuzzleGame() {
           setRevealedAnswer(false);
         }}
         onBack={handleGoBack}
+        startDisabled={loading}
+        startLabel={loading ? 'Preparing your game…' : 'Start Game'}
       />
     );
   }
@@ -275,8 +292,12 @@ export default function WordPuzzleGame() {
         {/* Main content */}
         <View style={{ flex: 1, justifyContent: 'center', gap: 24 }}>
           <View style={{ alignItems: 'center', gap: 10 }}>
-            {currentWord?.image ? (
-              <Image source={{ uri: currentWord.image }} style={{ width: 170, height: 126, borderRadius: 18 }} />
+            {canShowImage(currentWord?.image) ? (
+              <Image
+                source={{ uri: currentWord!.image }}
+                style={{ width: 170, height: 126, borderRadius: 18 }}
+                onError={() => markImageFailed(currentWord?.image)}
+              />
             ) : (
               <Animated.View
                 key={currentWord?.id}

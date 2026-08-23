@@ -1,9 +1,9 @@
-import { Ionicons } from '@expo/vector-icons';
-import { Tabs, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Platform, Text, View } from 'react-native';
-import { getStoredRole } from '../../src/api/authApi';
-import { Colors } from '../../src/constants/colors';
+import { Ionicons } from "@expo/vector-icons";
+import { Tabs, useRouter } from "expo-router";
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator, Platform, Text, View } from "react-native";
+import { getStoredRole } from "../../src/api/authApi";
+import { Colors } from "../../src/constants/colors";
 
 // ── Custom Tab Icon ───────────────────────────────────────────────────────────
 interface TabIconProps {
@@ -14,22 +14,32 @@ interface TabIconProps {
 }
 
 const TabBarIcon: React.FC<TabIconProps> = ({ name, color, size, badge }) => (
-  <View style={{ width: size + 8, height: size + 8, alignItems: 'center', justifyContent: 'center' }}>
+  <View
+    style={{
+      width: size + 8,
+      height: size + 8,
+      alignItems: "center",
+      justifyContent: "center",
+    }}
+  >
     <Ionicons name={name} size={size} color={color} />
     {badge && badge > 0 ? (
       <View
         style={{
-          position: 'absolute',
-          top: -2, right: -2,
+          position: "absolute",
+          top: -2,
+          right: -2,
           backgroundColor: Colors.danger,
           borderRadius: 8,
-          minWidth: 16, height: 16,
-          alignItems: 'center', justifyContent: 'center',
+          minWidth: 16,
+          height: 16,
+          alignItems: "center",
+          justifyContent: "center",
           paddingHorizontal: 3,
         }}
       >
-        <Text style={{ color: '#fff', fontSize: 9, fontWeight: '800' }}>
-          {badge > 99 ? '99+' : badge}
+        <Text style={{ color: "#fff", fontSize: 9, fontWeight: "800" }}>
+          {badge > 99 ? "99+" : badge}
         </Text>
       </View>
     ) : null}
@@ -46,16 +56,16 @@ export default function CaregiverLayout() {
       try {
         const role = await getStoredRole();
         if (!role) {
-          router.replace('/auth/login');
+          router.replace("/auth/login");
           return;
         }
-        if (role !== 'caregiver') {
-          if (role === 'patient') router.replace('/patient/activity-selector');
-          else if (role === 'family') router.replace('/family');
+        if (role !== "caregiver") {
+          if (role === "patient") router.replace("/patient/activity-selector");
+          else if (role === "family") router.replace("/family");
           return;
         }
       } catch (error) {
-        router.replace('/auth/login');
+        router.replace("/auth/login");
       } finally {
         setIsChecking(false);
       }
@@ -65,7 +75,7 @@ export default function CaregiverLayout() {
 
   if (isChecking) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
         <ActivityIndicator size="large" color={Colors.primary} />
       </View>
     );
@@ -74,38 +84,38 @@ export default function CaregiverLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: Colors.sageGreen,
-        tabBarInactiveTintColor: '#94A3B8',
+        tabBarActiveTintColor: Colors.primary,
+        tabBarInactiveTintColor: "#94A3B8",
         tabBarStyle: {
           backgroundColor: Colors.white,
-          borderTopWidth: 1,
-          borderTopColor: '#F1F5F9',
-          height: Platform.OS === 'ios' ? 90 : 70,
-          paddingBottom: Platform.OS === 'ios' ? 30 : 12,
-          paddingTop: 12,
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          elevation: 0,
-          borderTopLeftRadius: 20,
-          borderTopRightRadius: 20,
+          borderTopWidth: 0,
+          elevation: 20,
+          shadowColor: "#4F8EF7",
+          shadowOffset: { width: 0, height: -4 },
+          shadowOpacity: 0.08,
+          shadowRadius: 16,
+          height: Platform.OS === "ios" ? 85 : 65,
+          paddingBottom: Platform.OS === "ios" ? 25 : 10,
+          paddingTop: 10,
+          paddingHorizontal: 8,
+          borderTopLeftRadius: 24,
+          borderTopRightRadius: 24,
+          position: "absolute",
         },
         tabBarLabelStyle: {
-          fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
-          fontSize: 10,
-          fontWeight: '700',
-          marginTop: 4,
+          fontSize: 11,
+          fontWeight: "600",
+          marginTop: 2,
         },
       }}
     >
       <Tabs.Screen
         name="hardware-hub"
         options={{
-          title: 'Hard...',
+          title: "Home",
           tabBarIcon: ({ color, size, focused }) => (
             <TabBarIcon
-              name={focused ? 'glasses' : 'glasses-outline'}
+              name={focused ? "grid" : "grid-outline"}
               color={color}
               size={24}
             />
@@ -116,10 +126,10 @@ export default function CaregiverLayout() {
       <Tabs.Screen
         name="behavior-logs"
         options={{
-          title: 'Beha...',
+          title: "Patients",
           tabBarIcon: ({ color, size, focused }) => (
             <TabBarIcon
-              name={focused ? 'pulse' : 'pulse-outline'}
+              name={focused ? "people" : "people-outline"}
               color={color}
               size={24}
             />
@@ -130,10 +140,10 @@ export default function CaregiverLayout() {
       <Tabs.Screen
         name="data-ingestion"
         options={{
-          title: 'Insig...',
+          title: "Tasks",
           tabBarIcon: ({ color, size, focused }) => (
             <TabBarIcon
-              name={focused ? 'cloud-upload' : 'cloud-upload-outline'}
+              name={focused ? "checkmark-circle" : "checkmark-circle-outline"}
               color={color}
               size={24}
             />
@@ -144,10 +154,10 @@ export default function CaregiverLayout() {
       <Tabs.Screen
         name="object-tracker"
         options={{
-          title: 'Obje...',
+          title: "Insights",
           tabBarIcon: ({ color, size, focused }) => (
             <TabBarIcon
-              name={focused ? 'search' : 'search-outline'}
+              name={focused ? "bar-chart" : "bar-chart-outline"}
               color={color}
               size={24}
             />
@@ -155,20 +165,84 @@ export default function CaregiverLayout() {
         }}
       />
 
-      {/* ── Hidden original routes ── */}
-      <Tabs.Screen name="index" options={{ href: null }} />
-      <Tabs.Screen name="patients" options={{ href: null }} />
-      <Tabs.Screen name="tasks" options={{ href: null }} />
-      <Tabs.Screen name="insights" options={{ href: null }} />
-      <Tabs.Screen name="more" options={{ href: null }} />
-      <Tabs.Screen name="medications" options={{ href: null }} />
-      <Tabs.Screen name="wellbeing" options={{ href: null }} />
-      <Tabs.Screen name="alerts" options={{ href: null }} />
-      <Tabs.Screen name="reports" options={{ href: null }} />
-      <Tabs.Screen name="timer" options={{ href: null }} />
-      <Tabs.Screen name="breathing" options={{ href: null }} />
-      <Tabs.Screen name="hydration" options={{ href: null }} />
-      <Tabs.Screen name="stretching" options={{ href: null }} />
+      <Tabs.Screen
+        name="more"
+        options={{
+          title: "More",
+          tabBarIcon: ({ color, size, focused }) => (
+            <TabBarIcon
+              name={focused ? "menu" : "menu-outline"}
+              color={color}
+              size={size}
+            />
+          ),
+        }}
+      />
+
+      {/* ── Hidden from tab bar (navigated from More page) ── */}
+      <Tabs.Screen
+        name="medications"
+        options={{
+          href: null, // ← This hides it from the tab bar completely
+        }}
+      />
+
+      <Tabs.Screen
+        name="wellbeing"
+        options={{
+          href: null,
+        }}
+      />
+
+      <Tabs.Screen
+        name="alerts"
+        options={{
+          href: null,
+        }}
+      />
+
+      <Tabs.Screen
+        name="reports"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="timer"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="breathing"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="hydration"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="stretching"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="dementia-screening"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="patient-report"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }

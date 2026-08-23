@@ -30,11 +30,17 @@ export default function FaceNameMatchGame() {
   const { playSound } = useSoundEffects();
   const saveGameSession = useSaveGameSession();
   const { patientId } = useAssessment();
-  const { config } = usePersonalizedGameContent<FaceNameMatchConfig>(
+  const { config: liveConfig, loading } = usePersonalizedGameContent<FaceNameMatchConfig>(
     'face_name_match',
     difficulty,
     patientId,
   );
+
+  // Freeze the content for the duration of a round. Without this, a late
+  // personalized response would swap the people mid-game — which looked like the
+  // items "reloading" a second or two after they first appeared.
+  const [frozenConfig, setFrozenConfig] = useState<FaceNameMatchConfig | null>(null);
+  const config = frozenConfig ?? liveConfig;
 
   const [phase, setPhase] = useState<Phase>('instruction');
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -146,6 +152,7 @@ export default function FaceNameMatchGame() {
 
   const handleReset = () => {
     playSound('click');
+    setFrozenConfig(null);
     setPhase('instruction');
     setCurrentIndex(0);
     setScore(0);
@@ -173,6 +180,7 @@ export default function FaceNameMatchGame() {
         ]}
         onStart={() => {
           playSound('click');
+          setFrozenConfig(liveConfig);
           setPhase('playing');
           setStartTime(Date.now());
           setCurrentIndex(0);
@@ -182,6 +190,8 @@ export default function FaceNameMatchGame() {
           setFeedback(null);
         }}
         onBack={handleGoBack}
+        startDisabled={loading}
+        startLabel={loading ? 'Preparing your game…' : 'Start Game'}
       />
     );
   }
