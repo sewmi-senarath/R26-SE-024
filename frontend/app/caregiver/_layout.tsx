@@ -109,8 +109,9 @@ export default function CaregiverLayout() {
         },
       }}
     >
+      {/* ── Home → index.tsx (was hardware-hub.tsx) ── */}
       <Tabs.Screen
-        name="hardware-hub"
+        name="index"
         options={{
           title: "Home",
           tabBarIcon: ({ color, size, focused }) => (
@@ -123,8 +124,9 @@ export default function CaregiverLayout() {
         }}
       />
 
+      {/* ── Patients → patients.tsx (was behavior-logs.tsx) ── */}
       <Tabs.Screen
-        name="behavior-logs"
+        name="patients"
         options={{
           title: "Patients",
           tabBarIcon: ({ color, size, focused }) => (
@@ -137,8 +139,9 @@ export default function CaregiverLayout() {
         }}
       />
 
+      {/* ── Tasks → tasks.tsx (was data-ingestion.tsx) ── */}
       <Tabs.Screen
-        name="data-ingestion"
+        name="tasks"
         options={{
           title: "Tasks",
           tabBarIcon: ({ color, size, focused }) => (
@@ -151,8 +154,9 @@ export default function CaregiverLayout() {
         }}
       />
 
+      {/* ── Insights → insights.tsx (was object-tracker.tsx) ── */}
       <Tabs.Screen
-        name="object-tracker"
+        name="insights"
         options={{
           title: "Insights",
           tabBarIcon: ({ color, size, focused }) => (
@@ -239,6 +243,33 @@ export default function CaregiverLayout() {
       />
       <Tabs.Screen
         name="patient-report"
+        options={{
+          href: null,
+        }}
+      />
+
+      {/* ── Old placeholder screens from a different feature (life-logging-memory-vault) —
+           hidden rather than deleted, in case you still want to reference them ── */}
+      <Tabs.Screen
+        name="hardware-hub"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="behavior-logs"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="data-ingestion"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="object-tracker"
         options={{
           href: null,
         }}
