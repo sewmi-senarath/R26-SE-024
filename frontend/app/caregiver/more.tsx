@@ -318,13 +318,6 @@ const MENU_SECTIONS: MenuSectionType[] = [
         iconBg:    '#FEF2F2',
       },
       {
-        id:        'wellbeing',
-        label:     'Well-being',
-        icon:      'heart-outline',
-        iconColor: Colors.danger,
-        iconBg:    Colors.dangerSoft,
-      },
-      {
         id:         'alerts',
         label:      'Alerts & Notifications',
         icon:       'notifications-outline',

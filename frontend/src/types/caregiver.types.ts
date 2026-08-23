@@ -204,4 +204,32 @@ export interface CheckInResult {
   message:      string;
   tips:         string[];
   submittedAt:  string;
+  burnout?:     BurnoutRisk;     // ← add
+  weeklyData?:  WeeklyData[];    // ← add
+  stats?: {                       // ← add
+    avgSleep:       number;
+    activeHours:    number;
+    tasksCompleted: number;
+    breaksTaken:    number;
+  };
+}
+
+// ── Burnout Risk ───────────────────────────────────────────────────────────
+export interface BurnoutFactor {
+  factor:      string;
+  severity:    'high' | 'moderate' | 'low';
+  description: string;
+  icon:        string;
+}
+
+export interface BurnoutRisk {
+  riskScore:        number;
+  riskLevel:        'Low' | 'Moderate' | 'High';
+  trend:            'worsening' | 'stable' | 'improving';
+  forecast:         string;
+  factors:          BurnoutFactor[];
+  daysAnalyzed:     number;
+  avgStressScore?:  number;
+  avgSleep?:        number;
+  consecutiveHigh?: number;
 }

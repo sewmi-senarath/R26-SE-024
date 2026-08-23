@@ -674,22 +674,29 @@ import {
   ActivityIndicator, Alert, Modal, RefreshControl,
   ScrollView, StatusBar, Text, TouchableOpacity, View,
 } from 'react-native';
-import { authFetch } from '../../src/api/authApi';
+import { BurnoutCard } from '../../src/components/caregiver/insights/BurnoutCard';
 import { MoodChecker } from '../../src/components/caregiver/insights/MoodChecker';
 import { RecommendationCard } from '../../src/components/caregiver/insights/RecommendationCard';
 import { StressGauge } from '../../src/components/caregiver/insights/StressGauge';
 import { WeeklyChart } from '../../src/components/caregiver/insights/WeeklyChart';
 import { WellbeingStats } from '../../src/components/caregiver/insights/WellbeingStats';
 import { Colors } from '../../src/constants/colors';
-import { getLatestResult, submitCheckIn } from '../../src/services/caregiver/insightService';
 import {
-  CheckInResult, DailyCheckIn,
-  MoodType, Recommendation,
-  StressLevel, WeeklyData,
+  getLatestResult,
+  submitCheckIn,
+} from '../../src/services/caregiver/insightService';
+import {
+  BurnoutRisk,
+  CheckInResult,
+  DailyCheckIn,
+  MoodType,
+  Recommendation,
+  StressLevel,
+  WeeklyData,
   WellbeingStats as WellbeingStatsType,
 } from '../../src/types/caregiver.types';
 
-// ── Default/fallback data ─────────────────────────────────────────────────
+// ── Default empty data ─────────────────────────────────────────────────────
 const DEFAULT_STATS: WellbeingStatsType = {
   avgSleep: 0, activeHours: 0,
   tasksCompleted: 0, breaksTaken: 0,
@@ -705,7 +712,7 @@ const DEFAULT_WEEKLY: WeeklyData[] = [
   { day: 'Sun', stress: 0, tasks: 0 },
 ];
 
-// ── Section Label ─────────────────────────────────────────────────────────
+// ── Section Label ──────────────────────────────────────────────────────────
 const SectionLabel: React.FC<{ title: string }> = ({ title }) => (
   <Text style={{
     fontSize: 11, fontWeight: '700', color: Colors.textMuted,
@@ -716,7 +723,7 @@ const SectionLabel: React.FC<{ title: string }> = ({ title }) => (
   </Text>
 );
 
-// ── Step Slider ───────────────────────────────────────────────────────────
+// ── Step Slider ────────────────────────────────────────────────────────────
 const StepSlider: React.FC<{
   label: string; value: number; min: number; max: number;
   onChange: (v: number) => void;
@@ -764,7 +771,7 @@ const StepSlider: React.FC<{
   );
 };
 
-// ── Number Stepper ────────────────────────────────────────────────────────
+// ── Number Stepper ─────────────────────────────────────────────────────────
 const NumberStepper: React.FC<{
   label: string; value: number; min: number; max: number;
   onChange: (v: number) => void; suffix?: string;
@@ -809,18 +816,17 @@ const NumberStepper: React.FC<{
   </View>
 );
 
-// ── Result Banner ─────────────────────────────────────────────────────────
+// ── Result Banner ──────────────────────────────────────────────────────────
 const ResultBanner: React.FC<{
   result: CheckInResult;
   form: DailyCheckIn;
   onNewCheckIn: () => void;
 }> = ({ result, form, onNewCheckIn }) => {
-  const configMap: Record<string, { color: string; bg: string; emoji: string }> = {
-    'Not Stressed': { color: Colors.success, bg: Colors.successSoft, emoji: '😊' },
-    'Stressed': { color: Colors.danger, bg: Colors.dangerSoft, emoji: '😟' },
-  };
-  const config = configMap[result.stressLevel] ??
-    { color: Colors.warning, bg: Colors.warningSoft, emoji: '😐' };
+  const config = {
+    Low: { color: Colors.success, bg: Colors.successSoft, emoji: '😊' },
+    Moderate: { color: Colors.warning, bg: Colors.warningSoft, emoji: '😐' },
+    High: { color: Colors.danger, bg: Colors.dangerSoft, emoji: '😟' },
+  }[result.stressLevel];
 
   const handleViewPlan = () => {
     router.push({
@@ -829,6 +835,7 @@ const ResultBanner: React.FC<{
         stressLevel: result.stressLevel,
         stressScore: String(result.stressScore),
         formData: JSON.stringify(form),
+        burnout: result.burnout ? JSON.stringify(result.burnout) : undefined, 
       },
     } as any);
   };
@@ -896,7 +903,7 @@ const ResultBanner: React.FC<{
   );
 };
 
-// ── Check-in Modal ────────────────────────────────────────────────────────
+// ── Check-in Modal ─────────────────────────────────────────────────────────
 const CheckInModal: React.FC<{
   visible: boolean;
   onClose: () => void;
@@ -935,12 +942,15 @@ const CheckInModal: React.FC<{
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={{
-        flex: 1, backgroundColor: 'rgba(15,23,42,0.4)', justifyContent: 'flex-end',
+        flex: 1, backgroundColor: 'rgba(15,23,42,0.4)',
+        justifyContent: 'flex-end',
       }}>
         <View style={{
           height: '95%', backgroundColor: Colors.background,
-          borderTopLeftRadius: 28, borderTopRightRadius: 28, overflow: 'hidden',
+          borderTopLeftRadius: 28, borderTopRightRadius: 28,
+          overflow: 'hidden',
         }}>
+          {/* Header */}
           <View style={{
             backgroundColor: Colors.white,
             paddingTop: 12, paddingHorizontal: 20, paddingBottom: 16,
@@ -973,6 +983,7 @@ const CheckInModal: React.FC<{
             </View>
           </View>
 
+          {/* Form */}
           <ScrollView
             contentContainerStyle={{ padding: 20, paddingBottom: 110 }}
             showsVerticalScrollIndicator={false}
@@ -982,18 +993,8 @@ const CheckInModal: React.FC<{
               backgroundColor: Colors.white, borderRadius: 16, padding: 16,
               marginBottom: 16, borderWidth: 1, borderColor: Colors.borderLight,
             }}>
-              <StepSlider
-                label="Hours slept last night"
-                value={form.sleepHours} min={4} max={9}
-                onChange={set('sleepHours')}
-                leftLabel="Poor (4h)" rightLabel="Great (9h)"
-              />
-              <StepSlider
-                label="Physical tiredness"
-                value={form.physicalTiredness} min={1} max={5}
-                onChange={set('physicalTiredness')}
-                leftLabel="Not tired" rightLabel="Exhausted"
-              />
+              <StepSlider label="Hours slept last night" value={form.sleepHours} min={4} max={9} onChange={set('sleepHours')} leftLabel="Poor (4h)" rightLabel="Great (9h)" />
+              <StepSlider label="Physical tiredness" value={form.physicalTiredness} min={1} max={5} onChange={set('physicalTiredness')} leftLabel="Not tired" rightLabel="Exhausted" />
             </View>
 
             <SectionLabel title="Today's Workload" />
@@ -1021,6 +1022,7 @@ const CheckInModal: React.FC<{
             </View>
           </ScrollView>
 
+          {/* Submit button */}
           <View style={{
             position: 'absolute', bottom: 0, left: 0, right: 0,
             backgroundColor: Colors.white,
@@ -1059,86 +1061,67 @@ const CheckInModal: React.FC<{
   );
 };
 
-// ── MAIN SCREEN ───────────────────────────────────────────────────────────
+// ── MAIN SCREEN ────────────────────────────────────────────────────────────
 export default function InsightsScreen() {
   const [stressLevel, setStressLevel] = useState<StressLevel>('Moderate');
   const [stressScore, setStressScore] = useState(65);
   const [checkInResult, setCheckInResult] = useState<CheckInResult | null>(null);
   const [lastForm, setLastForm] = useState<DailyCheckIn | null>(null);
+  const [burnoutRisk, setBurnoutRisk] = useState<BurnoutRisk | null>(null);
   const [showCheckIn, setShowCheckIn] = useState(false);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-
-  // ✅ Real stats from API
   const [stats, setStats] = useState<WellbeingStatsType>(DEFAULT_STATS);
   const [weekly, setWeekly] = useState<WeeklyData[]>(DEFAULT_WEEKLY);
 
-  // ✅ Fetch real stats and weekly data
-  const loadRealData = useCallback(async () => {
+  // ── Load data on mount (persists across reload) ────────────────────────
+  const loadData = useCallback(async () => {
     try {
-      // Get real tasks data for stats
-      const tasksData = await authFetch('/caregiver/tasks');
-      if (tasksData.success) {
-        const tasks = tasksData.tasks || [];
-        const completedTasks = tasks.filter((t: any) => t.status === 'done').length;
-        setStats((prev) => ({
-          ...prev,
-          tasksCompleted: completedTasks,
-        }));
-      }
-
-      // Get latest check-in result for stats
       const result = await getLatestResult();
-      if (result) {
-        applyResult(result);
-        // Update stats from latest check-in
-        setStats((prev) => ({
-          ...prev,
-          avgSleep: result.stressScore ? 8 - (result.stressScore * 0.3) : 6.5,
-          breaksTaken: result.stressScore ? Math.max(1, 5 - Math.floor(result.stressScore / 2)) : 3,
-        }));
-      }
+      if (result) applyResult(result);
     } catch (error) {
-      console.log('Failed to load real data:', error);
+      console.log('Load error:', error);
     }
   }, []);
 
   useEffect(() => {
-    loadRealData();
+    loadData();
   }, []);
 
+  // ── Apply result from backend ──────────────────────────────────────────
   const applyResult = (result: CheckInResult) => {
     setCheckInResult(result);
     setStressLevel(result.stressLevel as StressLevel);
     setStressScore(result.stressScore * 10);
+
+    // Burnout risk
+    if (result.burnout) {
+      setBurnoutRisk(result.burnout);
+    }
+
+    // Real weekly chart data from backend
+    if (result.weeklyData && result.weeklyData.length > 0) {
+      setWeekly(result.weeklyData);
+    }
+
+    // Real stats from backend
+    if (result.stats) {
+      setStats({
+        avgSleep: Math.round((result.stats.avgSleep || 0) * 10) / 10,
+        activeHours: result.stats.activeHours || 0,
+        tasksCompleted: result.stats.tasksCompleted || 0,
+        breaksTaken: Math.round((result.stats.breaksTaken || 0) * 10) / 10,
+      });
+    }
   };
 
   const handleCheckInResult = (result: CheckInResult, form: DailyCheckIn) => {
     applyResult(result);
     setLastForm(form);
-
-    // ✅ Update stats from real check-in form data
-    setStats({
-      avgSleep: form.sleepHours,
-      activeHours: form.hoursCaregiving,
-      tasksCompleted: form.tasksCompleted,
-      breaksTaken: form.breaksTaken,
-    });
-
-    // ✅ Update weekly chart with today's real data
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const today = days[new Date().getDay()];
-    setWeekly((prev) =>
-      prev.map((d) =>
-        d.day === today
-          ? { ...d, stress: result.stressScore * 10, tasks: form.tasksCompleted }
-          : d
-      )
-    );
   };
 
   const handleMoodSelect = (mood: MoodType) => {
-    console.log('Mood selected:', mood);
+    console.log('Mood:', mood);
   };
 
   const handleDismissRecommendation = (id: string) => {
@@ -1147,7 +1130,7 @@ export default function InsightsScreen() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await loadRealData();
+    await loadData();
     setRefreshing(false);
   };
 
@@ -1155,7 +1138,7 @@ export default function InsightsScreen() {
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
 
-      {/* Fixed Header */}
+      {/* Header */}
       <View style={{
         backgroundColor: Colors.background,
         paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16,
@@ -1173,8 +1156,8 @@ export default function InsightsScreen() {
           <TouchableOpacity
             onPress={() => setShowCheckIn(true)}
             style={{
-              backgroundColor: Colors.primaryLight, borderRadius: 20,
-              paddingHorizontal: 14, paddingVertical: 8,
+              backgroundColor: Colors.primaryLight,
+              borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8,
               flexDirection: 'row', alignItems: 'center', gap: 5,
               borderWidth: 1, borderColor: Colors.primary + '40',
             }}
@@ -1187,7 +1170,7 @@ export default function InsightsScreen() {
         </View>
       </View>
 
-      {/* Scrollable Content */}
+      {/* Scrollable content */}
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -1208,13 +1191,41 @@ export default function InsightsScreen() {
           />
         )}
 
+        {/* Show last result banner on reload even without lastForm */}
+        {checkInResult && !lastForm && (
+          <View style={{
+            marginHorizontal: 20, marginBottom: 16,
+            backgroundColor: Colors.primaryLight, borderRadius: 20, padding: 14,
+            borderWidth: 1, borderColor: Colors.primary + '30',
+            flexDirection: 'row', alignItems: 'center', gap: 12,
+          }}>
+            <Ionicons name="checkmark-circle" size={24} color={Colors.primary} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: Colors.primary }}>
+                Last check-in: {checkInResult.stressLevel} stress
+              </Text>
+              <Text style={{ fontSize: 11, color: Colors.textSecondary }}>
+                Score: {checkInResult.stressScore}/10 · Pull to refresh
+              </Text>
+            </View>
+            <TouchableOpacity onPress={() => setShowCheckIn(true)}>
+              <Ionicons name="add-circle-outline" size={20} color={Colors.primary} />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Burnout Risk Card */}
+        {burnoutRisk && (
+          <BurnoutCard burnout={burnoutRisk} />
+        )}
+
         {/* Stress Gauge */}
         <StressGauge level={stressLevel} score={stressScore} />
 
-        {/* ✅ Real stats from check-in */}
+        {/* Wellbeing Stats - real data */}
         <WellbeingStats stats={stats} />
 
-        {/* ✅ Real weekly chart */}
+        {/* Weekly Chart - real historical data */}
         <WeeklyChart data={weekly} />
 
         {/* Recommendations */}

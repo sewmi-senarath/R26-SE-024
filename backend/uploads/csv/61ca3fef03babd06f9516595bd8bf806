@@ -1,0 +1,92 @@
+patientId,date,time,activity,duration_minutes,location,notes
+PAT-2026-050,2026-05-01,07:30,medication,10,bedroom,Morning medication administered without resistance
+PAT-2026-050,2026-05-01,08:00,eating,35,kitchen,Ate breakfast slowly; needed reminders to continue
+PAT-2026-050,2026-05-01,09:15,walking,20,garden,Calm morning walk with caregiver assistance
+PAT-2026-050,2026-05-01,12:30,eating,30,kitchen,Lunch completed; mild confusion about meal time
+PAT-2026-050,2026-05-01,14:00,sitting,45,living room,Watched TV; appeared calm and relaxed
+PAT-2026-050,2026-05-01,21:30,sleeping,420,bedroom,Settled quickly; no nighttime disturbances
+PAT-2026-050,2026-05-02,02:15,wandering,25,hallway,Found in hallway; disoriented, redirected to bedroom
+PAT-2026-050,2026-05-02,08:15,eating,28,kitchen,Ate porridge; moderate appetite
+PAT-2026-050,2026-05-02,09:00,medication,10,bedroom,Morning medication given with juice
+PAT-2026-050,2026-05-02,10:30,socializing,40,living room,Family visit; patient appeared happy and engaged
+PAT-2026-050,2026-05-02,13:00,eating,32,kitchen,Lunch eaten independently with minimal prompting
+PAT-2026-050,2026-05-02,22:00,sleeping,390,bedroom,Slight restlessness before settling
+PAT-2026-050,2026-05-03,07:45,medication,10,bedroom,Medication accepted calmly
+PAT-2026-050,2026-05-03,08:30,bathing,25,bathroom,Assisted bathing; cooperative throughout
+PAT-2026-050,2026-05-03,09:15,eating,30,kitchen,Breakfast eaten with reminders; good appetite
+PAT-2026-050,2026-05-03,11:00,exercise,20,garden,Light stretching exercises with physiotherapist
+PAT-2026-050,2026-05-03,13:15,eating,25,kitchen,Lunch; asked repeatedly what day it was
+PAT-2026-050,2026-05-03,15:30,sitting,50,living room,Listening to old music; visibly content
+PAT-2026-050,2026-05-03,21:45,sleeping,400,bedroom,Slept through the night without incident
+PAT-2026-050,2026-05-04,03:00,wandering,30,hallway,Agitated wandering near front door; redirected with difficulty
+PAT-2026-050,2026-05-04,08:00,medication,10,bedroom,Morning medication administered
+PAT-2026-050,2026-05-04,08:45,eating,22,kitchen,Poor appetite; ate only half of breakfast
+PAT-2026-050,2026-05-04,10:00,walking,15,garden,Short walk; fatigued earlier than usual
+PAT-2026-050,2026-05-04,13:00,eating,28,kitchen,Lunch; required full caregiver assistance
+PAT-2026-050,2026-05-04,16:00,socializing,35,living room,Interacted with care staff; calm and talkative
+PAT-2026-050,2026-05-04,22:00,sleeping,370,bedroom,Woke briefly at midnight; returned to sleep
+PAT-2026-050,2026-05-05,07:30,medication,10,bedroom,No resistance to morning medication
+PAT-2026-050,2026-05-05,08:15,eating,35,kitchen,Good appetite; finished full breakfast
+PAT-2026-050,2026-05-05,09:30,bathing,20,bathroom,Quick assisted bath; slightly agitated
+PAT-2026-050,2026-05-05,11:00,walking,25,garden,Enjoyed garden walk; identified plants correctly
+PAT-2026-050,2026-05-05,13:30,eating,30,kitchen,Lunch eaten well; good mood
+PAT-2026-050,2026-05-05,15:00,sitting,60,living room,Afternoon rest in chair; dozed intermittently
+PAT-2026-050,2026-05-05,21:30,sleeping,450,bedroom,Long uninterrupted sleep
+PAT-2026-050,2026-05-06,02:45,wandering,20,kitchen,Found searching for food; redirected to bedroom
+PAT-2026-050,2026-05-06,08:00,medication,10,bedroom,Morning medication with breakfast
+PAT-2026-050,2026-05-06,08:30,eating,40,kitchen,Slow breakfast; distracted by surroundings
+PAT-2026-050,2026-05-06,10:15,exercise,25,living room,Chair exercises with caregiver; good participation
+PAT-2026-050,2026-05-06,13:00,eating,30,kitchen,Lunch completed with assistance
+PAT-2026-050,2026-05-06,14:30,socializing,45,living room,Group activity with other patients; engaged well
+PAT-2026-050,2026-05-06,22:00,sleeping,380,bedroom,Restless first hour; settled after repositioning
+PAT-2026-050,2026-05-07,08:00,medication,10,bedroom,Medication given without issue
+PAT-2026-050,2026-05-07,08:45,eating,28,kitchen,Moderate appetite; ate independently
+PAT-2026-050,2026-05-07,10:00,bathing,30,bathroom,Full assisted bath; calm and cooperative
+PAT-2026-050,2026-05-07,13:15,eating,35,kitchen,Lunch; good conversation during meal
+PAT-2026-050,2026-05-07,15:00,walking,20,garden,Afternoon walk; calm weather helped mood
+PAT-2026-050,2026-05-07,21:45,sleeping,420,bedroom,Slept well with no disturbances
+PAT-2026-050,2026-05-08,03:30,wandering,35,hallway,Very agitated; calling out unfamiliar names
+PAT-2026-050,2026-05-08,08:15,medication,10,bedroom,Slightly resistant to morning medication
+PAT-2026-050,2026-05-08,09:00,eating,20,kitchen,Poor appetite following disturbed night
+PAT-2026-050,2026-05-08,11:30,sitting,55,living room,Quiet and withdrawn; low energy observed
+PAT-2026-050,2026-05-08,13:30,eating,25,kitchen,Ate light lunch; caregiver noted low mood
+PAT-2026-050,2026-05-08,22:00,sleeping,360,bedroom,Difficult to settle; required reassurance
+PAT-2026-050,2026-05-09,07:30,medication,10,bedroom,Morning medication accepted calmly
+PAT-2026-050,2026-05-09,08:00,eating,33,kitchen,Good appetite; enjoyed scrambled eggs
+PAT-2026-050,2026-05-09,09:30,walking,20,garden,Morning walk; identified caregiver by name
+PAT-2026-050,2026-05-09,13:00,eating,30,kitchen,Lunch eaten independently
+PAT-2026-050,2026-05-09,14:30,socializing,50,living room,Family visit; very positive interaction
+PAT-2026-050,2026-05-09,21:30,sleeping,430,bedroom,Good night; no disturbances reported
+PAT-2026-050,2026-05-10,02:00,wandering,40,hallway,Extended wandering episode; tried to exit building
+PAT-2026-050,2026-05-10,08:00,medication,10,bedroom,Medication given; asked about wandering episode
+PAT-2026-050,2026-05-10,08:45,eating,25,kitchen,Light breakfast; subdued after last night
+PAT-2026-050,2026-05-10,10:30,bathing,25,bathroom,Assisted bathing; cooperative
+PAT-2026-050,2026-05-10,13:15,eating,30,kitchen,Lunch; appetite improved from morning
+PAT-2026-050,2026-05-10,15:30,exercise,20,living room,Gentle exercises; energy levels improved
+PAT-2026-050,2026-05-10,22:00,sleeping,400,bedroom,Settled well after a calm evening
+PAT-2026-050,2026-05-11,07:45,medication,10,bedroom,Morning medication routine completed
+PAT-2026-050,2026-05-11,08:30,eating,38,kitchen,Hearty breakfast; excellent appetite
+PAT-2026-050,2026-05-11,10:00,walking,30,garden,Extended walk; explored garden independently
+PAT-2026-050,2026-05-11,13:00,eating,32,kitchen,Lunch with minimal assistance required
+PAT-2026-050,2026-05-11,15:00,socializing,40,living room,Engaged in card games with staff
+PAT-2026-050,2026-05-11,21:30,sleeping,440,bedroom,Very settled sleep; best night this week
+PAT-2026-050,2026-05-12,08:00,medication,10,bedroom,Cooperative with morning medication
+PAT-2026-050,2026-05-12,08:45,eating,30,kitchen,Ate breakfast; mild confusion about location
+PAT-2026-050,2026-05-12,09:30,bathing,20,bathroom,Assisted bath completed quickly
+PAT-2026-050,2026-05-12,11:00,sitting,50,living room,Quiet activity; looked at family photo album
+PAT-2026-050,2026-05-12,13:30,eating,28,kitchen,Lunch eaten; identified family photos correctly
+PAT-2026-050,2026-05-12,22:00,sleeping,410,bedroom,Calm night with no disturbances
+PAT-2026-050,2026-05-13,03:00,wandering,45,hallway,Longest wandering episode this week; very distressed
+PAT-2026-050,2026-05-13,08:15,medication,10,bedroom,Tired; medication given with minimal prompting
+PAT-2026-050,2026-05-13,09:00,eating,20,kitchen,Very poor appetite; ate only toast
+PAT-2026-050,2026-05-13,11:00,sitting,65,living room,Low energy all morning; slept in chair
+PAT-2026-050,2026-05-13,13:30,eating,22,kitchen,Light lunch; caregiver flagged deterioration
+PAT-2026-050,2026-05-13,15:30,walking,10,garden,Brief walk only; too fatigued to continue
+PAT-2026-050,2026-05-13,22:00,sleeping,380,bedroom,Restless; required two check-ins during night
+PAT-2026-050,2026-05-14,07:30,medication,10,bedroom,Morning medication; doctor review scheduled
+PAT-2026-050,2026-05-14,08:15,eating,35,kitchen,Improved appetite; ate full breakfast
+PAT-2026-050,2026-05-14,09:30,bathing,25,bathroom,Assisted bath; calm and cooperative
+PAT-2026-050,2026-05-14,11:00,exercise,25,living room,Physiotherapy session; good participation
+PAT-2026-050,2026-05-14,13:00,eating,30,kitchen,Lunch with family present; positive mood
+PAT-2026-050,2026-05-14,15:00,socializing,55,living room,Extended family visit; recognized all relatives
+PAT-2026-050,2026-05-14,22:00,sleeping,420,bedroom,Settled peacefully after family visit
