@@ -1,0 +1,296 @@
+import { BRAIN_AREA_BY_SECTION } from "@/src/constants/brainAreas";
+import { GAME_CONFIGS } from "@/src/constants/games";
+import { MMSESession } from "@/src/types/assessment.types";
+import { RiskHistoryItem, SeverityHistoryItem, SeverityLevel } from "@/src/types/dementia.types";
+import { SectionName } from "@/src/types/games.types";
+import { BrainAreaStat, PerGameStat, RiskFactorFrequency, Trend } from "@/src/hooks/usePatientReport";
+
+const SEVERITY_META: Record<SeverityLevel, { label: string; color: string }> = {
+  none: { label: "No Impairment", color: "#16A34A" },
+  mild: { label: "Mild Impairment", color: "#D97706" },
+  moderate: { label: "Moderate Impairment", color: "#EA580C" },
+  severe: { label: "Severe Impairment", color: "#DC2626" },
+};
+
+const TREND_LABEL: Record<Trend, string> = {
+  improving: "Improving",
+  declining: "Declining",
+  stable: "Stable",
+  "insufficient-data": "Not enough data yet",
+};
+
+const RISK_LABEL: Record<string, { label: string; color: string }> = {
+  low: { label: "Low Risk", color: "#16A34A" },
+  moderate: { label: "Moderate Risk", color: "#D97706" },
+  high: { label: "High Risk", color: "#DC2626" },
+};
+
+function fmtDate(d: string | null | undefined) {
+  if (!d) return "—";
+  return new Date(d).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+}
+
+function esc(s: string) {
+  return String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c] as string));
+}
+
+export interface PatientReportHtmlInput {
+  patientName?: string;
+  generatedAt?: Date;
+  assessments: MMSESession[];
+  assessmentStats: {
+    count: number;
+    latestScore: number | null;
+    trend: Trend;
+    averageScore: number | null;
+  };
+  gameStats: {
+    totalPlays: number;
+    averageScorePercent: number;
+    perGame: PerGameStat[];
+    brainAreaPerformance: BrainAreaStat[];
+  };
+  severityHistory: SeverityHistoryItem[];
+  riskHistory: RiskHistoryItem[];
+  riskFactorFrequency: RiskFactorFrequency[];
+  latestSeverityPrediction: SeverityHistoryItem | null;
+  latestRiskScreening: RiskHistoryItem | null;
+}
+
+/**
+ * Builds a self-contained, print-friendly HTML document summarizing a
+ * patient's cognitive history — MMSE assessment trend, behavioral risk
+ * screenings, and brain-game performance by targeted brain area. Handed to
+ * expo-print's Print.printToFileAsync() to produce a shareable PDF.
+ */
+export function generatePatientReportHtml(input: PatientReportHtmlInput): string {
+  const {
+    patientName,
+    generatedAt = new Date(),
+    assessments,
+    assessmentStats,
+    gameStats,
+    riskHistory,
+    riskFactorFrequency,
+    latestSeverityPrediction,
+    latestRiskScreening,
+  } = input;
+
+  const severityMeta = latestSeverityPrediction ? SEVERITY_META[latestSeverityPrediction.severity] : null;
+  const riskMeta = latestRiskScreening ? RISK_LABEL[latestRiskScreening.riskLevel] : null;
+
+  const assessmentRows = assessments
+    .slice()
+    .reverse()
+    .map(
+      (a) => `
+      <tr>
+        <td>${fmtDate(a.completedAt)}</td>
+        <td>${a.totalScore}/30</td>
+        <td>${a.severity ? esc(String(a.severity)) : "—"}</td>
+      </tr>`
+    )
+    .join("");
+
+  const severityRows = latestSeverityPrediction
+    ? Object.entries(latestSeverityPrediction.probabilities)
+        .sort((a, b) => (b[1] as number) - (a[1] as number))
+        .map(
+          ([level, prob]) => `
+        <tr>
+          <td style="text-transform:capitalize;">${esc(level)}</td>
+          <td>${Math.round((prob as number) * 100)}%</td>
+        </tr>`
+        )
+        .join("")
+    : "";
+
+  const perGameRows = gameStats.perGame
+    .map((g) => {
+      const cfg = GAME_CONFIGS[g.gameId];
+      const brain = BRAIN_AREA_BY_SECTION[cfg.targetSection as SectionName];
+      return `
+      <tr>
+        <td>${esc(cfg.title)}</td>
+        <td>${esc(brain?.shortArea ?? cfg.targetSection)}</td>
+        <td>${g.plays || "—"}</td>
+        <td>${g.plays ? g.avgPercent + "%" : "—"}</td>
+        <td>${g.plays ? g.bestPercent + "%" : "—"}</td>
+        <td>${fmtDate(g.lastPlayed)}</td>
+      </tr>`;
+    })
+    .join("");
+
+  const riskFactorRows = riskFactorFrequency
+    .map(
+      (f) => `
+      <tr>
+        <td>${esc(f.label)}</td>
+        <td>${f.count}/${riskHistory.length} screenings (${f.percent}%)</td>
+      </tr>`
+    )
+    .join("");
+
+  const riskHistoryRows = riskHistory
+    .slice()
+    .reverse()
+    .slice(0, 10)
+    .map((r) => {
+      const meta = RISK_LABEL[r.riskLevel];
+      return `
+      <tr>
+        <td>${fmtDate(r.createdAt)}</td>
+        <td style="color:${meta?.color ?? "#334155"};font-weight:700;">${meta?.label ?? r.riskLevel}</td>
+        <td>${Math.round(r.riskProbability * 100)}%</td>
+      </tr>`;
+    })
+    .join("");
+
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, Helvetica, Arial, sans-serif;
+    color: #1E293B;
+    padding: 32px 40px;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  h1 { font-size: 22px; margin: 0 0 2px 0; color: #0F172A; }
+  .subtitle { color: #64748B; font-size: 12px; margin-bottom: 22px; }
+  .banner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #F1F5F9;
+    border-radius: 14px;
+    padding: 16px 20px;
+    margin-bottom: 22px;
+  }
+  .banner .status-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #64748B; font-weight: 700; }
+  .banner .status-value { font-size: 18px; font-weight: 800; margin-top: 2px; }
+  .stat-row { display: flex; gap: 14px; margin-bottom: 22px; }
+  .stat-card {
+    flex: 1; background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px;
+    padding: 12px 14px;
+  }
+  .stat-card .value { font-size: 20px; font-weight: 800; color: #0F172A; }
+  .stat-card .label { font-size: 10px; color: #94A3B8; margin-top: 2px; }
+  section { margin-bottom: 26px; page-break-inside: avoid; }
+  h2 {
+    font-size: 14px; color: #0F172A; margin: 0 0 10px 0;
+    border-bottom: 2px solid #E2E8F0; padding-bottom: 6px;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th {
+    text-align: left; background: #F8FAFC; color: #64748B;
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px;
+    padding: 8px 10px; border-bottom: 1px solid #E2E8F0;
+  }
+  td { padding: 8px 10px; border-bottom: 1px solid #F1F5F9; }
+  .empty { color: #94A3B8; font-style: italic; padding: 10px 0; }
+  .footnote {
+    margin-top: 30px; padding-top: 14px; border-top: 1px solid #E2E8F0;
+    font-size: 10px; color: #94A3B8; line-height: 1.6;
+  }
+  .badge {
+    display: inline-block; padding: 2px 10px; border-radius: 999px;
+    font-size: 11px; font-weight: 700; color: #fff;
+  }
+</style>
+</head>
+<body>
+  <h1>Cognitive Health Report</h1>
+  <div class="subtitle">
+    ${patientName ? `Patient: <strong>${esc(patientName)}</strong> &nbsp;•&nbsp; ` : ""}Generated ${generatedAt.toLocaleString()}
+  </div>
+
+  ${
+    severityMeta
+      ? `<div class="banner">
+          <div>
+            <div class="status-label">Current Cognitive Status (ML Severity Model)</div>
+            <div class="status-value" style="color:${severityMeta.color};">${severityMeta.label}</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="status-label">Trend</div>
+            <div class="status-value" style="font-size:14px;">${TREND_LABEL[assessmentStats.trend]}</div>
+          </div>
+        </div>`
+      : ""
+  }
+
+  <div class="stat-row">
+    <div class="stat-card"><div class="value">${assessmentStats.count}</div><div class="label">Assessments Taken</div></div>
+    <div class="stat-card"><div class="value">${gameStats.totalPlays}</div><div class="label">Games Played</div></div>
+    <div class="stat-card"><div class="value">${riskHistory.length}</div><div class="label">Risk Screenings</div></div>
+    <div class="stat-card"><div class="value">${assessmentStats.averageScore ?? "—"}</div><div class="label">Avg. MMSE Score /30</div></div>
+  </div>
+
+  <section>
+    <h2>Assessment History (MMSE)</h2>
+    ${
+      assessmentRows
+        ? `<table><thead><tr><th>Date</th><th>Score</th><th>Severity</th></tr></thead><tbody>${assessmentRows}</tbody></table>`
+        : `<div class="empty">No completed assessments yet.</div>`
+    }
+  </section>
+
+  ${
+    latestSeverityPrediction
+      ? `<section>
+          <h2>Latest Severity Prediction (ML Model)</h2>
+          <p style="margin:0 0 10px 0;color:#475569;">
+            Confidence: <strong>${Math.round(latestSeverityPrediction.confidence * 100)}%</strong> &nbsp;•&nbsp;
+            Rule-based cross-check: <strong style="text-transform:capitalize;">${esc(latestSeverityPrediction.ruleBasedSeverity)}</strong>
+            (${latestSeverityPrediction.agreesWithRule ? "agrees" : "differs"})
+          </p>
+          <table><thead><tr><th>Severity Level</th><th>Model Probability</th></tr></thead><tbody>${severityRows}</tbody></table>
+        </section>`
+      : ""
+  }
+
+  <section>
+    <h2>Behavioral Risk Screening</h2>
+    ${
+      latestRiskScreening
+        ? `<p style="margin:0 0 10px 0;">
+            Latest result: <span class="badge" style="background:${riskMeta?.color};">${riskMeta?.label}</span>
+            &nbsp; (${Math.round(latestRiskScreening.riskProbability * 100)}% probability, screened ${fmtDate(latestRiskScreening.createdAt)})
+          </p>`
+        : `<div class="empty">No screenings completed yet.</div>`
+    }
+    ${
+      riskFactorRows
+        ? `<table><thead><tr><th>Most Reported Factor</th><th>Frequency</th></tr></thead><tbody>${riskFactorRows}</tbody></table>`
+        : ""
+    }
+    ${
+      riskHistoryRows
+        ? `<div style="margin-top:14px;"><table><thead><tr><th>Date</th><th>Result</th><th>Probability</th></tr></thead><tbody>${riskHistoryRows}</tbody></table></div>`
+        : ""
+    }
+  </section>
+
+  <section>
+    <h2>Brain Games — Performance by Brain Area</h2>
+    ${
+      perGameRows
+        ? `<table><thead><tr><th>Game</th><th>Brain Area</th><th>Plays</th><th>Avg Score</th><th>Best Score</th><th>Last Played</th></tr></thead><tbody>${perGameRows}</tbody></table>`
+        : `<div class="empty">No games played yet.</div>`
+    }
+  </section>
+
+  <div class="footnote">
+    This report was generated by MemoCare. Brain area associations reflect standard MMSE domain groupings and are
+    provided for general context, not a clinical diagnosis. Severity and risk figures are produced by MemoCare's
+    machine-learning models and should be reviewed alongside a qualified clinician's assessment, not used as a
+    substitute for one.
+  </div>
+</body>
+</html>`;
+}

@@ -47,6 +47,9 @@ web_modules/
 # TypeScript cache
 *.tsbuildinfo
 
+# Generated game images (rebuilt with `npm run seed:images`)
+public/game-images/
+
 # Optional npm cache directory
 .npm
 

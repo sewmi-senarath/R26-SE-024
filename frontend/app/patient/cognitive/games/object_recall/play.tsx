@@ -31,11 +31,17 @@ export default function ObjectRecallGame() {
   const { playSound } = useSoundEffects();
   const saveGameSession = useSaveGameSession();
   const { patientId } = useAssessment();
-  const { config } = usePersonalizedGameContent<ObjectRecallConfig>(
+  const { config: liveConfig, loading } = usePersonalizedGameContent<ObjectRecallConfig>(
     'object_recall',
     difficulty,
     patientId,
   );
+
+  // Freeze the content for the duration of a round. Without this, a late
+  // personalized response would swap the objects mid-game — which looked like
+  // the items "reloading" a second or two after they first appeared.
+  const [frozenConfig, setFrozenConfig] = useState<ObjectRecallConfig | null>(null);
+  const config = frozenConfig ?? liveConfig;
 
   const [phase, setPhase] = useState<Phase>('instruction');
   const [inputs, setInputs] = useState<string[]>(Array(config.objectCount).fill(''));
@@ -44,6 +50,13 @@ export default function ObjectRecallGame() {
   const [startTime, setStartTime] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
   const warningSpokenRef = useRef(false);
+  // A generated image that fails to load falls back to the item's emoji.
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
+  const markImageFailed = useCallback((uri?: string) => {
+    if (!uri) return;
+    setFailedImages(prev => (prev.has(uri) ? prev : new Set(prev).add(uri)));
+  }, []);
+  const canShowImage = (uri?: string) => !!uri && !failedImages.has(uri);
 
   useEffect(() => {
     if (phase !== 'study') return;
@@ -106,6 +119,7 @@ export default function ObjectRecallGame() {
 
   const handleReset = () => {
     playSound('click');
+    setFrozenConfig(null);
     setPhase('instruction');
     setInputs(Array(config.objectCount).fill(''));
     setResult(null);
@@ -125,10 +139,13 @@ export default function ObjectRecallGame() {
         ]}
         onStart={() => {
           playSound('click');
+          setFrozenConfig(liveConfig);
           setPhase('study');
           setStartTime(Date.now());
           Speech.speak(`Study ${config.objectCount} objects carefully. They will disappear soon.`);
         }}
+        startDisabled={loading}
+        startLabel={loading ? 'Preparing your game…' : 'Start Game'}
       />
     );
   }
@@ -193,12 +210,13 @@ export default function ObjectRecallGame() {
                   elevation: 4,
                 }}
               >
-                {obj.image ? (
+                {canShowImage(obj.image) ? (
                   <>
                     <Image
                       source={{ uri: obj.image }}
                       style={{ position: 'absolute', width: '100%', height: '100%' }}
                       resizeMode="cover"
+                      onError={() => markImageFailed(obj.image)}
                     />
                     <View
                       style={{

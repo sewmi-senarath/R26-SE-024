@@ -257,4 +257,7 @@ module.exports = {
   getStaticGameContent,
   buildFaceQuestions,
   FALLBACK_FACES,
+  SEQUENCE_ITEMS,
+  RECALL_OBJECTS,
+  PUZZLE_WORDS,
 };
