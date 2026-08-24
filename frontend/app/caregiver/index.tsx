@@ -204,6 +204,7 @@ import { getStoredUser } from '../../src/api/authApi';
 import { fetchPatients } from '../../src/services/caregiver/patientService';
 import { fetchTasks, toggleTask } from '../../src/services/caregiver/taskService';
 import { fetchMedications } from '../../src/services/caregiver/medicationService';
+import { fetchNotifications } from '../../src/services/caregiver/Notificationservice';  
 import {
   CaregiverInsight,
   CaregiverTask,
@@ -226,23 +227,23 @@ const getFirstName = (fullName: string): string => {
 };
 
 const mapToPatient = (p: any): Patient => ({
-  id:          p.id,
-  name:        p.name,
-  initials:    p.initials || p.name.slice(0, 2).toUpperCase(),
-  condition:   p.condition || 'Stable',
+  id: p.id,
+  name: p.name,
+  initials: p.initials || p.name.slice(0, 2).toUpperCase(),
+  condition: p.condition || 'Stable',
   avatarColor: p.avatarColor || '#4F8EF7',
-  emoji:       p.emoji || '🙂',
+  emoji: p.emoji || '🙂',
   lastChecked: p.lastChecked || 'Just now',
 });
 
 const mapToTask = (t: CaregiverTask): Task => ({
-  id:          t.id,
-  title:       t.title,
+  id: t.id,
+  title: t.title,
   patientName: t.patientName,
-  time:        t.time,
-  icon:        'checkmark-circle-outline',
-  completed:   t.status === 'done',
-  assignee:    t.assignee,
+  time: t.time,
+  icon: 'checkmark-circle-outline',
+  completed: t.status === 'done',
+  assignee: t.assignee,
 });
 
 // ── Component ──────────────────────────────────────────────────────────────
@@ -257,7 +258,7 @@ export default function CaregiverDashboard() {
     alerts: 0,
   });
   const [patients, setPatients] = useState<Patient[]>([]);
-  const [tasks, setTasks]       = useState<Task[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
   // ── Load all real data ─────────────────────────────────────────────────
@@ -270,10 +271,11 @@ export default function CaregiverDashboard() {
       }
 
       // ✅ Load patients, tasks and medications in parallel
-      const [patientData, taskData, medData] = await Promise.all([
+      const [patientData, taskData, medData, notificationData] = await Promise.all([
         fetchPatients(),
         fetchTasks(new Date()),
         fetchMedications(),
+        fetchNotifications(),   // ← result has no variable to land in
       ]);
 
       // ✅ Set real patients
@@ -284,14 +286,19 @@ export default function CaregiverDashboard() {
 
       // ✅ Set real stats from all API data
       const completedCount = taskData.filter((t) => t.status === 'done').length;
+
+      // Only unacknowledged notifications count as "alerts" — once the caregiver
+      // taps one on the Alerts screen it's handled, so the badge should drop.
+      const activeAlerts = notificationData.filter((n) => !n.acknowledged).length;
+
       setStats({
         patients: patientData.length,
         tasks: {
           completed: completedCount,
-          total:     taskData.length,
+          total: taskData.length,
         },
-        meds:   medData.length,  // ✅ Real medication count
-        alerts: 0,
+        meds: medData.length,
+        alerts: activeAlerts,        // ← was 0
       });
 
     } catch (error) {
@@ -335,12 +342,12 @@ export default function CaregiverDashboard() {
   };
 
   // ── Navigation helpers (unchanged) ────────────────────────────────────
-  const goToPatients    = () => router.push('/caregiver/patients');
-  const goToTasks       = () => router.push('/caregiver/tasks');
-  const goToInsights    = () => router.push('/caregiver/insights');
+  const goToPatients = () => router.push('/caregiver/patients');
+  const goToTasks = () => router.push('/caregiver/tasks');
+  const goToInsights = () => router.push('/caregiver/insights');
   const goToMedications = () => router.push('/caregiver/medications');
-  const goToAlerts      = () => router.push('/caregiver/alerts');
-  const goToMore        = () => router.push('/caregiver/more');
+  const goToAlerts = () => router.push('/caregiver/alerts');
+  const goToMore = () => router.push('/caregiver/more');
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
