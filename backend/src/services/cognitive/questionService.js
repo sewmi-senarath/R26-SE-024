@@ -1,6 +1,6 @@
 const Question = require("../../models/cognitive/Question");
 
-const ACTIVE_SECTIONS = ["Orientation", "Registration", "Attention", "Language"];
+const ACTIVE_SECTIONS = ["Orientation", "Registration", "Attention", "Recall", "Language"];
 
 function isSupportedAssessmentQuestion(question) {
   return ACTIVE_SECTIONS.includes(question.section);

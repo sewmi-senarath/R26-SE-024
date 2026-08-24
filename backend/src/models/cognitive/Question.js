@@ -17,7 +17,7 @@ const QuestionSchema = new mongoose.Schema(
 
     section: {
       type: String,
-      enum: ["Orientation", "Registration", "Attention", "Language"],
+      enum: ["Orientation", "Registration", "Attention", "Recall", "Language"],
       required: true,
     },
     type: {
