@@ -84,6 +84,7 @@ def predict():
         exhausted      = float(body.get('mentallyExhausted', 3))
         diff_managing  = float(body.get('difficultyManaging', 3))
         drained        = float(body.get('emotionallyDrained', 3))
+        patients_count = float(body.get('patientsAssigned', 5))
 
         # ── Derived features (original) ────────────────────────────────────
         tasks_pending            = max(0, tasks_assigned - tasks_done)
@@ -112,14 +113,18 @@ def predict():
 
         # ── Build ALL features ─────────────────────────────────────────────
         all_features = {
-            # Encoded categorical
+            # Encoded categorical — age/type/experience/support aren't
+            # collected anywhere in the app yet (no registration field for
+            # them), so these stay as neutral fixed defaults until that's
+            # added. Patient count IS real data your Caregiver profile
+            # already tracks, so it's passed in from the caller now instead.
             'age_encoded':    1,
             'type_encoded':   0,
             'exp_encoded':    1,
             'sup_encoded':    1,
 
             # Raw numeric
-            'How many patients do you currently care for?':                                                           5,
+            'How many patients do you currently care for?':                                                           patients_count,
             'How many hours did you sleep last night?':                                                               sleep,
             'How physically tired do you feel today?':                                                                tired,
             'How many hours did you spend caregiving today?':                                                         hours_care,
@@ -160,14 +165,37 @@ def predict():
         }
 
         # ── Predict using only features the model was trained on ───────────
-        X          = pd.DataFrame([all_features])[feature_cols]
+        X = pd.DataFrame([all_features])[feature_cols]
+
+        # Get class probabilities
+        try:
+            proba   = model.predict_proba(X)[0]
+            classes = list(model.classes_)
+            prob_map = dict(zip(classes, proba))
+        except Exception:
+            prob_map = None
+
         prediction = model.predict(X)[0]
 
-        # Get confidence - handle both regular and stacking models
-        try:
-            proba      = model.predict_proba(X)[0]
-            confidence = float(max(proba))
-        except:
+        # ── High-risk override ──────────────────────────────────────────────
+        # The model correctly assigns meaningful probability to 'High' even on
+        # genuinely bad check-ins (empirically ~0.30-0.40 on extreme cases),
+        # but 'Moderate' often still wins the plain argmax by a small margin.
+        # Since under-flagging a genuinely High-stress caregiver is worse than
+        # occasionally over-flagging one, treat 'High' as the prediction
+        # whenever its own probability crosses this bar — even if it isn't
+        # technically the single highest of the three.
+        HIGH_RISK_THRESHOLD = 0.35
+        if prob_map and prob_map.get('High', 0) >= HIGH_RISK_THRESHOLD:
+            prediction = 'High'
+
+        # Confidence should reflect the probability of whichever class is
+        # actually being returned, not just whichever was highest overall —
+        # otherwise an overridden 'High' would misleadingly report Moderate's
+        # (higher) probability as its own confidence.
+        if prob_map:
+            confidence = float(prob_map.get(prediction, max(proba)))
+        else:
             confidence = 0.80
 
         score_map    = {'Low': 3, 'Moderate': 6, 'High': 9}

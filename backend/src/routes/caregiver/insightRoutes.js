@@ -72,6 +72,7 @@ const router  = express.Router();
 const axios   = require('axios');
 const CheckIn = require('../../models/caregiver/CheckIn');
 const { calculateBurnoutRisk } = require('../../utils/burnoutCalculator');
+const { createNotification } = require('../../controllers/caregiver/notificationController');
 
 const ML_URL = 'http://localhost:5001';
 
@@ -145,6 +146,27 @@ router.post('/checkin', async (req, res) => {
       burnoutRiskScore: burnoutRisk.riskScore,
       burnoutRiskLevel: burnoutRisk.riskLevel,
     });
+
+    // Trigger: weekly burnout risk is High — the bigger-picture, multi-day signal
+    if (burnoutRisk.riskLevel === 'High') {
+      await createNotification({
+        caregiverId,
+        patientName: 'System',
+        message: `Your burnout risk is High (${burnoutRisk.riskScore}/100). Consider taking a break and reviewing your Smart Care Coach action plan.`,
+        severity: 'urgent',
+        source: 'burnout',
+      });
+    } else if (result.stressLevel === 'High') {
+      // Only fires when the weekly trend ISN'T already High, so a single bad
+      // day doesn't also duplicate the weekly notification above.
+      await createNotification({
+        caregiverId,
+        patientName: 'System',
+        message: `Today's check-in came back High stress (score ${result.stressScore}/10). Take a moment for yourself before your next task.`,
+        severity: 'warning',
+        source: 'stress-level',
+      });
+    }
 
     // Get weekly chart data
     const weeklyData = buildWeeklyData(recentCheckIns);

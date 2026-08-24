@@ -1,10 +1,60 @@
 const Medication = require('../../models/caregiver/Medication');
+const { createNotification } = require('../../controllers/caregiver/Notificationcontroller');
+
+// Medication.time is stored as free text (e.g. "8:00 AM"). This turns it into
+// a real Date for *today* so it can be compared against the current time.
+// Returns null if it can't confidently parse the string, so callers can just
+// skip that medication rather than guessing wrong.
+const parseTimeToToday = (timeStr) => {
+  const match = /^(\d{1,2}):(\d{2})\s*(AM|PM|am|pm)?$/.exec((timeStr || '').trim());
+  if (!match) return null;
+
+  let [, hourStr, minuteStr, meridiem] = match;
+  let hour = parseInt(hourStr, 10);
+  const minute = parseInt(minuteStr, 10);
+
+  if (meridiem) {
+    meridiem = meridiem.toUpperCase();
+    if (meridiem === 'PM' && hour !== 12) hour += 12;
+    if (meridiem === 'AM' && hour === 12) hour = 0;
+  }
+
+  const result = new Date();
+  result.setHours(hour, minute, 0, 0);
+  return result;
+};
 
 // ── GET all medications for logged-in caregiver ────────────────────────────
 const getMedications = async (req, res) => {
   try {
     const caregiverId = req.user.userId;
     const medications = await Medication.find({ caregiverId }).sort({ createdAt: -1 });
+
+    // Trigger #2: check for anything overdue and still pending. Grace period
+    // of 30 minutes avoids flagging something the second its time passes.
+    const now = Date.now();
+    const GRACE_MS = 30 * 60 * 1000;
+
+    for (const med of medications) {
+      if (med.status !== 'pending') continue;
+      const dueAt = parseTimeToToday(med.time);
+      if (!dueAt) continue; // couldn't parse this one — skip rather than guess
+
+      if (now - dueAt.getTime() > GRACE_MS) {
+        med.status = 'missed';
+        med.streak = 0;
+        await med.save();
+
+        await createNotification({
+          caregiverId,
+          patientName: med.patientName,
+          message: `Missed ${med.name} (${med.dose}) — was due at ${med.time}.`,
+          severity: 'warning',
+          source: 'medication',
+        });
+      }
+    }
+
     res.status(200).json({ success: true, medications });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

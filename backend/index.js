@@ -19,6 +19,8 @@ const authRoutes = require("./src/routes/auth/authRoutes");
 const cognitivePatientRoutes = require("./src/routes/cognitive/patientRoutes");
 const recommendationRoutes = require('./src/routes/caregiver/recommendationRoutes');
 const { notFoundHandler, errorHandler } = require("./src/middleware/errorHandler");
+const notificationRoutes = require("./src/routes/caregiver/Notificationroutes");
+
 
 // Routes from HEAD
 const lifeLoggingRoutes = require('./src/routes/life-logging-memory-vault');
@@ -70,7 +72,7 @@ app.use("/api/caregiver/profile", caregiverRoutes);
 app.use("/api/caregiver/insights", insightRoutes);
 app.use("/api/caregiver/medications", medicationRoutes);
 app.use('/api/caregiver/recommendations', recommendationRoutes);
-
+app.use("/api/caregiver/notifications", notificationRoutes);
 // Cognitive Assessment routes
 app.use("/api/cognitive", cognitiveRoutes);
 
