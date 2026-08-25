@@ -1,9 +1,22 @@
 const mongoose = require("mongoose");
 const Patient = require("../../../models/caregiver/Patient");
 const User = require("../../../models/auth/User");
-const { getStaticGameContent, buildFaceQuestions, FALLBACK_FACES } = require("./staticGameContent");
+const {
+  getStaticGameContent,
+  buildFaceQuestions,
+  FALLBACK_FACES,
+  SEQUENCE_ITEMS,
+  RECALL_OBJECTS,
+  PUZZLE_WORDS,
+} = require("./staticGameContent");
 const { buildTimeOrientationQuestions } = require("./orientationFacts");
 const { shuffle, pickDistractors } = require("./gameContentUtils");
+const {
+  ROTATION_GAMES,
+  loadRecentKeys,
+  recordServedKeys,
+  rotateSample,
+} = require("./contentRotation");
 const {
   generateLlmGameContent,
   generateOrientationDistractors,
@@ -551,6 +564,55 @@ async function isAuthorizedForPatient(requestUser, patientId) {
   return Boolean(caregiverPatient);
 }
 
+function matchesWordLength(word, wordLength) {
+  return wordLength === 8 ? word.length >= 8 : word.length === wordLength;
+}
+
+// How many items a single round of each rotation game shows.
+function roundSize(gameId, staticConfig) {
+  if (gameId === "memory_recall") return staticConfig.sequenceLength;
+  if (gameId === "object_recall") return staticConfig.objectCount;
+  return (staticConfig.words || []).length; // word_puzzle
+}
+
+// The stable rotation keys (labels / words) of whatever a config will show.
+function servedKeysOf(gameId, config) {
+  if (gameId === "memory_recall") return (config.items || []).map((it) => it.label);
+  if (gameId === "object_recall") return (config.objects || []).map((it) => it.label);
+  return (config.words || []).map((it) => it.word); // word_puzzle
+}
+
+// The full shared pool a rotation game draws its generic (non-personal) items
+// from, so we can re-sample it while avoiding recently-seen items.
+function poolFor(gameId, staticConfig) {
+  if (gameId === "memory_recall") return { pool: SEQUENCE_ITEMS, keyOf: (it) => it.label };
+  if (gameId === "object_recall") return { pool: RECALL_OBJECTS, keyOf: (it) => it.label };
+  return {
+    pool: PUZZLE_WORDS.filter((w) => matchesWordLength(w.word, staticConfig.wordLength)),
+    keyOf: (it) => it.word,
+  };
+}
+
+// Re-sample the generic pool for a rotation game, skipping recently-seen items.
+// Used when no personalized content is available (no profile, or LLM fallback
+// with an empty personal set) so a returning patient still gets fresh items.
+function rotatedStaticList(gameId, staticConfig, recentKeys) {
+  const { pool, keyOf } = poolFor(gameId, staticConfig);
+  return rotateSample(pool, roundSize(gameId, staticConfig), recentKeys, keyOf);
+}
+
+// Persist what a round actually showed. Awaited but self-contained: it swallows
+// its own errors, so a bookkeeping failure never breaks content delivery.
+async function persistRotation(gameId, patientId, staticConfig, config) {
+  if (!ROTATION_GAMES.has(gameId)) return;
+  await recordServedKeys(
+    patientId,
+    gameId,
+    servedKeysOf(gameId, config),
+    roundSize(gameId, staticConfig) * 4 // keep ~4 sessions of history
+  );
+}
+
 async function getPersonalizedGameContent({ gameId, patientId, difficulty, requestUser }) {
   assertValidRequest(gameId, difficulty);
 
@@ -580,7 +642,22 @@ async function getPersonalizedGameContent({ gameId, patientId, difficulty, reque
       "favoritePlaces favoritePlacesText festivalsCelebrated foodsPreferred preferredSports " +
       "preferredSportsText languagesPreferred"
   );
+  // Recently-served content, so we can avoid repeating items across the next
+  // few sessions. Only the pooled games rotate; personalized items are never
+  // gated by this (see contentRotation.js).
+  const recentKeys = ROTATION_GAMES.has(gameId)
+    ? await loadRecentKeys(patientId, gameId)
+    : [];
+
   if (!hasProfileData(patient)) {
+    if (ROTATION_GAMES.has(gameId)) {
+      const rotated = rotatedStaticList(gameId, staticConfig, recentKeys);
+      const listKey = gameId === "object_recall" ? "objects" : gameId === "word_puzzle" ? "words" : "items";
+      const config = { ...staticConfig, [listKey]: rotated };
+      await persistRotation(gameId, patientId, staticConfig, config);
+      logTier("static (no profile data)", { gameId, difficulty, patientId, personalized: false });
+      return { config, personalized: false };
+    }
     logTier("static (no profile data)", { gameId, difficulty, patientId, personalized: false });
     return { config: staticConfig, personalized: false };
   }
@@ -665,9 +742,11 @@ async function getPersonalizedGameContent({ gameId, patientId, difficulty, reque
         personalizedContent.objects = attachFamilyPhotos(personalizedContent.objects, familyPhotoMap);
       }
 
+      const config = { ...staticConfig, ...personalizedContent };
+      await persistRotation(gameId, patientId, staticConfig, config);
       logTier("llm (groq)", { gameId, difficulty, patientId, personalized: true });
       return {
-        config: { ...staticConfig, ...personalizedContent },
+        config,
         personalized: true,
       };
     }
@@ -686,50 +765,52 @@ async function getPersonalizedGameContent({ gameId, patientId, difficulty, reque
 
   if (gameId === "memory_recall") {
     const requiredCount = staticConfig.sequenceLength;
+    // Personal items are kept first and never rotated away; the generic filler
+    // that pads the round is drawn fresh, skipping recently-seen items.
+    const rotatedFallback = rotatedStaticList(gameId, staticConfig, recentKeys);
     const { items, personalized } = takeWithFallback(
       buildMemoryItems(patient),
-      staticConfig.items,
+      rotatedFallback,
       requiredCount
     );
+    const config = { ...staticConfig, items };
+    await persistRotation(gameId, patientId, staticConfig, config);
     logTier(personalized ? "rule-based (groq fallback)" : "static (groq fallback)", {
       gameId, difficulty, patientId, personalized,
     });
-    return {
-      config: { ...staticConfig, items },
-      personalized,
-    };
+    return { config, personalized };
   }
 
   if (gameId === "object_recall") {
     const requiredCount = staticConfig.objectCount;
+    const rotatedFallback = rotatedStaticList(gameId, staticConfig, recentKeys);
     const { items, personalized } = takeWithFallback(
       buildObjectItems(patient),
-      staticConfig.objects,
+      rotatedFallback,
       requiredCount
     );
+    const config = { ...staticConfig, objects: items };
+    await persistRotation(gameId, patientId, staticConfig, config);
     logTier(personalized ? "rule-based (groq fallback)" : "static (groq fallback)", {
       gameId, difficulty, patientId, personalized,
     });
-    return {
-      config: { ...staticConfig, objects: items },
-      personalized,
-    };
+    return { config, personalized };
   }
 
   const requiredCount = staticConfig.words.length;
+  const rotatedFallback = rotatedStaticList(gameId, staticConfig, recentKeys);
   const { items, personalized } = takeWithFallback(
     buildWordCandidates(patient, staticConfig.wordLength),
-    staticConfig.words,
+    rotatedFallback,
     requiredCount
   );
 
+  const config = { ...staticConfig, words: items };
+  await persistRotation(gameId, patientId, staticConfig, config);
   logTier(personalized ? "rule-based (groq fallback)" : "static (groq fallback)", {
     gameId, difficulty, patientId, personalized,
   });
-  return {
-    config: { ...staticConfig, words: items },
-    personalized,
-  };
+  return { config, personalized };
 }
 
 module.exports = {

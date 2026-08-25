@@ -178,3 +178,30 @@ export interface PatientGameProgress {
   lastChangeReason: string | null;
   recentScores: number[];
 }
+
+// Rich per-game adaptive-difficulty report shown in the patient profile.
+export interface DifficultyChangeEntry {
+  from: Difficulty;
+  to: Difficulty;
+  direction: "up" | "down";
+  reason: string;
+  avgComposite: number;
+  at: string | null;
+}
+
+export interface DifficultyGameReport {
+  gameId: GameId;
+  currentDifficulty: Difficulty;
+  totalSessions: number;
+  averageComposite: number | null;
+  latestMetrics: {
+    accuracy: number | null;
+    correctnessRate: number | null;
+    speedScore: number | null;
+    composite: number | null;
+  } | null;
+  recentScores: number[];
+  lastChangeAt: string | null;
+  changeCount: number;
+  changeHistory: DifficultyChangeEntry[];
+}

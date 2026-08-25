@@ -18,6 +18,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { AdaptiveDifficultySection } from "./AdaptiveDifficultySection";
 import { AssessmentTrendChart } from "./AssessmentTrendChart";
 import { BrainAreaRadar, RadarDatum } from "./BrainAreaRadar";
 import { GamePerformanceBreakdown } from "./GamePerformanceBreakdown";
@@ -103,6 +104,7 @@ export const PatientReportView: React.FC<PatientReportViewProps> = ({
   const {
     loading,
     error,
+    patientId: resolvedPatientId,
     assessments,
     severityHistory,
     riskHistory,
@@ -400,6 +402,9 @@ export const PatientReportView: React.FC<PatientReportViewProps> = ({
         />
         <GamePerformanceBreakdown perGame={gameStats.perGame} />
       </View>
+
+      {/* ── Adaptive difficulty ─────────────────────────────────────── */}
+      <AdaptiveDifficultySection patientId={resolvedPatientId} />
 
       {/* ── Methodology footnote ────────────────────────────────────── */}
       <Text className="text-[10px] text-gray-300 text-center px-6 leading-4">
