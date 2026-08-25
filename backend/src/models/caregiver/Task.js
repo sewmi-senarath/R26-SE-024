@@ -1,4 +1,3 @@
-const Task = require('../../models/caregiver/Task');
 const mongoose = require('mongoose');
 
 const taskSchema = new mongoose.Schema(
@@ -52,8 +51,12 @@ const taskSchema = new mongoose.Schema(
       ref: 'User',
       required: true,
     },
+    overdueNotified: {
+      type: Boolean,
+      default: false, // flips to true once an overdue notification has been raised, so it isn't raised again on every fetch
+    },
   },
   { timestamps: true }
 );
 
-module.exports = mongoose.model('Task', taskSchema);
+module.exports = mongoose.models.Task || mongoose.model('Task', taskSchema);

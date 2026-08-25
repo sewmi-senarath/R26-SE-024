@@ -126,6 +126,31 @@
 // };
 
 const Task = require('../../models/caregiver/Task');
+const { createNotification } = require('./notificationController');
+
+// Task.time is free text like "8:00 AM"; Task.date is a date string. This
+// combines them into a real Date so it can be compared against now. Returns
+// null if it can't confidently parse either piece, so callers just skip
+// that task rather than guessing wrong.
+const parseTaskDueDateTime = (dateStr, timeStr) => {
+  const match = /^(\d{1,2}):(\d{2})\s*(AM|PM|am|pm)?$/.exec((timeStr || '').trim());
+  if (!match || !dateStr) return null;
+
+  let [, hourStr, minuteStr, meridiem] = match;
+  let hour = parseInt(hourStr, 10);
+  const minute = parseInt(minuteStr, 10);
+
+  if (meridiem) {
+    meridiem = meridiem.toUpperCase();
+    if (meridiem === 'PM' && hour !== 12) hour += 12;
+    if (meridiem === 'AM' && hour === 12) hour = 0;
+  }
+
+  const result = new Date(dateStr);
+  if (isNaN(result.getTime())) return null;
+  result.setHours(hour, minute, 0, 0);
+  return result;
+};
 
 // ── GET all tasks ──────────────────────────────────────────────────────────
 const getTasks = async (req, res) => {
@@ -139,6 +164,30 @@ const getTasks = async (req, res) => {
     if (date) filter.date = date;
 
     const tasks = await Task.find(filter).sort({ createdAt: -1 });
+
+    // Trigger: overdue task. 30-minute grace period, and overdueNotified
+    // prevents the same task from re-raising a notification on every fetch.
+    const now = Date.now();
+    const GRACE_MS = 30 * 60 * 1000;
+
+    for (const task of tasks) {
+      if (task.status !== 'todo' || task.overdueNotified) continue;
+      const dueAt = parseTaskDueDateTime(task.date, task.time);
+      if (!dueAt) continue;
+
+      if (now - dueAt.getTime() > GRACE_MS) {
+        task.overdueNotified = true;
+        await task.save();
+
+        await createNotification({
+          caregiverId,
+          patientName: task.patientName,
+          message: `Overdue task: "${task.title}" was due at ${task.time}.`,
+          severity: 'warning',
+          source: 'task',
+        });
+      }
+    }
 
     const counts = {
       all:  tasks.length,

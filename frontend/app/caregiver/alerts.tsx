@@ -1,24 +1,45 @@
-import React, { useState, useMemo } from 'react';
-import { View, Text, ScrollView, StatusBar, RefreshControl, TouchableOpacity } from 'react-native';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { View, Text, ScrollView, StatusBar, RefreshControl, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Colors } from '../../src/constants/colors';
 import { NotificationSummaryBar } from '../../src/components/caregiver/more/notifications/NotificationSummaryBar';
 import { NotificationCard } from '../../src/components/caregiver/more/notifications/NotificationCard';
 import { AppNotification, NotificationSeverity } from '../../src/types/caregiver.types';
-
-const MOCK_NOTIFICATIONS: AppNotification[] = [
-  { id:'1', patientName:'Margaret Hughes', message:'Missed morning Rivastigmine patch application.',        time:'10:15 AM', severity:'warning', acknowledged:false                                          },
-  { id:'2', patientName:'Eleanor Vance',   message:'Increased pacing and agitation detected in common area.',time:'11:30 AM', severity:'urgent',  acknowledged:false, hasAction:true, actionLabel:'Take Action' },
-  { id:'3', patientName:'System',          message:"You've been active for 4 hours. Consider a 15-min break.",time:'12:00 PM', severity:'info',    acknowledged:false                                          },
-  { id:'4', patientName:'Robert Chen',     message:'Medication Memantine due in 30 minutes.',               time:'01:30 PM', severity:'warning', acknowledged:false                                          },
-  { id:'5', patientName:'Arthur Pendelton',message:'Evening walk completed successfully.',                   time:'05:15 PM', severity:'info',    acknowledged:true                                           },
-];
+import {
+  fetchNotifications,
+  acknowledgeNotification,
+  acknowledgeAllNotifications,
+} from '../../src/services/caregiver/Notificationservice';
 
 export default function AlertsScreen() {
-  const [notifications, setNotifications] = useState<AppNotification[]>(MOCK_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [activeFilter, setActiveFilter]   = useState<NotificationSeverity | 'all'>('all');
+  const [loading, setLoading]             = useState(true);
   const [refreshing, setRefreshing]       = useState(false);
+
+  const loadNotifications = useCallback(async () => {
+    try {
+      const real = await fetchNotifications();
+      setNotifications(real);
+    } catch (error) {
+      console.log('Failed to load notifications:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      await loadNotifications();
+      setLoading(false);
+    })();
+  }, [loadNotifications]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadNotifications();
+    setRefreshing(false);
+  };
 
   const counts = useMemo(() => ({
     urgent:  notifications.filter((n) => n.severity === 'urgent'  && !n.acknowledged).length,
@@ -31,14 +52,25 @@ export default function AlertsScreen() {
     return notifications.filter((n) => n.severity === activeFilter);
   }, [notifications, activeFilter]);
 
-  const handleAcknowledge = (id: string) => {
+  const handleAcknowledge = async (id: string) => {
+    // Update immediately so the UI feels responsive, then confirm with the server
     setNotifications((prev) =>
       prev.map((n) => n.id === id ? { ...n, acknowledged: true } : n),
     );
+    try {
+      await acknowledgeNotification(id);
+    } catch (error) {
+      console.log('Failed to acknowledge notification:', error);
+    }
   };
 
-  const handleAcknowledgeAll = () => {
+  const handleAcknowledgeAll = async () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, acknowledged: true })));
+    try {
+      await acknowledgeAllNotifications();
+    } catch (error) {
+      console.log('Failed to acknowledge all notifications:', error);
+    }
   };
 
   return (
@@ -69,22 +101,29 @@ export default function AlertsScreen() {
 
       <NotificationSummaryBar counts={counts} active={activeFilter} onPress={setActiveFilter} />
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); setTimeout(() => setRefreshing(false), 1000); }} tintColor={Colors.primary} />}
-        contentContainerStyle={{ paddingBottom: 40 }}
-      >
-        {filtered.length === 0
-          ? <View style={{ alignItems: 'center', marginTop: 60 }}>
-              <Text style={{ fontSize: 36, marginBottom: 10 }}>🔔</Text>
-              <Text style={{ fontSize: 16, fontWeight: '700', color: Colors.textPrimary }}>All clear!</Text>
-              <Text style={{ fontSize: 13, color: Colors.textMuted, marginTop: 4 }}>No notifications here</Text>
-            </View>
-          : filtered.map((notif) => (
-              <NotificationCard key={notif.id} notification={notif} onAcknowledge={handleAcknowledge} />
-            ))
-        }
-      </ScrollView>
+      {loading ? (
+        <View style={{ alignItems: 'center', marginTop: 60 }}>
+          <ActivityIndicator color={Colors.primary} size="large" />
+          <Text style={{ fontSize: 13, color: Colors.textMuted, marginTop: 12 }}>Loading notifications...</Text>
+        </View>
+      ) : (
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={Colors.primary} />}
+          contentContainerStyle={{ paddingBottom: 40 }}
+        >
+          {filtered.length === 0
+            ? <View style={{ alignItems: 'center', marginTop: 60 }}>
+                <Text style={{ fontSize: 36, marginBottom: 10 }}>🔔</Text>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: Colors.textPrimary }}>All clear!</Text>
+                <Text style={{ fontSize: 13, color: Colors.textMuted, marginTop: 4 }}>No notifications here</Text>
+              </View>
+            : filtered.map((notif) => (
+                <NotificationCard key={notif.id} notification={notif} onAcknowledge={handleAcknowledge} />
+              ))
+          }
+        </ScrollView>
+      )}
     </View>
   );
 }
