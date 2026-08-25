@@ -1,8 +1,9 @@
 import { AIPredictionCard } from "@/src/components/patient/cognitive/components/screening-test/AIPredictionCard";
 import { useAssessmentSession } from "@/src/hooks/useAssessmentSession";
+import { Question } from "@/src/types/assessment.types";
 import { getSeverityInfo } from "@/src/utils/scoring";
 import { useRouter } from "expo-router";
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
   SafeAreaView,
@@ -67,13 +68,96 @@ const SECTION_MAX: Record<string, number> = {
 
 const format3 = (value: number) => Number(value).toFixed(3);
 
+// ── Human-readable answer helpers for the "mistakes" breakdown ──────
+function describeUserAnswer(q: Question, answer: any): string {
+  if (answer == null) return "No answer given";
+  if (typeof answer === "object" && (answer as any).skipped) return "Skipped";
+
+  switch (q.type) {
+    case "mcq":
+    case "image_mcq":
+      return String(answer);
+    case "serial_subtraction":
+      return Array.isArray(answer)
+        ? answer.map((x) => (x === "" || x == null ? "—" : x)).join(", ")
+        : String(answer);
+    case "word_recall_display":
+    case "word_recall_input":
+      return Array.isArray(answer) && answer.length
+        ? answer.join(", ")
+        : "No words recalled";
+    case "instruction_action":
+      return answer === "correct"
+        ? "Instruction followed"
+        : "Instruction not followed";
+    case "phrase_repeat":
+      return answer === "correct" ? "Repeated correctly" : "Not repeated correctly";
+    case "drawing_canvas":
+      return answer === true ? "Drawing accepted" : "Drawing not accepted";
+    case "text_input":
+      return typeof answer === "string" && answer.trim()
+        ? `“${answer.trim()}”`
+        : "No answer given";
+    default:
+      return String(answer);
+  }
+}
+
+function describeExpected(q: Question): string {
+  switch (q.type) {
+    case "mcq":
+    case "image_mcq":
+    case "serial_subtraction":
+      return (q.expectedAnswers ?? []).join(", ");
+    case "word_recall_display":
+    case "word_recall_input":
+      return (q.words ?? []).join(", ");
+    case "instruction_action":
+      return "Instruction performed correctly";
+    case "phrase_repeat":
+      return "Phrase repeated exactly";
+    case "drawing_canvas":
+      return "Two overlapping five-sided figures";
+    case "text_input":
+      return "A complete, sensible sentence";
+    default:
+      return "";
+  }
+}
+
+// A short note on how each question type is marked, so the breakdown explains
+// why points were awarded or lost.
+function markingRule(q: Question): string {
+  switch (q.type) {
+    case "mcq":
+    case "image_mcq":
+      return "Full marks only for the correct option.";
+    case "serial_subtraction":
+      return "1 point per correct subtraction of 7, counted from your previous answer.";
+    case "word_recall_display":
+    case "word_recall_input":
+      return "1 point for each of the three words recalled.";
+    case "instruction_action":
+      return "Marked correct/incorrect by the caregiver.";
+    case "phrase_repeat":
+      return "Marked correct/incorrect by the caregiver.";
+    case "drawing_canvas":
+      return "Marked correct/incorrect by the caregiver.";
+    case "text_input":
+      return "1 mark for a complete, sensible sentence.";
+    default:
+      return "";
+  }
+}
+
 export default function ResultsScreen() {
   const router = useRouter();
-  const { session } = useAssessmentSession();
+  const { session, questions } = useAssessmentSession();
 
   // ── Move ALL hooks to top — BEFORE any conditional logic ──────
   const animatedScore = useRef(new Animated.Value(0)).current;
   const scoreBarWidth = useRef(new Animated.Value(0)).current;
+  const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
   useEffect(() => {
     // Only animate if session is done
@@ -110,6 +194,18 @@ export default function ResultsScreen() {
   // Now it's safe to compute severity info
   const severityInfo = getSeverityInfo(session.totalScore);
   const styles = SEVERITY_STYLES[severityInfo.level];
+
+  // Per-question earned marks (from the backend scoring log), keyed by id.
+  const earnedByQuestion: Record<string, number> = {};
+  (session.scoringLog ?? []).forEach((entry) => {
+    earnedByQuestion[entry.questionId] = entry.earned;
+  });
+
+  // Group the assessment questions under their section for the breakdown.
+  const questionsBySection: Record<string, Question[]> = {};
+  (questions ?? []).forEach((q) => {
+    (questionsBySection[q.section] ??= []).push(q);
+  });
 
   // ── Animated score counter ────────────────────────────────────
   // const animatedScoreText = animatedScore.interpolate({
@@ -223,12 +319,17 @@ export default function ResultsScreen() {
         )}
 
         {/* ── AI severity prediction (ML model, alongside the rule-based score above) ── */}
-        {session.patientId && <AIPredictionCard patientId={session.patientId} />}
+        {session.patientId && (
+          <AIPredictionCard patientId={session.patientId} />
+        )}
 
         {/* ── Section breakdown ──────────────────────────────── */}
         <View className="mx-6 mb-4">
           <Text className="text-sm font-semibold text-gray-700 mb-3">
             Score Breakdown
+          </Text>
+          <Text className="text-xs text-gray-400 mb-3 -mt-1">
+            Tap a section to see mistakes and how they affected the score.
           </Text>
           <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
             {Object.entries(session.sectionScores).map(
@@ -236,33 +337,139 @@ export default function ResultsScreen() {
                 const max = SECTION_MAX[section] ?? 0;
                 const pct = max > 0 ? (score / max) * 100 : 0;
                 const isLast = index === arr.length - 1;
+                const isOpen = expandedSection === section;
+
+                const sectionQuestions = questionsBySection[section] ?? [];
+                const mistakes = sectionQuestions.filter(
+                  (q) => (earnedByQuestion[q.id] ?? 0) < q.maxScore,
+                );
 
                 return (
                   <View
                     key={section}
-                    className={`px-4 py-4 ${!isLast ? "border-b border-gray-50" : ""}`}
+                    className={!isLast ? "border-b border-gray-50" : ""}
                   >
-                    <View className="flex-row justify-between items-center mb-2">
-                      <Text className="text-sm font-medium text-gray-800">
-                        {section}
-                      </Text>
-                      <View className="flex-row items-center gap-1">
-                        <Text className="text-sm font-bold text-gray-900">
-                          {format3(score)}
-                        </Text>
-                        <Text className="text-sm text-gray-400">
-                          / {format3(max)}
-                        </Text>
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={() =>
+                        setExpandedSection(isOpen ? null : section)
+                      }
+                      className="px-4 py-4"
+                    >
+                      <View className="flex-row justify-between items-center mb-2">
+                        <View className="flex-row items-center gap-2">
+                          <Text className="text-sm font-medium text-gray-800">
+                            {section}
+                          </Text>
+                          {mistakes.length > 0 ? (
+                            <View className="bg-red-50 rounded-full px-2 py-0.5">
+                              <Text className="text-[11px] font-medium text-red-600">
+                                {mistakes.length} issue
+                                {mistakes.length > 1 ? "s" : ""}
+                              </Text>
+                            </View>
+                          ) : (
+                            <View className="bg-green-50 rounded-full px-2 py-0.5">
+                              <Text className="text-[11px] font-medium text-green-600">
+                                Full marks
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                        <View className="flex-row items-center gap-1">
+                          <Text className="text-sm font-bold text-gray-900">
+                            {format3(score)}
+                          </Text>
+                          <Text className="text-sm text-gray-400">
+                            / {format3(max)}
+                          </Text>
+                          <Text className="text-gray-400 ml-1 text-xs">
+                            {isOpen ? "▲" : "▼"}
+                          </Text>
+                        </View>
                       </View>
-                    </View>
 
-                    {/* Per-section mini bar */}
-                    <View className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                      <View
-                        className="h-full bg-blue-500 rounded-full"
-                        style={{ width: `${pct}%` }}
-                      />
-                    </View>
+                      {/* Per-section mini bar */}
+                      <View className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <View
+                          className="h-full bg-blue-500 rounded-full"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </View>
+                    </TouchableOpacity>
+
+                    {/* ── Dropdown: mistakes & marking impact ──────── */}
+                    {isOpen && (
+                      <View className="px-4 pb-4 pt-1 bg-gray-50">
+                        {sectionQuestions.length === 0 ? (
+                          <Text className="text-xs text-gray-400">
+                            No detail available for this section.
+                          </Text>
+                        ) : mistakes.length === 0 ? (
+                          <View className="flex-row items-center gap-2 py-1">
+                            <Text className="text-green-600">✓</Text>
+                            <Text className="text-xs text-gray-600 flex-1">
+                              All questions answered correctly — no marks lost
+                              here.
+                            </Text>
+                          </View>
+                        ) : (
+                          <View className="gap-3">
+                            {mistakes.map((q) => {
+                              const earned = earnedByQuestion[q.id] ?? 0;
+                              const lost = q.maxScore - earned;
+                              const answer = session.answers?.[q.id];
+                              return (
+                                <View
+                                  key={q.id}
+                                  className="bg-white rounded-xl border border-gray-100 p-3 gap-1.5"
+                                >
+                                  <View className="flex-row justify-between items-start gap-2">
+                                    <Text className="text-sm font-medium text-gray-800 flex-1">
+                                      {q.prompt}
+                                    </Text>
+                                    <View className="bg-red-50 rounded-lg px-2 py-1">
+                                      <Text className="text-[11px] font-semibold text-red-600">
+                                        −{lost} pt{lost > 1 ? "s" : ""}
+                                      </Text>
+                                    </View>
+                                  </View>
+
+                                  <View className="flex-row gap-2">
+                                    <Text className="text-xs text-gray-400 w-16">
+                                      Answered
+                                    </Text>
+                                    <Text className="text-xs text-gray-700 flex-1">
+                                      {describeUserAnswer(q, answer)}
+                                    </Text>
+                                  </View>
+
+                                  {!!describeExpected(q) && (
+                                    <View className="flex-row gap-2">
+                                      <Text className="text-xs text-gray-400 w-16">
+                                        Expected
+                                      </Text>
+                                      <Text className="text-xs text-green-700 flex-1">
+                                        {describeExpected(q)}
+                                      </Text>
+                                    </View>
+                                  )}
+
+                                  <View className="flex-row gap-2">
+                                    <Text className="text-xs text-gray-400 w-16">
+                                      Score
+                                    </Text>
+                                    <Text className="text-xs text-gray-600 flex-1">
+                                      {earned} / {q.maxScore} · {markingRule(q)}
+                                    </Text>
+                                  </View>
+                                </View>
+                              );
+                            })}
+                          </View>
+                        )}
+                      </View>
+                    )}
                   </View>
                 );
               },
@@ -379,27 +586,13 @@ export default function ResultsScreen() {
 
         {/* ── Action buttons ─────────────────────────────────── */}
         <View className="mx-6 gap-3">
-          {/* Primary — send to Caregiver / backend */}
+          {/* go back to patient dashboard */}
           <TouchableOpacity
             className="bg-blue-500 py-4 rounded-2xl items-center"
-            onPress={() => {
-              // TODO: call your backend API here
-              // POST /api/assessments with session data
-              console.log("Submitting session:", session.sessionId);
-            }}
-          >
-            <Text className="text-white font-semibold text-base">
-              Submit to Caregiver
-            </Text>
-          </TouchableOpacity>
-
-          {/* Secondary — go back to patient dashboard */}
-          <TouchableOpacity
-            className="border border-gray-200 py-4 rounded-2xl items-center"
             onPress={() => router.replace("/patient/games")}
           >
-            <Text className="text-gray-600 font-medium text-base">
-              Go to Games
+            <Text className="text-white font-bold text-xl">
+              Return to Activities
             </Text>
           </TouchableOpacity>
         </View>

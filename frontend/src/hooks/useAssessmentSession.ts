@@ -23,6 +23,7 @@ const ACTIVE_ASSESSMENT_SECTIONS = new Set([
   "Orientation",
   "Registration",
   "Attention",
+  "Recall",
   "Language",
 ]);
 

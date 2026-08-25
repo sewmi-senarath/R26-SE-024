@@ -58,14 +58,26 @@ const MMSE_QUESTIONS = [
     maxScore: 5,
   },
 
-  // ── LANGUAGE (9 pts) 
+  // ── RECALL (3 pts)
+  {
+    id: 'recall',
+    section: 'Recall',
+    type: 'word_recall_input',
+    prompt: 'What were the three words?',
+    subPrompt: 'Ask the patient to recall the three words shown earlier',
+    words: ['Apple', 'Table', 'Penny'],
+    timeLimit: 30,
+    maxScore: 3,
+  },
+
+  // ── LANGUAGE (9 pts)
   {
     id: 'language_naming_watch',
     section: 'Language',
     type: 'image_mcq',
     prompt: 'What is this object called?',
     subPrompt: 'Look at the image carefully',
-    image: 'https://images.freeimages.com/images/large-previews/f52/classic-wall-clock-0410-5697565.jpg?fmt=avif&h=350',
+    image: 'https://images.unsplash.com/photo-1563861826100-9cb868fdbe1c?w=400',
     options: [
       { id: 'a', label: 'Clock' },
       { id: 'b', label: 'Watch' },
@@ -126,6 +138,15 @@ const MMSE_QUESTIONS = [
     ],
     timeLimit: 30,
     maxScore: 3,
+  },
+  {
+    id: 'language_writing',
+    section: 'Language',
+    type: 'text_input',
+    prompt: 'Write a complete sentence',
+    subPrompt: 'It must contain a subject and a verb and make sense',
+    timeLimit: 30,
+    maxScore: 1,
   },
   {
     id: 'language_drawing',
