@@ -9,8 +9,8 @@ const recommendationFeedbackSchema = new mongoose.Schema(
     },
 
     // Recommendation details
-    recommendationId:  { type: String, required: true }, // e.g. 'sleep-deficit'
-    category:          { type: String, required: true }, // e.g. 'Sleep Management'
+    recommendationId:  { type: String, required: true }, 
+    category:          { type: String, required: true }, 
     title:             { type: String, required: true },
 
     // Feedback

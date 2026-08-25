@@ -135,7 +135,7 @@ export interface Medication {
   streak: number;
 }
 
-// ── Notifications ─────────────────────────────────────────
+// Notifications 
 export type NotificationSeverity = 'urgent' | 'warning' | 'info';
 
 export interface AppNotification {
@@ -149,7 +149,7 @@ export interface AppNotification {
   actionLabel?: string;
 }
 
-// ── Reports ───────────────────────────────────────────────
+// Reports 
 export type ReportTimeframe = 'daily' | 'weekly' | 'monthly';
 export type ReportType =
   | 'Comprehensive Care Summary'
@@ -157,7 +157,7 @@ export type ReportType =
   | 'Task Completion'
   | 'Behavioral Incident Log';
 
-// ── Wellbeing ─────────────────────────────────────────────
+// Wellbeing
 export interface WellbeingRecommendation {
   id: string;
   title: string;
@@ -181,7 +181,7 @@ export interface CaregiverProfile {
   profileImage?: string; 
 }
 
-// ── Daily Check-in ─────────────────────────────────────────────────────────
+// Daily Check-in 
 export interface DailyCheckIn {
   sleepHours:          number;
   physicalTiredness:   number;
@@ -204,9 +204,9 @@ export interface CheckInResult {
   message:      string;
   tips:         string[];
   submittedAt:  string;
-  burnout?:     BurnoutRisk;     // ← add
-  weeklyData?:  WeeklyData[];    // ← add
-  stats?: {                       // ← add
+  burnout?:     BurnoutRisk;     
+  weeklyData?:  WeeklyData[];    
+  stats?: {                       
     avgSleep:       number;
     activeHours:    number;
     tasksCompleted: number;
@@ -214,7 +214,7 @@ export interface CheckInResult {
   };
 }
 
-// ── Burnout Risk ───────────────────────────────────────────────────────────
+// Burnout Risk 
 export interface BurnoutFactor {
   factor:      string;
   severity:    'high' | 'moderate' | 'low';

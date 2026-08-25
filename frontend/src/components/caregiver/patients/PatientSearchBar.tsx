@@ -19,7 +19,7 @@ export const PatientSearchBar: React.FC<PatientSearchBarProps> = ({
       style={{
         flexDirection: 'row',
         alignItems: 'center',
-        marginHorizontal: 20,   // ← matches patient cards exactly
+        marginHorizontal: 20,   
         marginBottom: 16,
         paddingHorizontal: 14,
         height: 48,

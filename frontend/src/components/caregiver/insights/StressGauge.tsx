@@ -3,8 +3,7 @@ import { Animated, Text, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { Colors } from '../../../constants/colors';
 
-// ── 2-class stress config ─────────────────────────────────────────────────
-// Matches model output: 'Not Stressed' | 'Stressed'
+
 const stressConfig: Record<string, {
   color: string; bg: string; angle: number; message: string;
 }> = {
@@ -20,7 +19,7 @@ const stressConfig: Record<string, {
     angle:   60,
     message: 'Elevated stress detected. Please take a break and seek support.',
   },
-  // Fallback — prevents crash for any unexpected value
+ 
   'Unknown': {
     color:   Colors.warning,
     bg:      Colors.warningSoft,
@@ -29,12 +28,12 @@ const stressConfig: Record<string, {
   },
 };
 
-// Safe getter — never returns undefined, never crashes
+
 const getConfig = (level: string) =>
   stressConfig[level] ?? stressConfig['Unknown'];
 
 interface StressGaugeProps {
-  level: string;   // accepts any string safely
+  level: string;   
   score: number;
 }
 
@@ -88,13 +87,13 @@ export const StressGauge: React.FC<StressGaugeProps> = ({ level, score }) => {
       {/* SVG Gauge */}
       <View style={{ width: size, height: size / 2 + 30, alignItems: 'center' }}>
         <Svg width={size} height={size / 2 + 40}>
-          {/* Background arc — Not Stressed (green side) */}
+          
           <Path
             d={describeArc(-180, -10)}
             stroke={Colors.successSoft}
             strokeWidth={14} fill="none" strokeLinecap="round"
           />
-          {/* Background arc — Stressed (red side) */}
+         
           <Path
             d={describeArc(-5, 0)}
             stroke={Colors.dangerSoft}

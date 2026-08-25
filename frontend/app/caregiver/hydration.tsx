@@ -6,7 +6,7 @@ import { Colors } from '../../src/constants/colors';
 
 const GOAL_ML   = 2000;
 const CUP_ML    = 250;
-const MAX_CUPS  = GOAL_ML / CUP_ML; // 8 cups
+const MAX_CUPS  = GOAL_ML / CUP_ML; 
 
 export default function HydrationScreen() {
   const [cups, setCups] = useState(0);

@@ -1,6 +1,6 @@
 const Caregiver = require('../../models/caregiver/Caregiver');
 
-// ── Helper ─────────────────────────────────────────────────────────────────
+// Helper 
 const getInitials = (name) =>
   name
     .split(' ')
@@ -10,7 +10,7 @@ const getInitials = (name) =>
     .toUpperCase()
     .slice(0, 2);
 
-// ── GET profile ────────────────────────────────────────────────────────────
+// GET profile 
 const getProfile = async (req, res) => {
   try {
     const caregiver = await Caregiver.findById(req.params.id).select('-password');
@@ -26,7 +26,7 @@ const getProfile = async (req, res) => {
   }
 };
 
-// ── CREATE caregiver ───────────────────────────────────────────────────────
+// CREATE caregiver 
 const createCaregiver = async (req, res) => {
   try {
     const { name, email, password, role, avatarColor } = req.body;
@@ -62,13 +62,13 @@ const createCaregiver = async (req, res) => {
   }
 };
 
-// ── UPDATE profile — FIXED ─────────────────────────────────────────────────
+// UPDATE profile — FIXED 
 const updateProfile = async (req, res) => {
   try {
     const { id } = req.params;
 
-    console.log('Update request body:', req.body); // ← debug log
-    console.log('Update ID:', id);                  // ← debug log
+    console.log('Update request body:', req.body); 
+    console.log('Update ID:', id);                  
 
     const {
       name,
@@ -92,7 +92,7 @@ const updateProfile = async (req, res) => {
 
     const caregiver = await Caregiver.findByIdAndUpdate(
       id,
-      { $set: updateData }, // ← use $set to be safe
+      { $set: updateData }, 
       { new: true, runValidators: true }
     ).select('-password');
 
@@ -103,16 +103,16 @@ const updateProfile = async (req, res) => {
       });
     }
 
-    console.log('Updated caregiver:', caregiver); // ← debug log
+    console.log('Updated caregiver:', caregiver); 
 
     res.status(200).json({ success: true, caregiver });
   } catch (error) {
-    console.log('Update error:', error.message); // ← debug log
+    console.log('Update error:', error.message); 
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// ── UPDATE stats ───────────────────────────────────────────────────────────
+// UPDATE stats 
 const updateStats = async (req, res) => {
   try {
     const { id } = req.params;
@@ -142,7 +142,7 @@ const updateStats = async (req, res) => {
   }
 };
 
-// ── UPDATE online status ───────────────────────────────────────────────────
+// UPDATE online status 
 const updateOnlineStatus = async (req, res) => {
   try {
     const { id }      = req.params;
@@ -167,7 +167,7 @@ const updateOnlineStatus = async (req, res) => {
   }
 };
 
-// ── DELETE caregiver ───────────────────────────────────────────────────────
+// DELETE caregiver 
 const deleteCaregiver = async (req, res) => {
   try {
     const caregiver = await Caregiver.findByIdAndDelete(req.params.id);

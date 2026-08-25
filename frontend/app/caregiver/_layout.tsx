@@ -5,7 +5,7 @@ import { ActivityIndicator, Platform, Text, View } from "react-native";
 import { getStoredRole } from "../../src/api/authApi";
 import { Colors } from "../../src/constants/colors";
 
-// ── Custom Tab Icon ───────────────────────────────────────────────────────────
+// Custom Tab Icon
 interface TabIconProps {
   name: keyof typeof Ionicons.glyphMap;
   color: string;
@@ -46,7 +46,7 @@ const TabBarIcon: React.FC<TabIconProps> = ({ name, color, size, badge }) => (
   </View>
 );
 
-// ── Layout ────────────────────────────────────────────────────────────────────
+// Layout 
 export default function CaregiverLayout() {
   const router = useRouter();
   const [isChecking, setIsChecking] = useState(true);
@@ -109,7 +109,7 @@ export default function CaregiverLayout() {
         },
       }}
     >
-      {/* ── Home → index.tsx (was hardware-hub.tsx) ── */}
+     
       <Tabs.Screen
         name="index"
         options={{
@@ -124,7 +124,7 @@ export default function CaregiverLayout() {
         }}
       />
 
-      {/* ── Patients → patients.tsx (was behavior-logs.tsx) ── */}
+     
       <Tabs.Screen
         name="patients"
         options={{
@@ -139,7 +139,7 @@ export default function CaregiverLayout() {
         }}
       />
 
-      {/* ── Tasks → tasks.tsx (was data-ingestion.tsx) ── */}
+      
       <Tabs.Screen
         name="tasks"
         options={{
@@ -154,7 +154,7 @@ export default function CaregiverLayout() {
         }}
       />
 
-      {/* ── Insights → insights.tsx (was object-tracker.tsx) ── */}
+      
       <Tabs.Screen
         name="insights"
         options={{
@@ -183,11 +183,11 @@ export default function CaregiverLayout() {
         }}
       />
 
-      {/* ── Hidden from tab bar (navigated from More page) ── */}
+      
       <Tabs.Screen
         name="medications"
         options={{
-          href: null, // ← This hides it from the tab bar completely
+          href: null, 
         }}
       />
 
@@ -248,8 +248,6 @@ export default function CaregiverLayout() {
         }}
       />
 
-      {/* ── Old placeholder screens from a different feature (life-logging-memory-vault) —
-           hidden rather than deleted, in case you still want to reference them ── */}
       <Tabs.Screen
         name="hardware-hub"
         options={{

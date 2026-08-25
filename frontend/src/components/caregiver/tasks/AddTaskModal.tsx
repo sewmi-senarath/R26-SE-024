@@ -13,7 +13,7 @@ import { fetchPatients } from '../../../services/caregiver/patientService';
 const CATEGORIES = ['bathing', 'feeding', 'exercise', 'medication', 'outdoor', 'other'] as const;
 const PRIORITIES = ['high', 'medium', 'low'] as const;
 
-// MOCK_PATIENTS is gone — patients now come from GET /caregiver/patients.
+
 
 const categoryColor: Record<string, string> = {
   bathing: '#06B6D4', feeding: '#F97316', exercise: '#8B5CF6',
@@ -23,12 +23,7 @@ const priorityColor: Record<string, string> = {
   high: '#EF4444', medium: '#F97316', low: '#22C55E',
 };
 
-/**
- * Safety net only. Every patient created through the app already has
- * `initials` saved (it's required in the Patient model), but older or
- * externally-inserted records might not, and an empty avatar circle looks
- * broken. "Margaret Hughes" -> "MH".
- */
+
 const deriveInitials = (name: string): string =>
   name.trim().split(/\s+/).slice(0, 2)
       .map((w) => w[0]?.toUpperCase() ?? '')
@@ -52,7 +47,7 @@ export const AddTaskModal: React.FC<Props> = ({
   const [showPatients, setShowPatients] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // ── Real patient list state ────────────────────────────────────────────
+  //  Real patient list state 
   const [patients, setPatients]             = useState<PatientDetail[]>([]);
   const [loadingPatients, setLoadingPatients] = useState(false);
   const [patientError, setPatientError]     = useState<string | null>(null);
@@ -64,10 +59,7 @@ export const AddTaskModal: React.FC<Props> = ({
     setPatientQuery('');
   };
 
-  // ── Load the caregiver's registered patients ───────────────────────────
-  // Keyed on `visible` rather than [] on purpose: if the caregiver registers
-  // a new patient and comes straight back here, an empty dep array would
-  // still be showing the stale list from app start.
+
   useEffect(() => {
     if (!visible) return;
 
@@ -87,13 +79,13 @@ export const AddTaskModal: React.FC<Props> = ({
       }
     })();
 
-    // Guards against setting state after the sheet is dismissed mid-request.
+  
     return () => { cancelled = true; };
   }, [visible]);
 
   const selectedPatient = patients.find((p) => p.id === patientId);
 
-  // ── Type-to-filter suggestions ─────────────────────────────────────────
+  // Type-to-filter suggestions 
   const visiblePatients = useMemo(() => {
     const q = patientQuery.trim().toLowerCase();
     if (!q) return patients;
@@ -113,9 +105,7 @@ export const AddTaskModal: React.FC<Props> = ({
       return;
     }
 
-    // patientId is sent alongside the display fields. The backend currently
-    // ignores it (Mongoose strips unknown keys), so this is harmless today
-    // and becomes a real link the moment you add the field to Task.js.
+
     const taskPayload = {
       title:           title.trim(),
       patientId:       patient.id,

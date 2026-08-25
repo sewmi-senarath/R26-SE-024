@@ -3,7 +3,7 @@
 
 require('dotenv').config();
 const mongoose = require('mongoose');
-const CheckIn  = require('./src/models/caregiver/CheckIn');
+const CheckIn  = require('../models/caregiver/CheckIn');
 
 // ← PASTE YOUR REAL caregiverId HERE (from the Metro console log)
 const CAREGIVER_ID = 'PASTE_YOUR_CAREGIVER_ID_HERE';

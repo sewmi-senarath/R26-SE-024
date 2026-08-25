@@ -2,8 +2,6 @@ const express    = require('express');
 const router     = express.Router();
 const RecommendationFeedback = require('../../models/caregiver/RecommendationFeedback');
 
-// ── POST /api/caregiver/recommendations/feedback ───────────────────────────
-// Save caregiver feedback on a recommendation
 router.post('/feedback', async (req, res) => {
   try {
     const {
@@ -48,8 +46,7 @@ router.post('/feedback', async (req, res) => {
   }
 });
 
-// ── GET /api/caregiver/recommendations/priorities/:caregiverId ─────────────
-// Get recommendation priorities based on feedback history
+
 router.get('/priorities/:caregiverId', async (req, res) => {
   try {
     const { caregiverId } = req.params;
@@ -95,8 +92,7 @@ router.get('/priorities/:caregiverId', async (req, res) => {
   }
 });
 
-// ── GET /api/caregiver/recommendations/history/:caregiverId ───────────────
-// Get feedback history
+
 router.get('/history/:caregiverId', async (req, res) => {
   try {
     const { caregiverId } = req.params;

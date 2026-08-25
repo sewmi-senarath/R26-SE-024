@@ -7,7 +7,7 @@ const caregiverSchema = new mongoose.Schema(
     email:            { type: String, required: [true, 'Email is required'], unique: true, lowercase: true },
     initials:         { type: String },
     avatarColor:      { type: String, default: '#2563EB' },
-    profileImage:     { type: String, default: null }, // stores base64 string
+    profileImage:     { type: String, default: null }, 
     isOnline:         { type: Boolean, default: true },
     shiftsCompleted:  { type: Number, default: 0 },
     patientsAssigned: { type: Number, default: 0 },

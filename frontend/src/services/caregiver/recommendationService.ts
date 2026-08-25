@@ -4,7 +4,7 @@ import { SmartRecommendation } from '../../utils/recommendationEngine';
 
 const BASE_URL = 'http://192.168.1.10:5000/api/caregiver/recommendations';
 
-// ── Storage helper ─────────────────────────────────────────────────────────
+// Storage helper 
 const storage = {
   getItem: async (key: string): Promise<string | null> => {
     try {
@@ -17,7 +17,7 @@ const storage = {
 const getCaregiverId = async (): Promise<string | null> =>
   await storage.getItem('caregiverId');
 
-// ── Submit feedback ────────────────────────────────────────────────────────
+// Submit feedback
 export const submitFeedback = async (
   recommendation: SmartRecommendation,
   feedback:       'helpful' | 'not_helpful',
@@ -49,7 +49,7 @@ export const submitFeedback = async (
   }
 };
 
-// ── Get priorities based on feedback history ───────────────────────────────
+// Get priorities based on feedback history 
 export const getRecommendationPriorities = async (): Promise<{
   boosted:    string[];
   suppressed: string[];
