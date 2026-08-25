@@ -9,7 +9,7 @@ const {
   RECALL_OBJECTS,
   PUZZLE_WORDS,
 } = require("./staticGameContent");
-const { buildTimeOrientationQuestions } = require("./orientationFacts");
+const { buildTimeOrientationQuestions, buildMemoryAnchor } = require("./orientationFacts");
 const { shuffle, pickDistractors } = require("./gameContentUtils");
 const {
   ROTATION_GAMES,
@@ -461,6 +461,7 @@ function buildFestivalQuestion(patient, optionsCount, extraDistractors = []) {
     question: "Which festival does your family celebrate?",
     icon: "\u{1F389}",
     category: "Festival",
+    tier: 2,
     correctAnswer,
     options: shuffle([
       correctAnswer,
@@ -486,6 +487,7 @@ function buildPlaceQuestion(patient, optionsCount, extraDistractors = []) {
     question: "Which city or town do you call home?",
     icon: "\u{1F3E0}",
     category: "Place",
+    tier: 2,
     correctAnswer,
     options: shuffle([
       correctAnswer,
@@ -494,13 +496,20 @@ function buildPlaceQuestion(patient, optionsCount, extraDistractors = []) {
   };
 }
 
-function buildOrientationItems(patient, optionsCount, llmDistractors) {
-  const personalizedQuestions = [
-    buildFestivalQuestion(patient, optionsCount, llmDistractors?.festivalDistractors),
-    buildPlaceQuestion(patient, optionsCount, llmDistractors?.cityDistractors),
-  ].filter(Boolean);
+function buildOrientationItems(patient, optionsCount, llmDistractors, opts = {}) {
+  const { tiers = [1, 2, 3], spread = "far" } = opts;
+  const tierSet = new Set(tiers);
 
-  const timeQuestions = buildTimeOrientationQuestions(optionsCount);
+  // Festival/hometown are personal current-state orientation (tier 2), so they
+  // only appear when this difficulty actually draws from tier 2.
+  const personalizedQuestions = tierSet.has(2)
+    ? [
+        buildFestivalQuestion(patient, optionsCount, llmDistractors?.festivalDistractors),
+        buildPlaceQuestion(patient, optionsCount, llmDistractors?.cityDistractors),
+      ].filter(Boolean)
+    : [];
+
+  const timeQuestions = buildTimeOrientationQuestions(optionsCount, { tiers, spread });
 
   return {
     all: [...personalizedQuestions, ...timeQuestions],
@@ -680,15 +689,27 @@ async function getPersonalizedGameContent({ gameId, patientId, difficulty, reque
     const { all, personalizedCount } = buildOrientationItems(
       patient,
       staticConfig.optionsCount,
-      llmDistractors
+      llmDistractors,
+      { tiers: staticConfig.tiers, spread: staticConfig.distractorSpread }
     );
+
+    // On hard, reserve the final slot for a delayed-recall word shown up front.
+    const recall = staticConfig.delayedRecall ? buildMemoryAnchor(staticConfig.optionsCount) : null;
+    const slotsForContent = recall ? requiredCount - 1 : requiredCount;
+    const questions = recall
+      ? [...all.slice(0, Math.max(1, slotsForContent)), recall.question]
+      : all.slice(0, slotsForContent);
 
     logTier(
       llmDistractors ? "rule-based + groq distractors (orientation)" : "rule-based (orientation)",
       { gameId, difficulty, patientId, personalized: personalizedCount > 0 }
     );
     return {
-      config: { ...staticConfig, questions: all.slice(0, requiredCount) },
+      config: {
+        ...staticConfig,
+        questions,
+        ...(recall ? { memoryAnchor: recall.anchor } : {}),
+      },
       personalized: personalizedCount > 0,
     };
   }

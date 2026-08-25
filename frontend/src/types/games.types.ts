@@ -80,19 +80,47 @@ export interface PuzzleWord {
 }
 
 // ── Orientation Game config
+export interface OrientationMemoryAnchor {
+  /** The word the patient is asked to hold in mind (hard-level delayed recall). */
+  word: string;
+  icon: string;
+  statement: string;
+}
 export interface OrientationGameConfig {
   questionCount: number;
   optionsCount: number;
   timeLimitSeconds: number | null;
   questions: OrientationQuestion[];
+  /** Cognitive tiers this level draws from: 1=recognition, 2=orientation, 3=reasoning. */
+  tiers?: number[];
+  distractorSpread?: "near" | "far";
+  /** Show a helper hint under the question (easy). */
+  showHints?: boolean;
+  /** Show the category label + icon (hidden on hard to remove cues). */
+  showCategory?: boolean;
+  /** Read each question aloud automatically (easy). */
+  autoReadAloud?: boolean;
+  /** "recall" replaces the option buttons with a typed answer for numeric questions. */
+  answerMode?: "choice" | "recall";
+  /** Whether a delayed-recall word is woven into this round (hard). */
+  delayedRecall?: boolean;
+  memoryAnchor?: OrientationMemoryAnchor;
 }
 export interface OrientationQuestion {
   id: string;
   question: string;
   icon: string;
-  category: "Time" | "Place" | "Festival";
+  category: "Time" | "Place" | "Festival" | "Calendar" | "Memory";
   correctAnswer: string;
   options: string[];
+  /** Cognitive demand tier: 1=recognition, 2=current-state orientation, 3=reasoning. */
+  tier?: 1 | 2 | 3;
+  /** Optional hint shown on easy difficulty. */
+  hint?: string;
+  /** True when the answer is a plain number — eligible for hard-level recall input. */
+  numeric?: boolean;
+  /** Inclusive range for the hard-level number wheel (recall input). */
+  numericRange?: { min: number; max: number };
 }
 
 // ── Face-Name Match config
