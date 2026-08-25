@@ -3,7 +3,7 @@ import { GAME_CONFIGS } from "@/src/constants/games";
 import { MMSESession } from "@/src/types/assessment.types";
 import { RiskHistoryItem, SeverityHistoryItem, SeverityLevel } from "@/src/types/dementia.types";
 import { SectionName } from "@/src/types/games.types";
-import { BrainAreaStat, PerGameStat, RiskFactorFrequency, Trend } from "@/src/hooks/usePatientReport";
+import { BrainAreaStat, PatientProgress, PerGameStat, RiskFactorFrequency, Trend } from "@/src/hooks/usePatientReport";
 
 const SEVERITY_META: Record<SeverityLevel, { label: string; color: string }> = {
   none: { label: "No Impairment", color: "#16A34A" },
@@ -53,6 +53,7 @@ export interface PatientReportHtmlInput {
   severityHistory: SeverityHistoryItem[];
   riskHistory: RiskHistoryItem[];
   riskFactorFrequency: RiskFactorFrequency[];
+  progress: PatientProgress;
   latestSeverityPrediction: SeverityHistoryItem | null;
   latestRiskScreening: RiskHistoryItem | null;
 }
@@ -72,6 +73,7 @@ export function generatePatientReportHtml(input: PatientReportHtmlInput): string
     gameStats,
     riskHistory,
     riskFactorFrequency,
+    progress,
     latestSeverityPrediction,
     latestRiskScreening,
   } = input;
@@ -103,6 +105,75 @@ export function generatePatientReportHtml(input: PatientReportHtmlInput): string
         </tr>`
         )
         .join("")
+    : "";
+
+  const DIRECTION_HTML: Record<string, { label: string; color: string }> = {
+    improved: { label: "Improving", color: "#16A34A" },
+    declined: { label: "Declining", color: "#DC2626" },
+    steady: { label: "Holding Steady", color: "#64748B" },
+    "insufficient-data": { label: "Baseline Set", color: "#3B82F6" },
+  };
+  const dirMeta = DIRECTION_HTML[progress.direction];
+
+  const sign = (n: number) => (n > 0 ? `+${n}` : `${n}`);
+  const deltaColor = (n: number) => (n > 0 ? "#16A34A" : n < 0 ? "#DC2626" : "#64748B");
+
+  const sectionDeltaRows = progress.hasComparison
+    ? progress.sectionDeltas
+        .map(
+          (s) => `
+      <tr>
+        <td>${esc(s.section)}</td>
+        <td>${s.baselinePercent}%</td>
+        <td>${s.latestPercent}%</td>
+        <td style="color:${deltaColor(s.deltaPercent)};font-weight:700;">${sign(s.deltaPercent)} pts</td>
+      </tr>`
+        )
+        .join("")
+    : "";
+
+  const progressSection = progress.hasBaseline
+    ? `<section>
+        <h2>Initial Screening &amp; Progress</h2>
+        <div class="banner" style="background:#F8FAFC;">
+          <div>
+            <div class="status-label">Overall Direction</div>
+            <div class="status-value" style="color:${dirMeta.color};font-size:16px;">${dirMeta.label}</div>
+          </div>
+          <div style="display:flex;gap:26px;text-align:center;">
+            <div>
+              <div class="status-label">Baseline</div>
+              <div class="status-value" style="font-size:18px;">${progress.baselineScore ?? "—"}<span style="font-size:11px;color:#94A3B8;">/30</span></div>
+              <div style="font-size:9px;color:#94A3B8;">${fmtDate(progress.baselineDate)}</div>
+            </div>
+            <div>
+              <div class="status-label">Latest</div>
+              <div class="status-value" style="font-size:18px;color:${dirMeta.color};">${progress.latestScore ?? "—"}<span style="font-size:11px;color:#94A3B8;">/30</span></div>
+              <div style="font-size:9px;color:#94A3B8;">${fmtDate(progress.latestDate)}</div>
+            </div>
+            ${
+              progress.scoreDelta !== null
+                ? `<div>
+                    <div class="status-label">Change</div>
+                    <div class="status-value" style="font-size:18px;color:${deltaColor(progress.scoreDelta)};">${sign(progress.scoreDelta)}</div>
+                    <div style="font-size:9px;color:#94A3B8;">points</div>
+                  </div>`
+                : ""
+            }
+          </div>
+        </div>
+        <p style="margin:0 0 12px 0;color:#475569;">${esc(progress.summary)}</p>
+        ${
+          sectionDeltaRows
+            ? `<table><thead><tr><th>Domain</th><th>Baseline</th><th>Latest</th><th>Change</th></tr></thead><tbody>${sectionDeltaRows}</tbody></table>`
+            : `<div class="empty">Domain-by-domain change appears once a second assessment is completed.</div>`
+        }
+        ${
+          progress.gameProgress
+            ? `<p style="margin:12px 0 0 0;color:#475569;">Brain-game accuracy moved from <strong>${progress.gameProgress.firstAvg}%</strong> to <strong>${progress.gameProgress.recentAvg}%</strong> (<span style="color:${deltaColor(progress.gameProgress.delta)};font-weight:700;">${sign(progress.gameProgress.delta)} pts</span>).</p>`
+            : ""
+        }
+      </section>`
     : "";
 
   const perGameRows = gameStats.perGame
@@ -230,6 +301,8 @@ export function generatePatientReportHtml(input: PatientReportHtmlInput): string
     <div class="stat-card"><div class="value">${riskHistory.length}</div><div class="label">Risk Screenings</div></div>
     <div class="stat-card"><div class="value">${assessmentStats.averageScore ?? "—"}</div><div class="label">Avg. MMSE Score /30</div></div>
   </div>
+
+  ${progressSection}
 
   <section>
     <h2>Assessment History (MMSE)</h2>

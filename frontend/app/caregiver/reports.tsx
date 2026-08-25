@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, StatusBar, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Colors } from '../../src/constants/colors';
-import { ReportTimeframe, ReportType } from '../../src/types/caregiver.types';
+import { PatientDetail, ReportTimeframe, ReportType } from '../../src/types/caregiver.types';
+import { fetchPatients } from '../../src/services/caregiver/patientService';
 
 const PATIENTS = ['All Patients', 'Eleanor Vance', 'Robert Chen', 'Margaret Hughes', 'Arthur Pendelton'];
 const REPORT_TYPES: ReportType[] = ['Comprehensive Care Summary', 'Medication Adherence', 'Task Completion', 'Behavioral Incident Log'];
@@ -17,6 +18,44 @@ export default function ReportsScreen() {
   const [showTypeDD, setShowTypeDD]     = useState(false);
   const [generating, setGenerating]     = useState(false);
   const [generated, setGenerated]       = useState(false);
+
+  // ── Cognitive report (real patients) ───────────────────────────────────────
+  const [cogPatients, setCogPatients]       = useState<PatientDetail[]>([]);
+  const [cogLoading, setCogLoading]         = useState(true);
+  const [cogPatientId, setCogPatientId]     = useState<string | null>(null);
+  const [showCogDD, setShowCogDD]           = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const data = await fetchPatients();
+        if (mounted) setCogPatients(data);
+      } catch {
+        // Non-fatal — the card shows an empty state if patients can't load.
+      } finally {
+        if (mounted) setCogLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  const selectedCogPatient = cogPatients.find((p) => p.id === cogPatientId) ?? null;
+  // Cognitive data is keyed on the linked registered-patient account id, not
+  // the caregiver-side Patient document id.
+  const selectedCogIsLinked = !!selectedCogPatient?.registeredPatientId;
+  const canViewCognitiveReport = !!selectedCogPatient && selectedCogIsLinked;
+
+  const handleViewCognitiveReport = () => {
+    if (!selectedCogPatient || !selectedCogPatient.registeredPatientId) return;
+    router.push({
+      pathname: '/caregiver/patient-report',
+      params: {
+        patientId: selectedCogPatient.registeredPatientId,
+        patientName: selectedCogPatient.name,
+      },
+    } as any);
+  };
 
   const handleGenerate = async () => {
     setGenerating(true);
@@ -81,6 +120,93 @@ export default function ReportsScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        {/* Cognitive Report Card */}
+        <View style={{
+          backgroundColor: Colors.white, borderRadius: 24, padding: 20,
+          marginBottom: 16, borderWidth: 1, borderColor: Colors.borderLight,
+          shadowColor: '#000', shadowOffset: { width: 0, height: 3 },
+          shadowOpacity: 0.06, shadowRadius: 12, elevation: 2,
+        }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+            <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: '#DBEAFE', alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name="bar-chart-outline" size={18} color="#2563EB" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 16, fontWeight: '800', color: Colors.textPrimary }}>Cognitive Report</Text>
+              <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 1 }}>
+                Baseline screening, progress over time & brain-area breakdown
+              </Text>
+            </View>
+          </View>
+
+          {/* Patient picker */}
+          <Text style={{ fontSize: 11, fontWeight: '700', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginTop: 16, marginBottom: 8 }}>Patient</Text>
+          {cogLoading ? (
+            <View style={{ padding: 14, borderRadius: 14, backgroundColor: Colors.background, borderWidth: 1.5, borderColor: Colors.border, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <ActivityIndicator size="small" color={Colors.primary} />
+              <Text style={{ fontSize: 14, color: Colors.textMuted }}>Loading patients…</Text>
+            </View>
+          ) : cogPatients.length === 0 ? (
+            <View style={{ padding: 14, borderRadius: 14, backgroundColor: Colors.background, borderWidth: 1.5, borderColor: Colors.border }}>
+              <Text style={{ fontSize: 14, color: Colors.textMuted }}>No patients found. Add a patient first.</Text>
+            </View>
+          ) : (
+            <View style={{ position: 'relative', zIndex: 30 }}>
+              <TouchableOpacity
+                onPress={() => { setShowCogDD(!showCogDD); setShowPatientDD(false); setShowTypeDD(false); }}
+                style={{
+                  flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+                  padding: 14, borderRadius: 14, backgroundColor: Colors.background,
+                  borderWidth: 1.5, borderColor: showCogDD ? Colors.primary : Colors.border,
+                }}
+              >
+                <Text style={{ fontSize: 14, color: selectedCogPatient ? Colors.textPrimary : Colors.textMuted, fontWeight: '500' }}>
+                  {selectedCogPatient ? selectedCogPatient.name : 'Select a patient'}
+                </Text>
+                <Ionicons name={showCogDD ? 'chevron-up' : 'chevron-down'} size={16} color={Colors.textMuted} />
+              </TouchableOpacity>
+              <Dropdown
+                visible={showCogDD}
+                options={cogPatients.map((p) => p.name)}
+                onSelect={(name) => {
+                  const match = cogPatients.find((p) => p.name === name);
+                  if (match) setCogPatientId(match.id);
+                }}
+                onClose={() => setShowCogDD(false)}
+              />
+            </View>
+          )}
+
+          {/* Unlinked-patient notice */}
+          {selectedCogPatient && !selectedCogIsLinked && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, padding: 10, borderRadius: 12, backgroundColor: '#FFFBEB' }}>
+              <Ionicons name="information-circle-outline" size={15} color="#D97706" />
+              <Text style={{ fontSize: 12, color: '#B45309', flex: 1 }}>
+                {selectedCogPatient.name} isn't linked to a registered patient account yet, so there's no cognitive data to show. Link an account when editing the patient.
+              </Text>
+            </View>
+          )}
+
+          {/* View report button */}
+          <TouchableOpacity
+            onPress={handleViewCognitiveReport}
+            disabled={!canViewCognitiveReport}
+            style={{
+              height: 50, borderRadius: 16, marginTop: 16,
+              backgroundColor: canViewCognitiveReport ? Colors.primary : Colors.borderLight,
+              alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8,
+              shadowColor: canViewCognitiveReport ? Colors.primary : 'transparent',
+              shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8,
+              elevation: canViewCognitiveReport ? 4 : 0,
+            }}
+          >
+            <Ionicons name="analytics-outline" size={18} color={canViewCognitiveReport ? Colors.white : Colors.textMuted} />
+            <Text style={{ color: canViewCognitiveReport ? Colors.white : Colors.textMuted, fontWeight: '700', fontSize: 15 }}>
+              View Cognitive Report
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Generate Report Card */}
         <View style={{
           backgroundColor: Colors.white, borderRadius: 24, padding: 20,

@@ -45,6 +45,13 @@ export interface PatientDetail extends Patient {
   condition_notes: string;
   condition_description: string;
   routines: Routine[];
+  /**
+   * The linked registered patient's User account id, if this caregiver-side
+   * patient has been connected to a real patient account. Cognitive data
+   * (assessments, games, severity) is keyed on this id — NOT on `id`, which is
+   * the caregiver-side Patient document id. Null when no account is linked.
+   */
+  registeredPatientId?: string | null;
 }
 
 
