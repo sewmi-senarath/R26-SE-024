@@ -43,6 +43,9 @@ export default function WordPuzzleGame() {
   const [phase, setPhase] = useState<Phase>('instruction');
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
   const [userAnswer, setUserAnswer] = useState('');
+  // Letter-select input (medium & hard): ordered indices of the scrambled
+  // tiles the user has tapped so far. The answer is built from these taps.
+  const [selectedTiles, setSelectedTiles] = useState<number[]>([]);
   const [score, setScore] = useState(0);
   const [startTime, setStartTime] = useState(0);
   const [result, setResult] = useState<GameSessionResult | null>(null);
@@ -81,6 +84,10 @@ export default function WordPuzzleGame() {
     onExpire: () => handleNextWord(score),
     autoStart: phase === 'playing' && !revealedAnswer,
   });
+
+  // Medium and hard let the user tap letters to build the word instead of
+  // (or in addition to) typing it out on the keyboard.
+  const enableLetterSelect = difficulty === 'medium' || difficulty === 'hard';
 
   const currentWord = config.words[currentWordIndex];
   const scrambledWord = useMemo(
@@ -125,6 +132,7 @@ export default function WordPuzzleGame() {
       playSound('click');
       setCurrentWordIndex(i => i + 1);
       setUserAnswer('');
+      setSelectedTiles([]);
       setFeedback(null);
       setHintLevel(0);
       setRevealedAnswer(false);
@@ -147,6 +155,7 @@ export default function WordPuzzleGame() {
     playSound('click');
     setRevealedAnswer(true);
     setFeedback(null);
+    setSelectedTiles([]);
     setUserAnswer(currentWord.word);
     Speech.speak(`The answer is ${currentWord.word}.`);
   };
@@ -154,6 +163,38 @@ export default function WordPuzzleGame() {
   const handleSkipWord = () => {
     playSound('click');
     handleNextWord(score);
+  };
+
+  // Tapping a scrambled tile appends its letter to the answer and marks that
+  // tile as used, so each letter can only be picked once.
+  const handleTapLetter = (index: number) => {
+    if (feedback === 'correct' || revealedAnswer) return;
+    if (selectedTiles.includes(index)) return;
+
+    playSound('click');
+    const next = [...selectedTiles, index];
+    setSelectedTiles(next);
+    setUserAnswer(next.map(i => scrambledWord[i]).join(''));
+    if (feedback === 'incorrect') setFeedback(null);
+  };
+
+  const handleBackspaceLetter = () => {
+    if (feedback === 'correct' || revealedAnswer || selectedTiles.length === 0) return;
+
+    playSound('click');
+    const next = selectedTiles.slice(0, -1);
+    setSelectedTiles(next);
+    setUserAnswer(next.map(i => scrambledWord[i]).join(''));
+    if (feedback === 'incorrect') setFeedback(null);
+  };
+
+  const handleClearLetters = () => {
+    if (feedback === 'correct' || revealedAnswer || selectedTiles.length === 0) return;
+
+    playSound('click');
+    setSelectedTiles([]);
+    setUserAnswer('');
+    if (feedback === 'incorrect') setFeedback(null);
   };
 
   const finishGame = (finalScore = score) => {
@@ -186,6 +227,7 @@ export default function WordPuzzleGame() {
     setPhase('instruction');
     setCurrentWordIndex(0);
     setUserAnswer('');
+    setSelectedTiles([]);
     setScore(0);
     setResult(null);
     setProgress(null);
@@ -206,7 +248,7 @@ export default function WordPuzzleGame() {
         difficulty={difficulty}
         steps={[
           { icon: '🔤', text: `Unscramble ${config.wordLength}-letter words` },
-          { icon: '🔀', text: config.scrambled ? 'Use the scrambled letters, visual clue, and hints' : 'Use the visual clue and hints to type the word' },
+          { icon: '🔀', text: enableLetterSelect ? 'Tap the letter tiles to build the word' : 'Use the visual clue and hints to type the word' },
           { icon: '💡', text: 'Ask for extra hints when you need help' },
           { icon: '✅', text: 'Reveal the answer or skip any word without losing your progress' },
           { icon: '⏱️', text: config.timeLimitSeconds ? `${config.timeLimitSeconds} seconds per word` : 'No time limit' },
@@ -219,6 +261,7 @@ export default function WordPuzzleGame() {
           setStartTime(Date.now());
           setCurrentWordIndex(0);
           setUserAnswer('');
+          setSelectedTiles([]);
           setFeedback(null);
           setHintLevel(0);
           setRevealedAnswer(false);
@@ -358,20 +401,44 @@ export default function WordPuzzleGame() {
           )}
 
           {/* Scrambled/hint display */}
-          {config.scrambled ? (
+          {enableLetterSelect ? (
             <View className="items-center gap-4">
-              <Text className="text-xs text-gray-400 uppercase tracking-wide">Unscramble these letters</Text>
+              <Text className="text-xs text-gray-400 uppercase tracking-wide">
+                {config.scrambled ? 'Tap the letters to unscramble the word' : 'Tap the letters to build the word'}
+              </Text>
               <View className="flex-row flex-wrap justify-center gap-3">
-                {scrambledWord.split('').map((letter, i) => (
-                  <Animated.View
-                    key={`${currentWord?.id}-${i}`}
-                    entering={ZoomIn.delay(i * 60).duration(350).springify().damping(12)}
-                    // increased size for easier tapping/reading
-                    style={{ width: 72, height: 72, backgroundColor: '#fff', borderRadius: 18, borderWidth: 2, borderColor: '#e5e7eb', alignItems: 'center', justifyContent: 'center' }}
-                  >
-                    <Text style={{ fontSize: 28, fontWeight: '700', color: '#1f2937' }}>{letter}</Text>
-                  </Animated.View>
-                ))}
+                {scrambledWord.split('').map((letter, i) => {
+                  const used = selectedTiles.includes(i);
+                  const disabled = used || feedback === 'correct' || revealedAnswer;
+                  return (
+                    <Animated.View
+                      key={`${currentWord?.id}-${i}`}
+                      entering={ZoomIn.delay(i * 60).duration(350).springify().damping(12)}
+                    >
+                      <TouchableOpacity
+                        onPress={() => handleTapLetter(i)}
+                        disabled={disabled}
+                        activeOpacity={0.7}
+                        // increased size for easier tapping/reading
+                        style={{
+                          width: 72,
+                          height: 72,
+                          backgroundColor: used ? '#eef2ff' : '#fff',
+                          borderRadius: 18,
+                          borderWidth: 2,
+                          borderColor: used ? '#c7d2fe' : '#e5e7eb',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          opacity: used ? 0.5 : 1,
+                        }}
+                      >
+                        <Text style={{ fontSize: 28, fontWeight: '700', color: used ? '#a5b4fc' : '#1f2937' }}>
+                          {letter}
+                        </Text>
+                      </TouchableOpacity>
+                    </Animated.View>
+                  );
+                })}
               </View>
             </View>
           ) : (
@@ -391,12 +458,14 @@ export default function WordPuzzleGame() {
               <TextInput
                 value={userAnswer}
                 onChangeText={setUserAnswer}
-                placeholder="Type your answer..."
+                placeholder={enableLetterSelect ? 'Tap the letters below…' : 'Type your answer...'}
                 placeholderTextColor="#9ca3af"
                 returnKeyType="done"
                 onSubmitEditing={handleSubmit}
-                // keep editable unless the user already got it correct
-                editable={feedback !== 'correct' && !revealedAnswer}
+                // When letter-select is on, the answer is built by tapping tiles,
+                // so the box is a read-only display. Otherwise keep it editable
+                // unless the user already got it correct.
+                editable={feedback !== 'correct' && !revealedAnswer && !enableLetterSelect}
                 autoCapitalize="none"
                 autoCorrect={false}
                 maxLength={config.wordLength + 4}
@@ -415,9 +484,60 @@ export default function WordPuzzleGame() {
                   fontSize: 20,
                   fontWeight: '700',
                   color: '#1f2937',
+                  textAlign: enableLetterSelect ? 'center' : 'left',
+                  letterSpacing: enableLetterSelect ? 4 : 0,
                 }}
               />
             </Animated.View>
+
+            {/* Delete / clear controls for the tap-to-type input */}
+            {enableLetterSelect && !revealedAnswer && (
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <TouchableOpacity
+                  onPress={handleBackspaceLetter}
+                  disabled={selectedTiles.length === 0 || feedback === 'correct'}
+                  style={{
+                    flex: 1,
+                    paddingVertical: 12,
+                    borderRadius: 14,
+                    alignItems: 'center',
+                    backgroundColor: selectedTiles.length > 0 && feedback !== 'correct' ? '#fee2e2' : '#f3f4f6',
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      fontWeight: '700',
+                      color: selectedTiles.length > 0 && feedback !== 'correct' ? '#b91c1c' : '#9ca3af',
+                    }}
+                  >
+                    ⌫ Delete
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={handleClearLetters}
+                  disabled={selectedTiles.length === 0 || feedback === 'correct'}
+                  style={{
+                    flex: 1,
+                    paddingVertical: 12,
+                    borderRadius: 14,
+                    alignItems: 'center',
+                    backgroundColor: selectedTiles.length > 0 && feedback !== 'correct' ? '#f3f4f6' : '#f9fafb',
+                  }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      fontWeight: '700',
+                      color: selectedTiles.length > 0 && feedback !== 'correct' ? '#374151' : '#9ca3af',
+                    }}
+                  >
+                    Clear
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
             {/* Feedback */}
             {feedback && (
