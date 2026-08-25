@@ -46,12 +46,10 @@ export default function PatientRegistration() {
 
   const [step3Data, setStep3Data] = useState<Step3Data>({
     favoritePhotos: [] as string[],
-    favoritePlaces: "",
-    favoritePlacesText: "",
-    festivalsCelebrated: "",
+    favoritePlaces: [] as string[],
+    festivalsCelebrated: [] as string[],
     foodsPreferred: [] as FoodItem[],
-    preferredSports: "",
-    preferredSportsText: "",
+    preferredSports: [] as string[],
     languagesPreferred: "",
   });
 
@@ -132,11 +130,9 @@ export default function PatientRegistration() {
           // Step 3
           favoritePhotos: step3Data.favoritePhotos,
           favoritePlaces: step3Data.favoritePlaces,
-          favoritePlacesText: step3Data.favoritePlacesText,
           festivalsCelebrated: step3Data.festivalsCelebrated,
           foodsPreferred: step3Data.foodsPreferred,
           preferredSports: step3Data.preferredSports,
-          preferredSportsText: step3Data.preferredSportsText,
           languagesPreferred: step3Data.languagesPreferred,
         },
       );

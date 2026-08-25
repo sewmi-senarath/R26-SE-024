@@ -22,26 +22,60 @@ function scoreAnswer(question, answer, session) {
     }
 
     case "text_input": {
-      const text = normalize(answer);
       const expected = (question.expectedAnswers || []).map(normalize);
-      return expected.includes(text) ? question.maxScore : 0;
+
+      // Fixed-answer text questions: exact (normalised) match.
+      if (expected.length > 0) {
+        return expected.includes(normalize(answer)) ? question.maxScore : 0;
+      }
+
+      // Free-form writing (MMSE "write a sentence"): a point is awarded for a
+      // sensible attempt containing a subject and a verb. We can't parse
+      // grammar reliably, so we approximate with "at least two word-like
+      // tokens". Guard against non-string answers (e.g. a { skipped:true } object).
+      if (typeof answer !== "string") return 0;
+      const tokens = answer.trim().split(/\s+/).filter((t) => /[a-z0-9]/i.test(t));
+      return tokens.length >= 2 ? question.maxScore : 0;
     }
 
     case "word_recall_display":
     case "word_recall_input": {
-      const recalled = Array.isArray(answer) ? answer.map(normalize) : [];
-      const target = (question.words?.length ? question.words : session.registrationWords || []).map(normalize);
-      const correct = recalled.filter((word) => target.includes(word)).length;
+      // Dedupe recalled words so repeating the same correct word can't earn it
+      // twice, and only count each target word once.
+      const recalled = Array.isArray(answer)
+        ? [...new Set(answer.map(normalize))].filter(Boolean)
+        : [];
+      const target = new Set(
+        (question.words?.length ? question.words : session.registrationWords || []).map(normalize)
+      );
+      const correct = recalled.filter((word) => target.has(word)).length;
       return Math.min(correct, question.maxScore);
     }
 
     case "serial_subtraction": {
+      // Standard MMSE scoring uses carry-forward: each subtraction is judged
+      // against the patient's OWN previous answer, not the ideal sequence. So a
+      // single arithmetic slip early on doesn't zero out every later step as
+      // long as the patient keeps subtracting 7 correctly from their own number.
       const entered = Array.isArray(answer) ? answer.map((x) => String(x).trim()) : [];
-      const expected = question.expectedAnswers || [];
+      const start = 100;
+      const step = 7;
+      const steps = (question.expectedAnswers || []).length || 5;
+
       let points = 0;
-      entered.forEach((value, i) => {
-        if (value === expected[i]) points += 1;
-      });
+      let base = start;
+      for (let i = 0; i < steps; i += 1) {
+        const expectedVal = base - step;
+        const raw = entered[i];
+        const num = Number(raw);
+        const hasValue = raw !== undefined && raw !== "" && Number.isFinite(num);
+
+        if (hasValue && num === expectedVal) points += 1;
+
+        // Carry forward from the patient's own answer; if a step is blank, fall
+        // back to the ideal value so one gap doesn't cascade into later steps.
+        base = hasValue ? num : expectedVal;
+      }
       return points;
     }
 
@@ -66,6 +100,7 @@ function computeSectionScores(questions, answers, session) {
     Orientation: 0,
     Registration: 0,
     Attention: 0,
+    Recall: 0,
     Language: 0,
   };
 

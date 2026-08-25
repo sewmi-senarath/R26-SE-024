@@ -1,9 +1,8 @@
-import { RiskGauge } from "@/src/components/patient/cognitive/components/risk-screener/RiskGauge";
 import { BRAIN_AREA_BY_SECTION } from "@/src/constants/brainAreas";
 import { usePatientReport } from "@/src/hooks/usePatientReport";
-import { generatePatientReportHtml } from "@/src/utils/generatePatientReportHtml";
 import { SeverityLevel } from "@/src/types/dementia.types";
 import { SectionName } from "@/src/types/games.types";
+import { generatePatientReportHtml } from "@/src/utils/generatePatientReportHtml";
 import { Ionicons } from "@expo/vector-icons";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
@@ -22,38 +21,47 @@ import {
 import { AssessmentTrendChart } from "./AssessmentTrendChart";
 import { BrainAreaRadar, RadarDatum } from "./BrainAreaRadar";
 import { GamePerformanceBreakdown } from "./GamePerformanceBreakdown";
+import { ProgressOverTime } from "./ProgressOverTime";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-const SEVERITY_META: Record<SeverityLevel, { label: string; color: string; bg: string }> = {
+const SEVERITY_META: Record<
+  SeverityLevel,
+  { label: string; color: string; bg: string }
+> = {
   none: { label: "No Impairment", color: "#16A34A", bg: "#F0FDF4" },
   mild: { label: "Mild Impairment", color: "#D97706", bg: "#FFFBEB" },
   moderate: { label: "Moderate Impairment", color: "#EA580C", bg: "#FFF7ED" },
   severe: { label: "Severe Impairment", color: "#DC2626", bg: "#FEF2F2" },
 };
 
-const SectionHeading: React.FC<{ title: string; subtitle?: string; icon: keyof typeof Ionicons.glyphMap }> = ({
-  title,
-  subtitle,
-  icon,
-}) => (
+const SectionHeading: React.FC<{
+  title: string;
+  subtitle?: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}> = ({ title, subtitle, icon }) => (
   <View className="flex-row items-center gap-2 mb-3 mt-2">
     <Ionicons name={icon} size={16} color="#3b82f6" />
     <View>
       <Text className="text-sm font-bold text-gray-800">{title}</Text>
-      {subtitle ? <Text className="text-[11px] text-gray-400">{subtitle}</Text> : null}
+      {subtitle ? (
+        <Text className="text-[11px] text-gray-400">{subtitle}</Text>
+      ) : null}
     </View>
   </View>
 );
 
-const StatCard: React.FC<{ label: string; value: string; icon: keyof typeof Ionicons.glyphMap; color: string }> = ({
-  label,
-  value,
-  icon,
-  color,
-}) => (
+const StatCard: React.FC<{
+  label: string;
+  value: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  color: string;
+}> = ({ label, value, icon, color }) => (
   <View className="flex-1 bg-white rounded-2xl border border-gray-100 p-3.5 items-start">
-    <View className="w-8 h-8 rounded-lg items-center justify-center mb-2" style={{ backgroundColor: color + "18" }}>
+    <View
+      className="w-8 h-8 rounded-lg items-center justify-center mb-2"
+      style={{ backgroundColor: color + "18" }}
+    >
       <Ionicons name={icon} size={15} color={color} />
     </View>
     <Text className="text-lg font-extrabold text-gray-900">{value}</Text>
@@ -61,11 +69,26 @@ const StatCard: React.FC<{ label: string; value: string; icon: keyof typeof Ioni
   </View>
 );
 
-const TREND_META: Record<string, { label: string; icon: keyof typeof Ionicons.glyphMap; color: string }> = {
-  improving: { label: "Improving", icon: "trending-up-outline", color: "#16A34A" },
-  declining: { label: "Declining", icon: "trending-down-outline", color: "#DC2626" },
+const TREND_META: Record<
+  string,
+  { label: string; icon: keyof typeof Ionicons.glyphMap; color: string }
+> = {
+  improving: {
+    label: "Improving",
+    icon: "trending-up-outline",
+    color: "#16A34A",
+  },
+  declining: {
+    label: "Declining",
+    icon: "trending-down-outline",
+    color: "#DC2626",
+  },
   stable: { label: "Stable", icon: "remove-outline", color: "#64748B" },
-  "insufficient-data": { label: "Not enough data yet", icon: "help-outline", color: "#94A3B8" },
+  "insufficient-data": {
+    label: "Not enough data yet",
+    icon: "help-outline",
+    color: "#94A3B8",
+  },
 };
 
 interface PatientReportViewProps {
@@ -73,7 +96,10 @@ interface PatientReportViewProps {
   patientName?: string;
 }
 
-export const PatientReportView: React.FC<PatientReportViewProps> = ({ patientId, patientName }) => {
+export const PatientReportView: React.FC<PatientReportViewProps> = ({
+  patientId,
+  patientName,
+}) => {
   const {
     loading,
     error,
@@ -83,6 +109,7 @@ export const PatientReportView: React.FC<PatientReportViewProps> = ({ patientId,
     assessmentStats,
     gameStats,
     riskFactorFrequency,
+    progress,
     latestSeverityPrediction,
     latestRiskScreening,
     reload,
@@ -108,6 +135,7 @@ export const PatientReportView: React.FC<PatientReportViewProps> = ({ patientId,
         severityHistory,
         riskHistory,
         riskFactorFrequency,
+        progress,
         latestSeverityPrediction,
         latestRiskScreening,
       });
@@ -122,21 +150,29 @@ export const PatientReportView: React.FC<PatientReportViewProps> = ({ patientId,
       if (canShare) {
         await Sharing.shareAsync(uri, {
           mimeType: "application/pdf",
-          dialogTitle: patientName ? `${patientName}'s Cognitive Report` : "Cognitive Report",
+          dialogTitle: patientName
+            ? `${patientName}'s Cognitive Report`
+            : "Cognitive Report",
           UTI: "com.adobe.pdf",
         });
       } else {
         Alert.alert("Report saved", `PDF saved to:\n${uri}`);
       }
     } catch (e: any) {
-      Alert.alert("Couldn't generate report", e?.message || "Something went wrong. Please try again.");
+      Alert.alert(
+        "Couldn't generate report",
+        e?.message || "Something went wrong. Please try again.",
+      );
     } finally {
       setDownloading(false);
     }
   };
 
   const handleSend = () => {
-    Alert.alert("Send Report", "Sending reports directly to family members is coming soon.");
+    Alert.alert(
+      "Send Report",
+      "Sending reports directly to family members is coming soon.",
+    );
   };
 
   if (loading) {
@@ -162,30 +198,50 @@ export const PatientReportView: React.FC<PatientReportViewProps> = ({ patientId,
   // Merge assessment-derived and game-derived section performance into one
   // "brain area profile" — averaged when both sources are available so the
   // radar reflects the fullest picture of function in that domain.
-  const sections: SectionName[] = ["Orientation", "Registration", "Attention", "Recall", "Language"];
+  const sections: SectionName[] = [
+    "Orientation",
+    "Registration",
+    "Attention",
+    "Recall",
+    "Language",
+  ];
   const radarData: RadarDatum[] = sections.map((section) => {
-    const fromAssessment = assessmentStats.sectionAverages[section]?.avgPercent ?? null;
-    const gameEntry = gameStats.brainAreaPerformance.find((b) => b.section === section);
+    const fromAssessment =
+      assessmentStats.sectionAverages[section]?.avgPercent ?? null;
+    const gameEntry = gameStats.brainAreaPerformance.find(
+      (b) => b.section === section,
+    );
     const fromGames = gameEntry?.avgPercent ?? null;
     let percent = 0;
-    if (fromAssessment !== null && fromGames !== null) percent = Math.round((fromAssessment + fromGames) / 2);
+    if (fromAssessment !== null && fromGames !== null)
+      percent = Math.round((fromAssessment + fromGames) / 2);
     else if (fromAssessment !== null) percent = fromAssessment;
     else if (fromGames !== null) percent = fromGames;
     return { section, percent };
   });
 
-  const latestSeverity = latestSeverityPrediction?.severity ?? assessmentStats.latestSeverity ?? null;
+  const latestSeverity =
+    latestSeverityPrediction?.severity ??
+    assessmentStats.latestSeverity ??
+    null;
   const severityMeta = latestSeverity ? SEVERITY_META[latestSeverity] : null;
 
   return (
     <ScrollView
       showsVerticalScrollIndicator={false}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#3b82f6" />}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          tintColor="#3b82f6"
+        />
+      }
       contentContainerStyle={{ paddingBottom: 60 }}
     >
       {patientName && (
         <Text className="text-xs text-gray-400 mb-3">
-          Cognitive report for <Text className="font-semibold text-gray-600">{patientName}</Text>
+          Cognitive report for{" "}
+          <Text className="font-semibold text-gray-600">{patientName}</Text>
         </Text>
       )}
 
@@ -220,9 +276,24 @@ export const PatientReportView: React.FC<PatientReportViewProps> = ({ patientId,
 
       {/* ── Quick stats row ─────────────────────────────────────────── */}
       <View className="flex-row gap-2.5 mb-2">
-        <StatCard label="Assessments" value={String(assessmentStats.count)} icon="clipboard-outline" color="#3B82F6" />
-        <StatCard label="Games Played" value={String(gameStats.totalPlays)} icon="game-controller-outline" color="#8B5CF6" />
-        <StatCard label="Screenings" value={String(riskHistory.length)} icon="pulse-outline" color="#F59E0B" />
+        <StatCard
+          label="Assessments"
+          value={String(assessmentStats.count)}
+          icon="clipboard-outline"
+          color="#3B82F6"
+        />
+        <StatCard
+          label="Games Played"
+          value={String(gameStats.totalPlays)}
+          icon="game-controller-outline"
+          color="#8B5CF6"
+        />
+        <StatCard
+          label="Screenings"
+          value={String(riskHistory.length)}
+          icon="pulse-outline"
+          color="#F59E0B"
+        />
       </View>
 
       {/* ── Current status banner ───────────────────────────────────── */}
@@ -232,10 +303,15 @@ export const PatientReportView: React.FC<PatientReportViewProps> = ({ patientId,
           style={{ backgroundColor: severityMeta.bg }}
         >
           <View className="flex-1">
-            <Text className="text-[10px] font-bold uppercase tracking-widest" style={{ color: severityMeta.color }}>
+            <Text
+              className="text-[10px] font-bold uppercase tracking-widest"
+              style={{ color: severityMeta.color }}
+            >
               Current Cognitive Status
             </Text>
-            <Text className="text-base font-extrabold text-gray-900">{severityMeta.label}</Text>
+            <Text className="text-base font-extrabold text-gray-900">
+              {severityMeta.label}
+            </Text>
             {assessmentStats.latestScore !== null && (
               <Text className="text-xs text-gray-500 mt-0.5">
                 Latest MMSE score: {assessmentStats.latestScore}/30
@@ -244,21 +320,43 @@ export const PatientReportView: React.FC<PatientReportViewProps> = ({ patientId,
           </View>
           <View className="flex-row items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white/70">
             <Ionicons name={trend.icon} size={13} color={trend.color} />
-            <Text className="text-[11px] font-semibold" style={{ color: trend.color }}>
+            <Text
+              className="text-[11px] font-semibold"
+              style={{ color: trend.color }}
+            >
               {trend.label}
             </Text>
           </View>
         </View>
       )}
 
+      {/* ── Initial screening & progress ────────────────────────────── */}
+      <View className="bg-white rounded-2xl border border-gray-100 p-4 mb-4 mt-2">
+        <SectionHeading
+          title="Initial Screening & Progress"
+          subtitle="Baseline (first assessment) vs. where things stand now"
+          icon="flag-outline"
+        />
+        <ProgressOverTime progress={progress} />
+      </View>
+
       {/* ── Assessment trend ────────────────────────────────────────── */}
       <View className="bg-white rounded-2xl border border-gray-100 p-4 mb-4">
-        <SectionHeading title="Assessment Score Over Time" subtitle="MMSE total score (0-30) per completed assessment" icon="stats-chart-outline" />
-        <AssessmentTrendChart assessments={assessments} width={SCREEN_WIDTH - 24 * 2 - 32} />
+        <SectionHeading
+          title="Assessment Score Over Time"
+          subtitle="MMSE total score (0-30) per completed assessment"
+          icon="stats-chart-outline"
+        />
+        <AssessmentTrendChart
+          assessments={assessments}
+          width={SCREEN_WIDTH - 24 * 2 - 32}
+        />
         {assessmentStats.count > 0 && (
           <View className="flex-row justify-between mt-2 pt-3 border-t border-gray-50">
             <Text className="text-xs text-gray-500">Average score</Text>
-            <Text className="text-xs font-bold text-gray-700">{assessmentStats.averageScore}/30</Text>
+            <Text className="text-xs font-bold text-gray-700">
+              {assessmentStats.averageScore}/30
+            </Text>
           </View>
         )}
       </View>
@@ -270,15 +368,22 @@ export const PatientReportView: React.FC<PatientReportViewProps> = ({ patientId,
           subtitle="Combines assessment sections + matching brain games"
           icon="analytics-outline"
         />
-        <BrainAreaRadar data={radarData} size={Math.min(SCREEN_WIDTH - 80, 280)} />
+        <BrainAreaRadar
+          data={radarData}
+          size={Math.min(SCREEN_WIDTH - 80, 280)}
+        />
         <View className="mt-3 gap-1.5">
           {sections.map((s) => {
             const info = BRAIN_AREA_BY_SECTION[s];
             return (
               <View key={s} className="flex-row items-center gap-2">
-                <View className="w-2 h-2 rounded-full" style={{ backgroundColor: info.color }} />
+                <View
+                  className="w-2 h-2 rounded-full"
+                  style={{ backgroundColor: info.color }}
+                />
                 <Text className="text-[11px] text-gray-500 flex-1">
-                  <Text className="font-semibold text-gray-700">{s}</Text> — {info.shortArea}
+                  <Text className="font-semibold text-gray-700">{s}</Text> —{" "}
+                  {info.shortArea}
                 </Text>
               </View>
             );
@@ -286,48 +391,22 @@ export const PatientReportView: React.FC<PatientReportViewProps> = ({ patientId,
         </View>
       </View>
 
-      {/* ── Behavioral risk screening ───────────────────────────────── */}
-      <View className="bg-white rounded-2xl border border-gray-100 p-4 mb-4">
-        <SectionHeading title="Behavioral Risk Screening" subtitle="No-test caregiver checklist, over time" icon="chatbox-ellipses-outline" />
-        {latestRiskScreening ? (
-          <View className="items-center mb-3">
-            <RiskGauge probability={latestRiskScreening.riskProbability} level={latestRiskScreening.riskLevel} size={140} />
-            <Text className="text-[11px] text-gray-400 mt-2">
-              Last screened {new Date(latestRiskScreening.createdAt).toLocaleDateString()}
-            </Text>
-          </View>
-        ) : (
-          <Text className="text-sm text-gray-400 text-center py-4">No screenings completed yet.</Text>
-        )}
-
-        {riskFactorFrequency.length > 0 && (
-          <View className="mt-2 pt-3 border-t border-gray-50">
-            <Text className="text-[11px] font-bold uppercase tracking-widest text-gray-400 mb-2">
-              Most Reported Factors ({riskHistory.length} screening{riskHistory.length === 1 ? "" : "s"})
-            </Text>
-            {riskFactorFrequency.slice(0, 5).map((f) => (
-              <View key={f.key} className="flex-row items-center justify-between py-1.5">
-                <Text className="text-xs text-gray-600">{f.label}</Text>
-                <Text className="text-xs font-semibold text-gray-500">
-                  {f.count}/{riskHistory.length} times
-                </Text>
-              </View>
-            ))}
-          </View>
-        )}
-      </View>
-
       {/* ── Game performance breakdown ──────────────────────────────── */}
       <View className="bg-white rounded-2xl border border-gray-100 p-4 mb-4">
-        <SectionHeading title="Brain Games Breakdown" subtitle="Per-game performance and target brain area" icon="game-controller-outline" />
+        <SectionHeading
+          title="Brain Games Breakdown"
+          subtitle="Per-game performance and target brain area"
+          icon="game-controller-outline"
+        />
         <GamePerformanceBreakdown perGame={gameStats.perGame} />
       </View>
 
       {/* ── Methodology footnote ────────────────────────────────────── */}
       <Text className="text-[10px] text-gray-300 text-center px-6 leading-4">
-        Brain area associations reflect standard MMSE domain groupings and are provided for general context, not a
-        clinical diagnosis. Severity/risk figures come from MemoCare's ML models — see the assessment and screening
-        screens for full details.
+        Brain area associations reflect standard MMSE domain groupings and are
+        provided for general context, not a clinical diagnosis. Severity/risk
+        figures come from MemoCare's ML models — see the assessment and
+        screening screens for full details.
       </Text>
     </ScrollView>
   );

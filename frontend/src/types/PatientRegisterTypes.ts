@@ -31,12 +31,10 @@ export interface Step2Data {
 
 export interface Step3Data {
   favoritePhotos: string[];
-  favoritePlaces: string;
-  favoritePlacesText: string;
-  festivalsCelebrated: string;
+  favoritePlaces: string[];
+  festivalsCelebrated: string[];
   foodsPreferred: FoodItem[];
-  preferredSports: string;
-  preferredSportsText: string;
+  preferredSports: string[];
   languagesPreferred: string;
 }
 
@@ -75,11 +73,9 @@ export interface Step2Data {
 
 export interface Step3Data {
   favoritePhotos: string[];
-  favoritePlaces: string;
-  favoritePlacesText: string;
-  festivalsCelebrated: string;
+  favoritePlaces: string[];
+  festivalsCelebrated: string[];
   foodsPreferred: FoodItem[];
-  preferredSports: string;
-  preferredSportsText: string;
+  preferredSports: string[];
   languagesPreferred: string;
 }

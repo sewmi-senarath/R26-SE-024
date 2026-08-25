@@ -5,6 +5,7 @@ import { InstructionActionRenderer } from "@/src/components/patient/cognitive/co
 import { MCQRenderer } from "@/src/components/patient/cognitive/components/screening-test/renderers/mcqRenderer";
 import { PhraseRepeatRenderer } from "@/src/components/patient/cognitive/components/screening-test/renderers/phraseRepeatRenderer";
 import { SerialSubtractionRenderer } from "@/src/components/patient/cognitive/components/screening-test/renderers/serialSubtractionRenderer";
+import { TextInputRenderer } from "@/src/components/patient/cognitive/components/screening-test/renderers/textInputRenderer";
 import { TimerBar } from "@/src/components/patient/cognitive/components/screening-test/renderers/timeBar";
 import { WordRecallRenderer } from "@/src/components/patient/cognitive/components/screening-test/renderers/wordRecallRenderer";
 import { useAssessmentSession } from "@/src/hooks/useAssessmentSession";
@@ -123,7 +124,11 @@ export default function QuestionScreen() {
         />
       )}
 
-      <ScrollView className="flex-1" contentContainerClassName="pb-8">
+      <ScrollView
+        className="flex-1"
+        contentContainerClassName="pb-8"
+        keyboardShouldPersistTaps="handled"
+      >
         <View className="px-6 py-6">
           <Text className="text-xs font-semibold text-blue-500 uppercase tracking-widest mb-2">
             {currentQuestion.section}
@@ -209,6 +214,8 @@ function renderQuestion(
       );
     case "phrase_repeat":
       return <PhraseRepeatRenderer question={question} onAnswer={onAnswer} />;
+    case "text_input":
+      return <TextInputRenderer question={question} onAnswer={onAnswer} />;
     case "instruction_action":
       return (
         <InstructionActionRenderer question={question} onAnswer={onAnswer} />

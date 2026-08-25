@@ -1,5 +1,5 @@
 import { FoodItem, Step3Data } from '@/src/types/PatientRegisterTypes';
-import { FAVORITE_PLACES, FAVORITE_SPORTS, LANGUAGES } from '@/src/constants/PatientFormConstants';
+import { LANGUAGES } from '@/src/constants/PatientFormConstants';
 import { getDurableImageUri } from '@/src/utils/photoUri';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -20,11 +20,7 @@ const resolveOpenValue = (
 ) => (typeof value === 'function' ? value(current) : value);
 
 export default function Step3Preferences({ data, onChange }: Step3Props) {
-    const [placesOpen, setPlacesOpen] = useState(false);
-    const [sportsOpen, setSportsOpen] = useState(false);
     const [languagesOpen, setLanguagesOpen] = useState(false);
-    const [placesItems, setPlacesItems] = useState(FAVORITE_PLACES);
-    const [sportsItems, setSportsItems] = useState(FAVORITE_SPORTS);
     const [languageItems, setLanguageItems] = useState(LANGUAGES);
 
     const handlePickFavoritePhoto = async () => {
@@ -74,6 +70,60 @@ export default function Step3Preferences({ data, onChange }: Step3Props) {
         });
     };
 
+    const handleAddFestival = () => {
+        onChange({ festivalsCelebrated: [...data.festivalsCelebrated, ''] });
+    };
+
+    const handleRemoveFestival = (index: number) => {
+        onChange({
+            festivalsCelebrated: data.festivalsCelebrated.filter((_, i) => i !== index),
+        });
+    };
+
+    const handleUpdateFestival = (index: number, name: string) => {
+        onChange({
+            festivalsCelebrated: data.festivalsCelebrated.map((festival, i) =>
+                i === index ? name : festival
+            ),
+        });
+    };
+
+    const handleAddPlace = () => {
+        onChange({ favoritePlaces: [...data.favoritePlaces, ''] });
+    };
+
+    const handleRemovePlace = (index: number) => {
+        onChange({
+            favoritePlaces: data.favoritePlaces.filter((_, i) => i !== index),
+        });
+    };
+
+    const handleUpdatePlace = (index: number, name: string) => {
+        onChange({
+            favoritePlaces: data.favoritePlaces.map((place, i) =>
+                i === index ? name : place
+            ),
+        });
+    };
+
+    const handleAddSport = () => {
+        onChange({ preferredSports: [...data.preferredSports, ''] });
+    };
+
+    const handleRemoveSport = (index: number) => {
+        onChange({
+            preferredSports: data.preferredSports.filter((_, i) => i !== index),
+        });
+    };
+
+    const handleUpdateSport = (index: number, name: string) => {
+        onChange({
+            preferredSports: data.preferredSports.map((sport, i) =>
+                i === index ? name : sport
+            ),
+        });
+    };
+
     return (
         <View className="gap-4">
             <View>
@@ -110,56 +160,89 @@ export default function Step3Preferences({ data, onChange }: Step3Props) {
             </View>
 
             {/* Favorite Places */}
-            <View className="z-[3000]">
-                <Text className="text-sm font-semibold text-gray-800 mb-2">Favorite Places</Text>
-                <View className="gap-2">
-                    <DropDownPicker
-                        open={placesOpen}
-                        value={data.favoritePlaces || null}
-                        items={placesItems}
-                        setOpen={(open) => {
-                            const nextOpen = resolveOpenValue(open, placesOpen);
-                            setPlacesOpen(nextOpen);
-                            if (nextOpen) {
-                                setSportsOpen(false);
-                                setLanguagesOpen(false);
-                            }
-                        }}
-                        setItems={setPlacesItems}
-                        setValue={(callback) => {
-                            const next = callback(data.favoritePlaces || null);
-                            onChange({ favoritePlaces: (next as string) || '' });
-                        }}
-                        placeholder="Select place"
-                        listMode="MODAL"
-                    />
-                    <View className="bg-white rounded-lg px-4 py-3 shadow-sm border border-gray-200">
-                        <TextInput
-                            className="text-gray-800"
-                            placeholder="Specify..."
-                            placeholderTextColor="#d1d5db"
-                            value={data.favoritePlacesText}
-                            onChangeText={(text) => onChange({ favoritePlacesText: text })}
-                        />
-                    </View>
+            <View>
+                <View className="flex-row justify-between items-center mb-2">
+                    <Text className="text-sm font-semibold text-gray-800">Favorite Places</Text>
+                    <TouchableOpacity
+                        onPress={handleAddPlace}
+                        className="bg-blue-100 rounded-full p-1"
+                    >
+                        <Ionicons name="add" size={20} color="#3b82f6" />
+                    </TouchableOpacity>
                 </View>
+
+                {data.favoritePlaces.map((place, index) => (
+                    <View key={index} className="flex-row gap-2 mb-2 items-center">
+                        <View className="flex-1 flex-row items-center bg-white rounded-lg px-4 py-3 shadow-sm border border-gray-200">
+                            <Ionicons name="location-outline" size={20} color="#9ca3af" />
+                            <TextInput
+                                className="flex-1 ml-2 text-gray-800"
+                                placeholder="e.g., Beach, Kandy"
+                                placeholderTextColor="#d1d5db"
+                                value={place}
+                                onChangeText={(text) => handleUpdatePlace(index, text)}
+                            />
+                        </View>
+                        <TouchableOpacity
+                            onPress={() => handleRemovePlace(index)}
+                            className="bg-red-100 rounded-lg p-2"
+                        >
+                            <Ionicons name="close" size={20} color="#ef4444" />
+                        </TouchableOpacity>
+                    </View>
+                ))}
+
+                {data.favoritePlaces.length === 0 && (
+                    <View className="bg-blue-50 rounded-lg p-3 border border-blue-200 mb-2">
+                        <Text className="text-sm text-blue-700 text-center">
+                            Add places you love
+                        </Text>
+                    </View>
+                )}
             </View>
 
             {/* Festivals Celebrated */}
             <View>
-                <Text className="text-sm font-semibold text-gray-800 mb-2">
-                    Festivals Celebrated
-                </Text>
-                <View className="flex-row items-center bg-white rounded-lg px-4 py-3 shadow-sm border border-gray-200">
-                    <Ionicons name="search" size={20} color="#9ca3af" />
-                    <TextInput
-                        className="flex-1 ml-2 text-gray-800"
-                        placeholder="Search festivals (e.g., Sinhala New Year)"
-                        placeholderTextColor="#d1d5db"
-                        value={data.festivalsCelebrated}
-                        onChangeText={(text) => onChange({ festivalsCelebrated: text })}
-                    />
+                <View className="flex-row justify-between items-center mb-2">
+                    <Text className="text-sm font-semibold text-gray-800">
+                        Festivals Celebrated
+                    </Text>
+                    <TouchableOpacity
+                        onPress={handleAddFestival}
+                        className="bg-blue-100 rounded-full p-1"
+                    >
+                        <Ionicons name="add" size={20} color="#3b82f6" />
+                    </TouchableOpacity>
                 </View>
+
+                {data.festivalsCelebrated.map((festival, index) => (
+                    <View key={index} className="flex-row gap-2 mb-2 items-center">
+                        <View className="flex-1 flex-row items-center bg-white rounded-lg px-4 py-3 shadow-sm border border-gray-200">
+                            <Ionicons name="sparkles-outline" size={20} color="#9ca3af" />
+                            <TextInput
+                                className="flex-1 ml-2 text-gray-800"
+                                placeholder="e.g., Sinhala New Year"
+                                placeholderTextColor="#d1d5db"
+                                value={festival}
+                                onChangeText={(text) => handleUpdateFestival(index, text)}
+                            />
+                        </View>
+                        <TouchableOpacity
+                            onPress={() => handleRemoveFestival(index)}
+                            className="bg-red-100 rounded-lg p-2"
+                        >
+                            <Ionicons name="close" size={20} color="#ef4444" />
+                        </TouchableOpacity>
+                    </View>
+                ))}
+
+                {data.festivalsCelebrated.length === 0 && (
+                    <View className="bg-blue-50 rounded-lg p-3 border border-blue-200 mb-2">
+                        <Text className="text-sm text-blue-700 text-center">
+                            Add festivals you celebrate
+                        </Text>
+                    </View>
+                )}
             </View>
 
             {/* Foods Preferred */}
@@ -202,39 +285,45 @@ export default function Step3Preferences({ data, onChange }: Step3Props) {
             </View>
 
             {/* Preferred Sports */}
-            <View className="z-[2000]">
-                <Text className="text-sm font-semibold text-gray-800 mb-2">Preferred Sports</Text>
-                <View className="gap-2">
-                    <DropDownPicker
-                        open={sportsOpen}
-                        value={data.preferredSports || null}
-                        items={sportsItems}
-                        setOpen={(open) => {
-                            const nextOpen = resolveOpenValue(open, sportsOpen);
-                            setSportsOpen(nextOpen);
-                            if (nextOpen) {
-                                setPlacesOpen(false);
-                                setLanguagesOpen(false);
-                            }
-                        }}
-                        setItems={setSportsItems}
-                        setValue={(callback) => {
-                            const next = callback(data.preferredSports || null);
-                            onChange({ preferredSports: (next as string) || '' });
-                        }}
-                        placeholder="Select sport"
-                        listMode="MODAL"
-                    />
-                    <View className="bg-white rounded-lg px-4 py-3 shadow-sm border border-gray-200">
-                        <TextInput
-                            className="text-gray-800"
-                            placeholder="Specify..."
-                            placeholderTextColor="#d1d5db"
-                            value={data.preferredSportsText}
-                            onChangeText={(text) => onChange({ preferredSportsText: text })}
-                        />
-                    </View>
+            <View>
+                <View className="flex-row justify-between items-center mb-2">
+                    <Text className="text-sm font-semibold text-gray-800">Preferred Sports</Text>
+                    <TouchableOpacity
+                        onPress={handleAddSport}
+                        className="bg-blue-100 rounded-full p-1"
+                    >
+                        <Ionicons name="add" size={20} color="#3b82f6" />
+                    </TouchableOpacity>
                 </View>
+
+                {data.preferredSports.map((sport, index) => (
+                    <View key={index} className="flex-row gap-2 mb-2 items-center">
+                        <View className="flex-1 flex-row items-center bg-white rounded-lg px-4 py-3 shadow-sm border border-gray-200">
+                            <Ionicons name="football-outline" size={20} color="#9ca3af" />
+                            <TextInput
+                                className="flex-1 ml-2 text-gray-800"
+                                placeholder="e.g., Cricket, Walking"
+                                placeholderTextColor="#d1d5db"
+                                value={sport}
+                                onChangeText={(text) => handleUpdateSport(index, text)}
+                            />
+                        </View>
+                        <TouchableOpacity
+                            onPress={() => handleRemoveSport(index)}
+                            className="bg-red-100 rounded-lg p-2"
+                        >
+                            <Ionicons name="close" size={20} color="#ef4444" />
+                        </TouchableOpacity>
+                    </View>
+                ))}
+
+                {data.preferredSports.length === 0 && (
+                    <View className="bg-blue-50 rounded-lg p-3 border border-blue-200 mb-2">
+                        <Text className="text-sm text-blue-700 text-center">
+                            Add sports you enjoy
+                        </Text>
+                    </View>
+                )}
             </View>
 
             {/* Languages Preferred */}
@@ -247,12 +336,7 @@ export default function Step3Preferences({ data, onChange }: Step3Props) {
                     value={data.languagesPreferred || null}
                     items={languageItems}
                     setOpen={(open) => {
-                        const nextOpen = resolveOpenValue(open, languagesOpen);
-                        setLanguagesOpen(nextOpen);
-                        if (nextOpen) {
-                            setPlacesOpen(false);
-                            setSportsOpen(false);
-                        }
+                        setLanguagesOpen(resolveOpenValue(open, languagesOpen));
                     }}
                     setItems={setLanguageItems}
                     setValue={(callback) => {
