@@ -1,82 +1,13 @@
-// const express = require('express');
-// const router  = express.Router();
-// const axios   = require('axios');
-
-// const ML_URL  = 'http://localhost:5001'; // caregiver Flask API
-
-// // ── POST /api/caregiver/insights/checkin ──────────────────────────────────
-// router.post('/checkin', async (req, res) => {
-//   try {
-//     const { caregiverId, ...formData } = req.body;
-
-//     if (!caregiverId) {
-//       return res.status(400).json({
-//         success: false,
-//         message: 'caregiverId is required',
-//       });
-//     }
-
-//     // Call Python ML API
-//     const mlResponse = await axios.post(`${ML_URL}/predict`, formData);
-//     const result     = mlResponse.data;
-
-//     if (!result.success) {
-//       return res.status(500).json({
-//         success: false,
-//         message: 'ML model prediction failed',
-//       });
-//     }
-
-//     // Return prediction result to frontend
-//     res.status(200).json({
-//       success: true,
-//       result: {
-//         stressLevel:  result.stressLevel,
-//         stressScore:  result.stressScore,
-//         confidence:   result.confidence,
-//         message:      result.message,
-//         tips:         result.tips,
-//         submittedAt:  result.submittedAt,
-//       },
-//     });
-
-//   } catch (error) {
-//     console.error('[Insight Route] Error:', error.message);
-
-//     // If Flask is not running
-//     if (error.code === 'ECONNREFUSED') {
-//       return res.status(503).json({
-//         success: false,
-//         message: 'ML service not running. Start Flask API first.',
-//       });
-//     }
-
-//     res.status(500).json({ success: false, message: error.message });
-//   }
-// });
-
-// // ── GET /api/caregiver/insights/latest/:caregiverId ───────────────────────
-// router.get('/latest/:caregiverId', async (req, res) => {
-//   try {
-//     // For now return null — add DB storage later
-//     res.status(200).json({ success: false, result: null });
-//   } catch (error) {
-//     res.status(500).json({ success: false, message: error.message });
-//   }
-// });
-
-// module.exports = router;
-
 const express = require('express');
 const router  = express.Router();
 const axios   = require('axios');
 const CheckIn = require('../../models/caregiver/CheckIn');
 const { calculateBurnoutRisk } = require('../../utils/burnoutCalculator');
-const { createNotification } = require('../../controllers/caregiver/notificationController');
+const { createNotification } = require('../../controllers/caregiver/Notificationcontroller');
 
 const ML_URL = 'http://localhost:5001';
 
-// ── POST /api/caregiver/insights/checkin ──────────────────────────────────
+// POST /api/caregiver/insights/checkin 
 router.post('/checkin', async (req, res) => {
   try {
     const { caregiverId, ...formData } = req.body;
@@ -157,8 +88,7 @@ router.post('/checkin', async (req, res) => {
         source: 'burnout',
       });
     } else if (result.stressLevel === 'High') {
-      // Only fires when the weekly trend ISN'T already High, so a single bad
-      // day doesn't also duplicate the weekly notification above.
+
       await createNotification({
         caregiverId,
         patientName: 'System',
@@ -215,7 +145,7 @@ router.post('/checkin', async (req, res) => {
   }
 });
 
-// ── GET /api/caregiver/insights/latest/:caregiverId ───────────────────────
+// GET /api/caregiver/insights/latest/:caregiverId
 router.get('/latest/:caregiverId', async (req, res) => {
   try {
     const { caregiverId } = req.params;
@@ -303,7 +233,7 @@ router.get('/history/:caregiverId', async (req, res) => {
   }
 });
 
-// ── Helper: build 7-day chart data ────────────────────────────────────────
+// Helper: build 7-day chart data 
 const buildWeeklyData = (checkIns) => {
   const days    = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const result  = days.map(d => ({
@@ -329,7 +259,7 @@ const buildWeeklyData = (checkIns) => {
   return monday;
 };
 
-// ── Helpers ────────────────────────────────────────────────────────────────
+// Helpers 
 const getStressMessage = (level) => ({
   Low:      'You are managing well today. Keep taking care of yourself!',
   Moderate: 'You have had a busy day. Watch your energy levels carefully.',

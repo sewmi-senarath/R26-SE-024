@@ -23,7 +23,7 @@ const severityConfig = {
   info:    { color: Colors.success, icon: 'checkmark-circle' as const },
 };
 
-// Small breathing icon blob, consistent with the rest of the notification UI
+
 const ToastBlob: React.FC<{ color: string; children: React.ReactNode }> = ({ color, children }) => {
   const scale = useSharedValue(1);
 

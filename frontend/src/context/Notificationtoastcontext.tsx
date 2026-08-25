@@ -3,7 +3,7 @@ import { getStoredRole } from '../api/authApi';
 import { fetchNotifications } from '../services/caregiver/Notificationservice';
 import { AppNotification } from '../types/caregiver.types';
 
-const POLL_INTERVAL_MS = 20000; // check for new notifications every 20 seconds
+const POLL_INTERVAL_MS = 20000; 
 
 interface NotificationToastContextValue {
   currentToast: AppNotification | null;
@@ -41,11 +41,7 @@ export const NotificationToastProvider: React.FC<{ children: React.ReactNode }> 
     try {
       const notifications = await fetchNotifications();
 
-      // On the very first poll of the session, mark everything already
-      // unread as "seen" without popping toasts for all of it at once —
-      // otherwise logging in with 5 old unread notifications would fire
-      // 5 toasts back-to-back. Only genuinely *new* notifications from here
-      // on will trigger a toast.
+
       if (isFirstPollRef.current) {
         notifications.forEach((n) => seenIdsRef.current.add(n.id));
         isFirstPollRef.current = false;
@@ -63,8 +59,7 @@ export const NotificationToastProvider: React.FC<{ children: React.ReactNode }> 
         if (!currentToast) showNext();
       }
     } catch (error) {
-      // Silent — a failed poll should never disrupt whatever screen the
-      // user is actually on. It'll just try again next interval.
+
     }
   };
 
@@ -73,7 +68,7 @@ export const NotificationToastProvider: React.FC<{ children: React.ReactNode }> 
 
     (async () => {
       const role = await getStoredRole();
-      if (role !== 'caregiver') return; // only caregivers have notifications right now
+      if (role !== 'caregiver') return; 
 
       await poll();
       interval = setInterval(poll, POLL_INTERVAL_MS);
@@ -82,7 +77,7 @@ export const NotificationToastProvider: React.FC<{ children: React.ReactNode }> 
     return () => {
       if (interval) clearInterval(interval);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, []);
 
   return (

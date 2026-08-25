@@ -9,7 +9,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Colors } from '../../../../constants/colors';
 import { CaregiverProfile } from '../../../../types/caregiver.types';
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// Types 
 interface EditProfileModalProps {
   visible: boolean;
   profile: CaregiverProfile;
@@ -28,7 +28,7 @@ interface FieldProps {
   icon: keyof typeof Ionicons.glyphMap;
 }
 
-// ── Field Component ───────────────────────────────────────────────────────────
+// Field Component 
 const Field: React.FC<FieldProps> = ({
   label, value, onChangeText,
   placeholder, keyboardType = 'default', icon,
@@ -62,7 +62,7 @@ const Field: React.FC<FieldProps> = ({
   </View>
 );
 
-// ── Component ─────────────────────────────────────────────────────────────────
+// Component
 export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   visible, profile, onClose, onSave,
 }) => {
@@ -90,9 +90,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
     .toUpperCase()
     .slice(0, 2);
 
-  // ── KEY FIX: Convert image to base64 ──────────────────────────────────────
-  // Blob URLs only work in browser session and can't be stored in MongoDB
-  // Base64 strings can be stored in MongoDB and loaded anywhere
+
   const convertToBase64 = async (uri: string): Promise<string> => {
     const response = await fetch(uri);
     const blob     = await response.blob();
@@ -104,7 +102,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
     });
   };
 
-  // ── Image Picker ───────────────────────────────────────────────────────────
+ 
   const handlePickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
@@ -115,18 +113,18 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
       mediaTypes:    ['images'],
       allowsEditing: true,
       aspect:        [1, 1],
-      quality:       0.5, // ← lower quality = smaller base64 size
-      base64:        true, // ← request base64 directly from expo
+      quality:       0.5,
+      base64:        true,
     });
 
     if (!result.canceled && result.assets.length > 0) {
       const asset = result.assets[0];
-      // Use base64 directly from expo if available
+    
       if (asset.base64) {
         const base64Image = `data:image/jpeg;base64,${asset.base64}`;
         setProfileImage(base64Image);
       } else {
-        // Fallback: convert uri to base64
+        
         try {
           const base64Image = await convertToBase64(asset.uri);
           setProfileImage(base64Image);
@@ -146,8 +144,8 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
     const result = await ImagePicker.launchCameraAsync({
       allowsEditing: true,
       aspect:        [1, 1],
-      quality:       0.5, // ← lower quality = smaller base64 size
-      base64:        true, // ← request base64 directly from expo
+      quality:       0.5, 
+      base64:        true, 
     });
 
     if (!result.canceled && result.assets.length > 0) {
@@ -185,7 +183,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
     );
   };
 
-  // ── Save ───────────────────────────────────────────────────────────────────
+  // Save 
   const handleSave = async () => {
     if (!name.trim()) {
       Alert.alert('Required', 'Please enter your full name.');
@@ -208,7 +206,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
     }
   };
 
-  // ── Cancel ─────────────────────────────────────────────────────────────────
+  // Cancel
   const handleClose = () => {
     setName(profile.name);
     setRole(profile.role);
@@ -217,7 +215,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
     onClose();
   };
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // Render
   return (
     <Modal
       visible={visible}

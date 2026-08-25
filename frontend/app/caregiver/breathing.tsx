@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Colors } from '../../src/constants/colors';
 
-// ── Box breathing phases ──────────────────────────────────────────────────────
+// Box breathing phases 
 const PHASES = [
   { label: 'Inhale',  duration: 4, color: '#38BDF8', bg: '#F0F9FF', instruction: 'Breathe in slowly through your nose'  },
   { label: 'Hold',    duration: 4, color: '#818CF8', bg: '#EEF2FF', instruction: 'Hold your breath gently'              },
@@ -138,7 +138,7 @@ export default function BreathingScreen() {
         showsVerticalScrollIndicator={false}
       >
         {isFinished ? (
-          /* ── Finished ── */
+          /*Finished */
           <View style={{ alignItems: 'center', paddingTop: 40 }}>
             <Text style={{ fontSize: 80, marginBottom: 16 }}>🧘</Text>
             <Text style={{ fontSize: 26, fontWeight: '900', color: '#38BDF8', marginBottom: 8 }}>

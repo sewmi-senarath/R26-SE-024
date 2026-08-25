@@ -144,8 +144,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 
           {/* ── Right side: assignee + checkbox on SAME vertical line ── */}
           <View style={{
-            alignItems: 'center',   // ← centres both horizontally
-            gap: 8,                 // ← space between assignee and checkbox
+            alignItems: 'center',   
+            gap: 8,                
             flexShrink: 0,
           }}>
             {/* Assignee bubble */}

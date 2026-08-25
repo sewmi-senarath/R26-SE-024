@@ -53,7 +53,7 @@ const taskSchema = new mongoose.Schema(
     },
     overdueNotified: {
       type: Boolean,
-      default: false, // flips to true once an overdue notification has been raised, so it isn't raised again on every fetch
+      default: false, 
     },
   },
   { timestamps: true }

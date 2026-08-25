@@ -1,618 +1,3 @@
-// import { Ionicons } from '@expo/vector-icons';
-// import { router, useLocalSearchParams } from 'expo-router';
-// import React, { useEffect, useState } from 'react';
-// import {
-//   ActivityIndicator,
-//   ScrollView, StatusBar,
-//   Text,
-//   TouchableOpacity,
-//   View,
-// } from 'react-native';
-// import { Colors } from '../../src/constants/colors';
-// import {
-//   getRecommendationPriorities,
-//   submitFeedback,
-// } from '../../src/services/caregiver/recommendationService';
-// import { CheckInResult, DailyCheckIn } from '../../src/types/caregiver.types';
-// import {
-//   generateRecommendations,
-//   getSummaryMessage,
-//   SmartRecommendation,
-// } from '../../src/utils/recommendationEngine';
-
-// // ── Priority badge config ──────────────────────────────────────────────────
-// const PRIORITY_CONFIG = {
-//   High: { label: 'High Priority', color: '#EF4444', bg: '#FEF2F2' },
-//   Medium: { label: 'Medium Priority', color: '#F97316', bg: '#FFF7ED' },
-//   Low: { label: 'Low Priority', color: '#22C55E', bg: '#F0FDF4' },
-// };
-
-// // ── Recommendation Card ────────────────────────────────────────────────────
-// const RecCard: React.FC<{
-//   rec: SmartRecommendation;
-//   index: number;
-//   stressLevel: string;
-//   stressScore: number;
-//   onFeedback: (id: string, feedback: 'helpful' | 'not_helpful') => void;
-//   feedbackGiven: Record<string, string>;
-// }> = ({ rec, index, stressLevel, stressScore, onFeedback, feedbackGiven }) => {
-//   const [expanded, setExpanded] = useState(index === 0);
-//   const [loading, setLoading] = useState(false);
-//   const pConfig = PRIORITY_CONFIG[rec.priority];
-//   const given = feedbackGiven[rec.id];
-
-//   const handleFeedback = async (fb: 'helpful' | 'not_helpful') => {
-//     if (given) return;
-//     setLoading(true);
-//     await onFeedback(rec.id, fb);
-//     setLoading(false);
-//   };
-
-//   return (
-//     <View style={{
-//       backgroundColor: Colors.white,
-//       borderRadius: 20, marginBottom: 12,
-//       overflow: 'hidden',
-//       borderWidth: 1, borderColor: Colors.borderLight,
-//       borderLeftWidth: 4, borderLeftColor: rec.color,
-//       shadowColor: rec.color,
-//       shadowOffset: { width: 0, height: 2 },
-//       shadowOpacity: 0.08, shadowRadius: 8, elevation: 2,
-//     }}>
-
-//       {/* ── Card Header ── */}
-//       <TouchableOpacity
-//         onPress={() => setExpanded(!expanded)}
-//         style={{ padding: 14 }}
-//         activeOpacity={0.8}
-//       >
-//         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-//           {/* Icon */}
-//           <View style={{
-//             width: 44, height: 44, borderRadius: 14,
-//             backgroundColor: rec.bg,
-//             alignItems: 'center', justifyContent: 'center',
-//           }}>
-//             <Ionicons name={rec.icon as any} size={22} color={rec.color} />
-//           </View>
-
-//           {/* Title */}
-//           <View style={{ flex: 1 }}>
-//             <Text style={{
-//               fontSize: 13, fontWeight: '800',
-//               color: Colors.textPrimary, marginBottom: 4,
-//             }}>
-//               {rec.title}
-//             </Text>
-//             <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
-//               <View style={{
-//                 backgroundColor: pConfig.bg,
-//                 paddingHorizontal: 7, paddingVertical: 2,
-//                 borderRadius: 6,
-//               }}>
-//                 <Text style={{
-//                   fontSize: 9, fontWeight: '700',
-//                   color: pConfig.color, textTransform: 'uppercase',
-//                 }}>
-//                   {pConfig.label}
-//                 </Text>
-//               </View>
-//               <View style={{
-//                 backgroundColor: rec.bg,
-//                 paddingHorizontal: 7, paddingVertical: 2,
-//                 borderRadius: 6,
-//               }}>
-//                 <Text style={{
-//                   fontSize: 9, fontWeight: '600', color: rec.color,
-//                 }}>
-//                   {rec.category}
-//                 </Text>
-//               </View>
-//             </View>
-//           </View>
-
-//           <Ionicons
-//             name={expanded ? 'chevron-up' : 'chevron-down'}
-//             size={16} color={Colors.textMuted}
-//           />
-//         </View>
-//       </TouchableOpacity>
-
-//       {/* ── Expanded Content ── */}
-//       {expanded && (
-//         <View style={{
-//           borderTopWidth: 1, borderTopColor: Colors.borderLight,
-//           padding: 14, gap: 12,
-//         }}>
-
-//           {/* Primary Cause */}
-//           <View style={{
-//             backgroundColor: rec.bg + '80',
-//             borderRadius: 12, padding: 12,
-//           }}>
-//             <Text style={{
-//               fontSize: 10, fontWeight: '700',
-//               color: rec.color, textTransform: 'uppercase',
-//               letterSpacing: 0.5, marginBottom: 2,
-//             }}>
-//               Primary Cause
-//             </Text>
-//             <Text style={{
-//               fontSize: 14, fontWeight: '800', color: rec.color,
-//             }}>
-//               {rec.primaryCause}
-//             </Text>
-//           </View>
-
-//           {/* Reason */}
-//           <View>
-//             <View style={{
-//               flexDirection: 'row', gap: 6,
-//               alignItems: 'center', marginBottom: 6,
-//             }}>
-//               <Ionicons
-//                 name="information-circle-outline"
-//                 size={14} color={Colors.primary}
-//               />
-//               <Text style={{
-//                 fontSize: 10, fontWeight: '700',
-//                 color: Colors.primary, textTransform: 'uppercase',
-//               }}>
-//                 Why This Was Recommended
-//               </Text>
-//             </View>
-//             <Text style={{
-//               fontSize: 12, color: Colors.textSecondary,
-//               lineHeight: 18,
-//             }}>
-//               {rec.reason}
-//             </Text>
-//           </View>
-
-//           {/* Recommendations list */}
-//           <View>
-//             <View style={{
-//               flexDirection: 'row', gap: 6,
-//               alignItems: 'center', marginBottom: 8,
-//             }}>
-//               <Ionicons
-//                 name="checkmark-circle-outline"
-//                 size={14} color={Colors.success}
-//               />
-//               <Text style={{
-//                 fontSize: 10, fontWeight: '700',
-//                 color: Colors.success, textTransform: 'uppercase',
-//               }}>
-//                 What To Do Now
-//               </Text>
-//             </View>
-//             {rec.recommendations.map((r, i) => (
-//               <View key={i} style={{
-//                 flexDirection: 'row', gap: 8,
-//                 marginBottom: 6, alignItems: 'flex-start',
-//               }}>
-//                 <View style={{
-//                   width: 20, height: 20, borderRadius: 10,
-//                   backgroundColor: rec.color + '20',
-//                   alignItems: 'center', justifyContent: 'center',
-//                   marginTop: 1, flexShrink: 0,
-//                 }}>
-//                   <Text style={{
-//                     fontSize: 9, fontWeight: '800', color: rec.color,
-//                   }}>
-//                     {i + 1}
-//                   </Text>
-//                 </View>
-//                 <Text style={{
-//                   flex: 1, fontSize: 12,
-//                   color: Colors.textPrimary,
-//                   lineHeight: 18, fontWeight: '500',
-//                 }}>
-//                   {r}
-//                 </Text>
-//               </View>
-//             ))}
-//           </View>
-
-//           {/* Expected benefit */}
-//           <View style={{
-//             backgroundColor: Colors.successSoft,
-//             borderRadius: 10, padding: 10,
-//             flexDirection: 'row', gap: 8, alignItems: 'flex-start',
-//           }}>
-//             <Ionicons name="trending-up-outline" size={14} color={Colors.success} />
-//             <View style={{ flex: 1 }}>
-//               <Text style={{
-//                 fontSize: 10, fontWeight: '700',
-//                 color: Colors.success,
-//                 textTransform: 'uppercase', marginBottom: 2,
-//               }}>
-//                 Expected Benefit
-//               </Text>
-//               <Text style={{
-//                 fontSize: 12, color: Colors.success, lineHeight: 17,
-//               }}>
-//                 {rec.expectedBenefit}
-//               </Text>
-//             </View>
-//           </View>
-
-//           {/* Feedback */}
-//           <View style={{
-//             borderTopWidth: 1, borderTopColor: Colors.borderLight,
-//             paddingTop: 12,
-//           }}>
-//             <Text style={{
-//               fontSize: 12, color: Colors.textSecondary,
-//               marginBottom: 8, textAlign: 'center',
-//             }}>
-//               Was this recommendation helpful?
-//             </Text>
-
-//             {given ? (
-//               <View style={{
-//                 backgroundColor: given === 'helpful'
-//                   ? Colors.successSoft : Colors.dangerSoft,
-//                 borderRadius: 10, padding: 10,
-//                 alignItems: 'center',
-//               }}>
-//                 <Text style={{
-//                   fontSize: 12, fontWeight: '700',
-//                   color: given === 'helpful' ? Colors.success : Colors.danger,
-//                 }}>
-//                   {given === 'helpful'
-//                     ? '✅ Marked as Helpful — we will prioritise this for you'
-//                     : '❌ Marked as Not Helpful — we will suggest alternatives next time'}
-//                 </Text>
-//               </View>
-//             ) : (
-//               <View style={{ flexDirection: 'row', gap: 10 }}>
-//                 <TouchableOpacity
-//                   onPress={() => handleFeedback('helpful')}
-//                   disabled={loading}
-//                   style={{
-//                     flex: 1, backgroundColor: Colors.successSoft,
-//                     borderRadius: 10, paddingVertical: 10,
-//                     alignItems: 'center', flexDirection: 'row',
-//                     justifyContent: 'center', gap: 6,
-//                     borderWidth: 1, borderColor: Colors.success + '40',
-//                   }}
-//                 >
-//                   {loading ? (
-//                     <ActivityIndicator size="small" color={Colors.success} />
-//                   ) : (
-//                     <>
-//                       <Ionicons name="thumbs-up-outline" size={16} color={Colors.success} />
-//                       <Text style={{
-//                         fontSize: 12, fontWeight: '700', color: Colors.success,
-//                       }}>
-//                         Helpful
-//                       </Text>
-//                     </>
-//                   )}
-//                 </TouchableOpacity>
-
-//                 <TouchableOpacity
-//                   onPress={() => handleFeedback('not_helpful')}
-//                   disabled={loading}
-//                   style={{
-//                     flex: 1, backgroundColor: Colors.dangerSoft,
-//                     borderRadius: 10, paddingVertical: 10,
-//                     alignItems: 'center', flexDirection: 'row',
-//                     justifyContent: 'center', gap: 6,
-//                     borderWidth: 1, borderColor: Colors.danger + '40',
-//                   }}
-//                 >
-//                   <Ionicons name="thumbs-down-outline" size={16} color={Colors.danger} />
-//                   <Text style={{
-//                     fontSize: 12, fontWeight: '700', color: Colors.danger,
-//                   }}>
-//                     Not Helpful
-//                   </Text>
-//                 </TouchableOpacity>
-//               </View>
-//             )}
-//           </View>
-//         </View>
-//       )}
-//     </View>
-//   );
-// };
-
-// // ── MAIN SCREEN ────────────────────────────────────────────────────────────
-// export default function WellbeingScreen() {
-//   const params = useLocalSearchParams();
-//   const stressLevel = (params.stressLevel as string) || 'Moderate';
-//   const stressScore = params.stressScore ? Number(params.stressScore) : 6;
-//   const formData = params.formData
-//     ? JSON.parse(params.formData as string) as DailyCheckIn
-//     : null;
-
-//   const defaultForm: DailyCheckIn = {
-//     sleepHours: 6, physicalTiredness: 3, mood: 3,
-//     emotionalOverwhelm: 3, hoursCaregiving: 8,
-//     tasksAssigned: 10, tasksCompleted: 8,
-//     difficultSituations: 2, breaksTaken: 1,
-//     mentallyExhausted: 3, difficultyManaging: 3,
-//     emotionallyDrained: 3,
-//   };
-
-//   const form = formData || defaultForm;
-//   const result = {
-//     stressLevel: stressLevel as 'Low' | 'Moderate' | 'High',
-//     stressScore,
-//     confidence: 0.85,
-//     message: '',
-//     tips: [],
-//     submittedAt: new Date().toISOString(),
-//   } as CheckInResult;
-
-//   const [recs, setRecs] = useState<SmartRecommendation[]>([]);
-//   const [feedbackGiven, setFeedback] = useState<Record<string, string>>({});
-//   const [loading, setLoading] = useState(true);
-
-//   const stressConfig = {
-//     High: { color: '#EF4444', bg: '#FEF2F2', emoji: '😟' },
-//     Moderate: { color: '#F97316', bg: '#FFF7ED', emoji: '😐' },
-//     Low: { color: '#22C55E', bg: '#F0FDF4', emoji: '😊' },
-//   }[stressLevel] || { color: '#F97316', bg: '#FFF7ED', emoji: '😐' };
-
-//   useEffect(() => {
-//     loadRecommendations();
-//   }, []);
-
-//   const loadRecommendations = async () => {
-//     setLoading(true);
-//     // ← ADD THIS DEBUG LINE
-//     console.log('Form data received:', JSON.stringify(form));
-//     console.log('Sleep hours:', form.sleepHours);
-//     console.log('Tasks assigned:', form.tasksAssigned);
-//     console.log('Tasks completed:', form.tasksCompleted);
-//     try {
-//       // Load adaptive priorities from backend
-//       const { boosted, suppressed } = await getRecommendationPriorities();
-//       const generated = generateRecommendations(form, result, suppressed, boosted);
-//       setRecs(generated);
-//     } catch {
-//       setRecs(generateRecommendations(form, result));
-//     } finally {
-//       setLoading(false);
-//     }
-//   };
-
-//   const handleFeedback = async (
-//     id: string,
-//     feedback: 'helpful' | 'not_helpful',
-//   ) => {
-//     const rec = recs.find(r => r.id === id);
-//     if (!rec) return;
-
-//     setFeedback(prev => ({ ...prev, [id]: feedback }));
-
-//     await submitFeedback(rec, feedback, stressLevel, stressScore);
-
-//     // If not helpful — remove and reload alternatives
-//     if (feedback === 'not_helpful') {
-//       setTimeout(async () => {
-//         const { boosted, suppressed } = await getRecommendationPriorities();
-//         const fresh = generateRecommendations(form, result, suppressed, boosted);
-//         setRecs(fresh);
-//       }, 1500);
-//     }
-//   };
-
-//   const summaryMessage = getSummaryMessage(form, result);
-
-//   return (
-//     <View style={{ flex: 1, backgroundColor: Colors.background }}>
-//       <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
-
-//       {/* Header */}
-//       <View style={{
-//         backgroundColor: Colors.background,
-//         paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16,
-//         borderBottomWidth: 1, borderBottomColor: Colors.borderLight,
-//       }}>
-//         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-//           <TouchableOpacity
-//             onPress={() => router.back()}
-//             style={{
-//               width: 36, height: 36, borderRadius: 18,
-//               backgroundColor: Colors.borderLight,
-//               alignItems: 'center', justifyContent: 'center',
-//             }}
-//           >
-//             <Ionicons name="chevron-back" size={20} color={Colors.textPrimary} />
-//           </TouchableOpacity>
-//           <View>
-//             <Text style={{
-//               fontSize: 22, fontWeight: '800', color: Colors.textPrimary,
-//             }}>
-//               Smart Care Coach
-//             </Text>
-//             <Text style={{ fontSize: 12, color: Colors.textMuted }}>
-//               Personalised for your check-in today
-//             </Text>
-//           </View>
-//         </View>
-//       </View>
-
-//       <ScrollView
-//         showsVerticalScrollIndicator={false}
-//         contentContainerStyle={{ padding: 20, paddingBottom: 120 }}
-//       >
-//         {/* Stress banner */}
-//         <View style={{
-//           backgroundColor: stressConfig.bg, borderRadius: 20,
-//           padding: 16, marginBottom: 16,
-//           borderWidth: 1.5, borderColor: stressConfig.color + '30',
-//           flexDirection: 'row', alignItems: 'center', gap: 14,
-//         }}>
-//           <Text style={{ fontSize: 36 }}>{stressConfig.emoji}</Text>
-//           <View style={{ flex: 1 }}>
-//             <Text style={{
-//               fontSize: 11, color: stressConfig.color, fontWeight: '700',
-//             }}>
-//               TODAY'S STRESS LEVEL
-//             </Text>
-//             <Text style={{
-//               fontSize: 22, fontWeight: '900', color: stressConfig.color,
-//             }}>
-//               {stressLevel}
-//             </Text>
-//             <Text style={{ fontSize: 11, color: Colors.textSecondary }}>
-//               Score: {stressScore}/10
-//             </Text>
-//           </View>
-//           {/* Quick stats */}
-//           <View style={{ alignItems: 'flex-end', gap: 3 }}>
-//             <Text style={{ fontSize: 10, color: Colors.textMuted }}>
-//               Tasks: {form.tasksCompleted}/{form.tasksAssigned}
-//             </Text>
-//             <Text style={{ fontSize: 10, color: Colors.textMuted }}>
-//               Sleep: {form.sleepHours}h
-//             </Text>
-//             <Text style={{ fontSize: 10, color: Colors.textMuted }}>
-//               Breaks: {form.breaksTaken}
-//             </Text>
-//           </View>
-//         </View>
-
-//         {/* Personalised analysis */}
-//         <View style={{
-//           backgroundColor: Colors.white, borderRadius: 16,
-//           padding: 14, marginBottom: 20,
-//           borderWidth: 1, borderColor: Colors.borderLight,
-//         }}>
-//           <View style={{
-//             flexDirection: 'row', gap: 8,
-//             alignItems: 'center', marginBottom: 6,
-//           }}>
-//             <Ionicons name="analytics-outline" size={16} color={Colors.primary} />
-//             <Text style={{
-//               fontSize: 11, fontWeight: '700',
-//               color: Colors.primary, textTransform: 'uppercase',
-//             }}>
-//               Personalised Analysis
-//             </Text>
-//           </View>
-//           <Text style={{
-//             fontSize: 13, color: Colors.textSecondary, lineHeight: 20,
-//           }}>
-//             {summaryMessage}
-//           </Text>
-//         </View>
-
-//         {/* Recommendations header */}
-//         <View style={{
-//           flexDirection: 'row', alignItems: 'center',
-//           justifyContent: 'space-between', marginBottom: 14,
-//         }}>
-//           <Text style={{
-//             fontSize: 16, fontWeight: '800', color: Colors.textPrimary,
-//           }}>
-//             Your Action Plan
-//           </Text>
-//           {recs.length > 0 && (
-//             <View style={{
-//               backgroundColor: Colors.primaryLight,
-//               paddingHorizontal: 10, paddingVertical: 4,
-//               borderRadius: 12,
-//             }}>
-//               <Text style={{
-//                 fontSize: 11, fontWeight: '700', color: Colors.primary,
-//               }}>
-//                 {recs.length} actions
-//               </Text>
-//             </View>
-//           )}
-//         </View>
-
-//         {/* Loading */}
-//         {loading ? (
-//           <View style={{ alignItems: 'center', padding: 40 }}>
-//             <ActivityIndicator color={Colors.primary} size="large" />
-//             <Text style={{
-//               fontSize: 13, color: Colors.textMuted, marginTop: 12,
-//             }}>
-//               Personalising recommendations...
-//             </Text>
-//           </View>
-//         ) : recs.length === 0 ? (
-//           <View style={{
-//             backgroundColor: Colors.successSoft,
-//             borderRadius: 20, padding: 24, alignItems: 'center',
-//           }}>
-//             <Text style={{ fontSize: 40, marginBottom: 8 }}>🎉</Text>
-//             <Text style={{
-//               fontSize: 16, fontWeight: '800', color: Colors.success,
-//             }}>
-//               All done!
-//             </Text>
-//             <Text style={{
-//               fontSize: 13, color: Colors.textSecondary,
-//               textAlign: 'center', marginTop: 4,
-//             }}>
-//               You have completed all your recommended actions for today!
-//             </Text>
-//           </View>
-//         ) : (
-//           recs.map((rec, i) => (
-//             <RecCard
-//               key={rec.id}
-//               rec={rec}
-//               index={i}
-//               stressLevel={stressLevel}
-//               stressScore={stressScore}
-//               onFeedback={handleFeedback}
-//               feedbackGiven={feedbackGiven}
-//             />
-//           ))
-//         )}
-
-//         {/* Adaptive learning note */}
-//         {recs.length > 0 && (
-//           <View style={{
-//             backgroundColor: Colors.primaryLight,
-//             borderRadius: 14, padding: 12,
-//             flexDirection: 'row', gap: 10,
-//             alignItems: 'flex-start', marginTop: 4,
-//           }}>
-//             <Ionicons
-//               name="bulb-outline" size={16} color={Colors.primary}
-//             />
-//             <Text style={{
-//               flex: 1, fontSize: 11,
-//               color: Colors.primary, lineHeight: 16,
-//             }}>
-//               Your feedback helps personalise future recommendations.
-//               Helpful ratings increase priority, Not Helpful ratings
-//               suggest alternatives next time.
-//             </Text>
-//           </View>
-//         )}
-
-//         {/* Back button */}
-//         <TouchableOpacity
-//           onPress={() => router.back()}
-//           style={{
-//             backgroundColor: Colors.primaryLight,
-//             borderRadius: 14, paddingVertical: 14,
-//             alignItems: 'center', marginTop: 16,
-//             borderWidth: 1, borderColor: Colors.primary + '40',
-//           }}
-//         >
-//           <Text style={{
-//             fontSize: 14, fontWeight: '700', color: Colors.primary,
-//           }}>
-//             Back to Insights
-//           </Text>
-//         </TouchableOpacity>
-//       </ScrollView>
-//     </View>
-//   );
-// }
-
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -653,12 +38,12 @@ import {
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-// ── Haptics helpers (fail silently on unsupported platforms) ───────────────
+
 const hapticTap = () => {
   try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); } catch {}
 };
 
-// ── Priority badge config ──────────────────────────────────────────────────
+// Priority badge config 
 const PRIORITY_CONFIG = {
   High: { label: 'High Priority', color: '#EF4444', bg: '#FEF2F2' },
   Medium: { label: 'Medium Priority', color: '#F97316', bg: '#FFF7ED' },
@@ -671,8 +56,7 @@ const PRIORITY_ICON: Record<'High' | 'Medium' | 'Low', string> = {
   Low: 'leaf',
 };
 
-// ── Blob: a soft, organic breathing shape used for every icon/mascot ──────
-// Purely presentational — no data, no logic, just a gently pulsing container.
+
 const Blob: React.FC<{
   size: number;
   color: string;
@@ -723,7 +107,7 @@ const Blob: React.FC<{
   );
 };
 
-// ── StatChip: small translucent pill for the hero's quick stats row ───────
+//  StatChip: small translucent pill for the hero's quick stats row 
 const StatChip: React.FC<{ icon: string; label: string; value: string; delay?: number }> = ({
   icon, label, value, delay = 0,
 }) => (
@@ -746,32 +130,24 @@ const StatChip: React.FC<{ icon: string; label: string; value: string; delay?: n
   </Animated.View>
 );
 
-// ── Story walkthrough: "watch instead of read" mode ────────────────────────
-// Turns a recommendation's text into a sequence of full-screen animated
-// slides — one idea per screen, auto-advancing, tap left/right to navigate.
+
 type StorySlide = {
   kind: 'cause' | 'reason' | 'step' | 'benefit';
   label: string;
-  icon: string;   // small accessory badge icon
-  emoji: string;  // theme emoji for the floating ambient particles
-  color: string;  // vivid signature color for the icon blob
+  icon: string;   
+  emoji: string;  
+  color: string;  
   text: string;
 };
 
 type ContentTheme = { icon: string; emoji: string; color: string };
 
-// One row per topic: a test against the lowercased text, plus the
-// icon/emoji/colour to use when it matches. A vivid, distinct colour per
-// topic (water=blue, sleep=indigo, physical=orange, emotional=pink, etc.)
-// is what actually makes the icon "colourful" rather than a plain white
-// glyph — the icon graphic itself stays white on top of this colour so it
-// stays legible no matter what the card's overall background colour is.
+
 const CONTENT_RULES: Array<{ test: (t: string) => boolean; icon: string; emoji: string; color: string }> = [
   { test: (t) => t.includes('breath'), icon: 'cloud-outline', emoji: '🌬️', color: '#38BDF8' },
   { test: (t) => t.includes('water') || t.includes('hydrat') || t.includes('drink'), icon: 'water-outline', emoji: '💧', color: '#3B82F6' },
   { test: (t) => t.includes('sleep') || t.includes('slept') || t.includes('bedtime') || t.includes('nap'), icon: 'moon-outline', emoji: '😴', color: '#818CF8' },
-  // Checked early and specifically so "physical tiredness/fatigue/exhaustion"
-  // wins over a later, incidental mention of "emotional" in the same paragraph.
+  
   { test: (t) => t.includes('physical'), icon: 'body-outline', emoji: '💪', color: '#FB923C' },
   { test: (t) => t.includes('walk') || t.includes('outside') || t.includes('outdoor') || t.includes('fresh air'), icon: 'walk-outline', emoji: '🚶', color: '#34D399' },
   { test: (t) => t.includes('journal') || t.includes('write down') || t.includes('write briefly') || t.includes('note down'), icon: 'pencil-outline', emoji: '📝', color: '#A78BFA' },
@@ -793,22 +169,14 @@ const CONTENT_RULES: Array<{ test: (t: string) => boolean; icon: string; emoji: 
   { test: (t) => t.includes('alarm') || t.includes('reminder'), icon: 'alarm-outline', emoji: '⏰', color: '#FACC15' },
 ];
 
-// Classifies a piece of recommendation text into a matching {icon, emoji,
-// color} theme, so "contact a counsellor" and "journal your feelings" — or
-// two different "Why This Matters" paragraphs — get visually distinct
-// treatment instead of one fixed icon for everything of that slide type.
-// Returns null when nothing matches, so the caller can apply a sensible
-// per-slide-kind fallback rather than one generic icon for every miss.
+
 const classifyContent = (text: string): ContentTheme | null => {
   const t = text.toLowerCase();
   const rule = CONTENT_RULES.find((r) => r.test(t));
   return rule ? { icon: rule.icon, emoji: rule.emoji, color: rule.color } : null;
 };
 
-// Per-slide-kind fallback, only used when classifyContent finds no keyword
-// match at all — keeps a sensible default without forcing every unmatched
-// "Why This Matters" or "Payoff" slide to the same icon/colour regardless
-// of kind.
+
 const FALLBACK_THEME: Record<StorySlide['kind'], ContentTheme> = {
   cause: { icon: 'alert-circle', emoji: '⚠️', color: '#F87171' },
   reason: { icon: 'information-circle-outline', emoji: '💭', color: '#60A5FA' },
@@ -823,10 +191,7 @@ const buildSlides = (rec: SmartRecommendation): StorySlide[] => {
   const slides: StorySlide[] = [];
 
   const causeTheme = themeFor('cause', rec.primaryCause);
-  // Badge icon stays the card's own category icon (moon for sleep, heart for
-  // emotional, etc.) so the walkthrough is visually rooted in the specific
-  // problem from the first slide; the floating particles and blob colour use
-  // the more specific phrase-level theme.
+
   slides.push({ kind: 'cause', label: 'PRIMARY CAUSE', icon: rec.icon, emoji: causeTheme.emoji, color: causeTheme.color, text: rec.primaryCause });
 
   const reasonTheme = themeFor('reason', rec.reason);
@@ -850,17 +215,14 @@ const buildSlides = (rec: SmartRecommendation): StorySlide[] => {
   return slides;
 };
 
-const STORY_SLIDE_DURATION = 4500; // ms each slide stays before auto-advancing
+const STORY_SLIDE_DURATION = 4500; 
 
 const ProgressFill: React.FC<{ progress: SharedValue<number> }> = ({ progress }) => {
   const style = useAnimatedStyle(() => ({ width: `${progress.value * 100}%` }));
   return <Animated.View style={[{ height: '100%', backgroundColor: Colors.white }, style]} />;
 };
 
-// ── Ambient floating particle — drifts upward and fades, looping forever.
-// Can render as a plain dot OR as an emoji character, so the same motion
-// system can show themed content (💧 for a hydration slide, 😴 for sleep),
-// similar to the falling water droplets in the reference video. ───────────
+
 const FloatingParticle: React.FC<{
   delay: number; offsetX: number; size: number; travel: number; color?: string; emoji?: string;
 }> = ({ delay, offsetX, size, travel, color = 'rgba(255,255,255,0.55)', emoji }) => {
@@ -913,10 +275,7 @@ const FloatingParticle: React.FC<{
   );
 };
 
-// Ambient background particles for the full story slide — themed to match
-// whatever the current slide is actually about (droplets for hydration,
-// zzz for sleep, etc.), like the falling water droplets in the reference
-// video. pointerEvents="none" so it never blocks taps.
+
 const StoryBackgroundParticles: React.FC<{ emoji: string }> = ({ emoji }) => {
   const particles = [
     { left: '10%', size: 18, delay: 0, travel: 340 },
@@ -937,11 +296,7 @@ const StoryBackgroundParticles: React.FC<{ emoji: string }> = ({ emoji }) => {
   );
 };
 
-// Layered soft shapes behind everything else — breaks up what would
-// otherwise be one flat block of colour, giving the slide some depth
-// without needing a gradient library. A mix of light (white) and dark
-// (black) low-opacity circles at different sizes/positions reads as
-// texture rather than a single flat fill.
+
 const StoryBackgroundDecor: React.FC = () => (
   <View pointerEvents="none" style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, overflow: 'hidden' }}>
     <View style={{
@@ -972,8 +327,7 @@ const StoryBackgroundDecor: React.FC = () => (
   </View>
 );
 
-// A pulsing "ping" ring behind the icon — expands and fades on a loop,
-// giving every slide's icon a subtle sense of life.
+
 const IconHalo: React.FC<{ size: number; tint?: string; delayMs?: number }> = ({
   size, tint = 'rgba(255,255,255,0.7)', delayMs = 0,
 }) => {
@@ -1023,13 +377,7 @@ const IconHalo: React.FC<{ size: number; tint?: string; delayMs?: number }> = ({
   );
 };
 
-// The full icon treatment for a story slide — breathing blob + pulsing halo,
-// with the content-matched icon (moon for sleep, water drop for hydration,
-// a phone for a call, etc.) shown directly inside a vividly-coloured blob
-// (colour also comes from the content match, e.g. blue for water, orange
-// for physical fatigue), plus a bouncy pop-in for action steps. The icon
-// glyph itself stays white so it's always legible against the coloured
-// blob, regardless of what colour the card's overall background is.
+
 const SlideIcon: React.FC<{ kind: StorySlide['kind']; icon: string; color: string }> = ({
   kind, icon, color,
 }) => {
@@ -1095,7 +443,7 @@ const StoryModal: React.FC<{
       });
     }, STORY_SLIDE_DURATION);
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    
   }, [index]);
 
   return (
@@ -1219,7 +567,7 @@ const StoryModal: React.FC<{
   );
 };
 
-// ── Recommendation Card ────────────────────────────────────────────────────
+// Recommendation Card 
 const RecCard: React.FC<{
   rec: SmartRecommendation;
   index: number;
@@ -1565,7 +913,7 @@ const RecCard: React.FC<{
   );
 };
 
-// ── MAIN SCREEN ────────────────────────────────────────────────────────────
+// MAIN SCREEN 
 export default function WellbeingScreen() {
   const params = useLocalSearchParams();
   const stressLevel = (params.stressLevel as string) || 'Moderate';
@@ -1574,9 +922,6 @@ export default function WellbeingScreen() {
     ? JSON.parse(params.formData as string) as DailyCheckIn
     : null;
 
-  // Weekly trend / burnout context passed from insights.tsx — undefined if
-  // this screen was opened without a check-in. Every rule that reads this
-  // in recommendationEngine.ts is guarded, so nothing breaks.
   const weeklyContext: BurnoutRisk | undefined = params.burnout
     ? JSON.parse(params.burnout as string) as BurnoutRisk
     : undefined;
@@ -1612,23 +957,19 @@ export default function WellbeingScreen() {
 
   useEffect(() => {
     loadRecommendations();
-    // Re-run whenever the incoming check-in data actually changes, not just
-    // on first mount — otherwise a reused screen instance (e.g. navigating
-    // back and viewing a different check-in's plan) shows a stale action
-    // plan while the hero/summary text above it correctly update.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [params.formData, params.stressLevel, params.stressScore, params.burnout]);
 
   const loadRecommendations = async () => {
     setLoading(true);
-    // ← ADD THIS DEBUG LINE
+   
     console.log('Form data received:', JSON.stringify(form));
     console.log('Sleep hours:', form.sleepHours);
     console.log('Tasks assigned:', form.tasksAssigned);
     console.log('Tasks completed:', form.tasksCompleted);
     console.log('Weekly context received:', JSON.stringify(weeklyContext));
     try {
-      // Load adaptive priorities from backend
+     
       const { boosted, suppressed } = await getRecommendationPriorities();
       const generated = generateRecommendations(form, result, suppressed, boosted, weeklyContext);
       setRecs(generated);
@@ -1650,7 +991,7 @@ export default function WellbeingScreen() {
 
     await submitFeedback(rec, feedback, stressLevel, stressScore);
 
-    // If not helpful — remove and reload alternatives
+    
     if (feedback === 'not_helpful') {
       setTimeout(async () => {
         const { boosted, suppressed } = await getRecommendationPriorities();
