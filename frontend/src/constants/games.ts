@@ -6,6 +6,10 @@ export interface GameColorConfig {
   badge: string;
   badgeText: string;
   border: string;
+  /** Vivid solid color used for the game-selector grid tiles. */
+  tile: string;
+  /** Slightly darker shade of `tile` for the tile's decorative depth accent. */
+  tileDark: string;
 }
 
 export interface GameConfigEntry {
@@ -32,6 +36,8 @@ export const GAME_CONFIGS: Record<GameId, GameConfigEntry> = {
       badge: "bg-purple-100",
       badgeText: "text-purple-700",
       border: "border-purple-200",
+      tile: "#8B5CF6",
+      tileDark: "#7C3AED",
     },
     targetSection: "Registration",
     sectionMax: 3,
@@ -54,6 +60,8 @@ export const GAME_CONFIGS: Record<GameId, GameConfigEntry> = {
       badge: "bg-blue-100",
       badgeText: "text-blue-700",
       border: "border-blue-200",
+      tile: "#3B82F6",
+      tileDark: "#2563EB",
     },
     targetSection: "Registration",
     sectionMax: 3,
@@ -76,6 +84,8 @@ export const GAME_CONFIGS: Record<GameId, GameConfigEntry> = {
       badge: "bg-amber-100",
       badgeText: "text-amber-700",
       border: "border-amber-200",
+      tile: "#F59E0B",
+      tileDark: "#D97706",
     },
     targetSection: "Attention",
     sectionMax: 5,
@@ -98,6 +108,8 @@ export const GAME_CONFIGS: Record<GameId, GameConfigEntry> = {
       badge: "bg-green-100",
       badgeText: "text-green-700",
       border: "border-green-200",
+      tile: "#22C55E",
+      tileDark: "#16A34A",
     },
     targetSection: "Orientation",
     sectionMax: 10,
@@ -120,6 +132,8 @@ export const GAME_CONFIGS: Record<GameId, GameConfigEntry> = {
       badge: "bg-rose-100",
       badgeText: "text-rose-700",
       border: "border-rose-200",
+      tile: "#F43F5E",
+      tileDark: "#E11D48",
     },
     targetSection: "Language",
     sectionMax: 9,
@@ -142,6 +156,8 @@ export const GAME_CONFIGS: Record<GameId, GameConfigEntry> = {
       badge: "bg-sky-100",
       badgeText: "text-sky-700",
       border: "border-sky-200",
+      tile: "#0EA5E9",
+      tileDark: "#0284C7",
     },
     targetSection: "Orientation",
     sectionMax: 10,
@@ -164,6 +180,8 @@ export const GAME_CONFIGS: Record<GameId, GameConfigEntry> = {
       badge: "bg-fuchsia-100",
       badgeText: "text-fuchsia-700",
       border: "border-fuchsia-200",
+      tile: "#D946EF",
+      tileDark: "#C026D3",
     },
     targetSection: "Recall",
     sectionMax: 3,

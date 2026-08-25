@@ -1,8 +1,4 @@
-import {
-  GameSessionHistoryItem,
-  getPatientGameProgress,
-  getPatientGameSessions,
-} from "@/src/api/gameSessionApi";
+import { getPatientGameProgress } from "@/src/api/gameSessionApi";
 import { GAME_CONFIGS } from "@/src/constants/games";
 import { useAssessment } from "@/src/context/AssessmentContext";
 import { GameDifficultyAssignment, PatientGameProgress } from "@/src/types/games.types";
@@ -25,7 +21,6 @@ import {
 } from "react-native";
 import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
 import { DifficultyBadge } from "./DifficultyBadge";
-import { DonutChart, TrendBarChart, TrendPoint } from "./shared/ProgressCharts";
 
 export default function BrainGamesScreen() {
   const router = useRouter();
@@ -39,20 +34,12 @@ export default function BrainGamesScreen() {
   } = useAssessment();
   const gamePlan = useMemo(() => generateGamePlan(session), [session]);
 
-  const [history, setHistory] = useState<GameSessionHistoryItem[]>([]);
   const [adaptiveProgress, setAdaptiveProgress] = useState<PatientGameProgress[]>([]);
 
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
       if (!patientId) return;
-      getPatientGameSessions(patientId)
-        .then((sessions) => {
-          if (!cancelled) setHistory(sessions);
-        })
-        .catch(() => {
-          if (!cancelled) setHistory([]);
-        });
       getPatientGameProgress(patientId)
         .then((progress) => {
           if (!cancelled) setAdaptiveProgress(progress);
@@ -84,18 +71,6 @@ export default function BrainGamesScreen() {
       };
     });
   }, [gamePlan, adaptiveProgress]);
-
-  const trendData: TrendPoint[] = useMemo(() => {
-    const sorted = [...history]
-      .filter((s) => typeof s.completedAt === "string")
-      .sort((a, b) => new Date(a.completedAt).getTime() - new Date(b.completedAt).getTime())
-      .slice(-6);
-
-    return sorted.map((s, i) => ({
-      label: `#${i + 1}`,
-      percent: s.maxScore > 0 ? Math.round((s.score / s.maxScore) * 100) : 0,
-    }));
-  }, [history]);
 
   // --- Sound effect setup ---
   const soundRef = useRef<Audio.Sound | null>(null);
@@ -233,43 +208,6 @@ export default function BrainGamesScreen() {
             </Text>
           </Animated.View>
 
-          {trendData.length > 0 ? (
-            <Animated.View
-              entering={FadeInUp.delay(80).duration(450)}
-              className="mx-6 mt-2 mb-1 rounded-3xl border border-gray-100 bg-white p-5"
-              style={{
-                shadowColor: "#000",
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.05,
-                shadowRadius: 8,
-                elevation: 2,
-              }}
-            >
-              <View className="flex-row items-center justify-between mb-5">
-                <Text className="text-sm font-bold text-gray-900">
-                  Your Progress
-                </Text>
-                <Text className="text-xs text-gray-400">
-                  Last {trendData.length} sessions
-                </Text>
-              </View>
-              <View className="flex-row items-center gap-4 mt-1">
-                <DonutChart
-                  segments={[
-                    { value: easyCount, color: "#22c55e", label: "Easy" },
-                    { value: mediumCount, color: "#f59e0b", label: "Medium" },
-                    { value: hardCount, color: "#ef4444", label: "Hard" },
-                  ]}
-                  size={80}
-                  strokeWidth={12}
-                />
-                <View style={{ flex: 1 }}>
-                  <TrendBarChart data={trendData} height={64} />
-                </View>
-              </View>
-            </Animated.View>
-          ) : null}
-
           <View className="flex-row gap-2 px-6 py-4">
             {easyCount > 0 ? (
               <View className="flex-row items-center gap-1.5 bg-green-100 rounded-full px-3 py-1.5">
@@ -297,83 +235,113 @@ export default function BrainGamesScreen() {
             ) : null}
           </View>
 
-          <View className="px-6 gap-3">
+          <View className="flex-row flex-wrap justify-between px-5">
             {assignments.map((assignment, index) => {
               const config = GAME_CONFIGS[assignment.gameId];
-              const colors = config.color;
 
               return (
                 <Animated.View
                   key={assignment.gameId}
-                  entering={FadeInUp.delay(160 + index * 90).duration(450).springify().damping(16)}
+                  entering={FadeInUp.delay(120 + index * 70)
+                    .duration(450)
+                    .springify()
+                    .damping(16)}
+                  style={{ width: "48%", marginBottom: 14 }}
                 >
-                <TouchableOpacity
-                  onPress={async () => {
-                    await playSound();
-                    router.push({
-                      pathname: `/patient/cognitive/games/${assignment.gameId}/play`,
-                      params: { difficulty: assignment.difficulty },
-                    });
-                  }}
-                  activeOpacity={0.7}
-                  className={`rounded-3xl border p-5 ${colors.bg} ${colors.border}`}
-                >
-                  <View className="flex-row items-start gap-4">
+                  <TouchableOpacity
+                    onPress={async () => {
+                      await playSound();
+                      router.push({
+                        pathname: `/patient/cognitive/games/${assignment.gameId}/play`,
+                        params: { difficulty: assignment.difficulty },
+                      });
+                    }}
+                    activeOpacity={0.85}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Play ${config.title}, ${assignment.difficulty} difficulty`}
+                    style={{
+                      aspectRatio: 1,
+                      borderRadius: 28,
+                      backgroundColor: config.color.tile,
+                      padding: 16,
+                      overflow: "hidden",
+                      shadowColor: config.color.tileDark,
+                      shadowOffset: { width: 0, height: 6 },
+                      shadowOpacity: 0.35,
+                      shadowRadius: 12,
+                      elevation: 5,
+                    }}
+                  >
+                    {/* decorative depth accents */}
                     <View
-                      className={`w-14 h-14 rounded-2xl items-center justify-center ${colors.icon}`}
-                    >
-                      <Text style={{ fontSize: 28 }}>{config.icon}</Text>
-                    </View>
-                    <View className="flex-1">
-                      <View className="flex-row items-center justify-between mb-1">
-                        <Text className="text-base font-bold text-gray-900">
-                          {config.title}
-                        </Text>
+                      style={{
+                        position: "absolute",
+                        top: -34,
+                        right: -30,
+                        width: 110,
+                        height: 110,
+                        borderRadius: 55,
+                        backgroundColor: config.color.tileDark,
+                        opacity: 0.55,
+                      }}
+                    />
+                    <View
+                      style={{
+                        position: "absolute",
+                        bottom: -46,
+                        left: -30,
+                        width: 120,
+                        height: 120,
+                        borderRadius: 60,
+                        backgroundColor: "#ffffff",
+                        opacity: 0.08,
+                      }}
+                    />
+
+                    <View className="flex-1 justify-between">
+                      <View className="flex-row items-start justify-between">
+                        <View
+                          className="items-center justify-center"
+                          style={{
+                            width: 56,
+                            height: 56,
+                            borderRadius: 18,
+                            backgroundColor: "rgba(255,255,255,0.25)",
+                          }}
+                        >
+                          <Text style={{ fontSize: 30 }}>{config.icon}</Text>
+                        </View>
                         <DifficultyBadge
                           difficulty={assignment.difficulty}
                           size="sm"
                         />
                       </View>
-                      <Text
-                        className="text-sm text-gray-500 mb-3"
-                        numberOfLines={2}
-                      >
-                        {config.description}
-                      </Text>
-                      <View className="h-1.5 bg-white rounded-full overflow-hidden">
-                        <View
-                          className={`h-full rounded-full ${
-                            assignment.difficulty === "easy"
-                              ? "bg-green-400"
-                              : assignment.difficulty === "medium"
-                                ? "bg-amber-400"
-                                : "bg-red-400"
-                          }`}
-                          style={{ width: `${assignment.scorePercent}%` }}
-                        />
-                      </View>
-                      {isLoadingSession ? (
-                        <Text className="text-xs text-gray-400 mt-2">
-                          Loading latest screening result...
-                        </Text>
-                      ) : null}
-                    </View>
-                  </View>
 
-                  <View className="flex-row items-center justify-between mt-4 pt-4 border-t border-white/60">
-                    <Text
-                      className="text-xs text-gray-400 flex-1 mr-3"
-                      numberOfLines={2}
-                    >
-                      {assignment.reason}
-                    </Text>
-                    <View className="bg-white rounded-xl px-4 py-2">
-                      <Text className="text-sm font-semibold text-gray-700">
-                        Play
-                      </Text>
+                      <View>
+                        <Text
+                          className="font-extrabold text-white"
+                          style={{ fontSize: 18, lineHeight: 22 }}
+                          numberOfLines={2}
+                        >
+                          {config.title}
+                        </Text>
+                        <View className="flex-row items-center mt-1.5">
+                          <Text
+                            className="font-semibold text-white"
+                            style={{ fontSize: 12, opacity: 0.9 }}
+                          >
+                            Play
+                          </Text>
+                          <Ionicons
+                            name="arrow-forward"
+                            size={13}
+                            color="#ffffff"
+                            style={{ marginLeft: 4, opacity: 0.9 }}
+                          />
+                        </View>
+                      </View>
                     </View>
-                  </View>
-                </TouchableOpacity>
+                  </TouchableOpacity>
                 </Animated.View>
               );
             })}
