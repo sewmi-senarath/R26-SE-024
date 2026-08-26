@@ -1,29 +1,37 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, StatusBar, TouchableOpacity, ActivityIndicator } from 'react-native';
+import {
+  View, Text, ScrollView, StatusBar, TouchableOpacity,
+  ActivityIndicator, Alert,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Colors } from '../../src/constants/colors';
-import { PatientDetail, ReportTimeframe, ReportType } from '../../src/types/caregiver.types';
+import {
+  PatientDetail, ReportTimeframe, TaskCompletionReport,
+} from '../../src/types/caregiver.types';
 import { fetchPatients } from '../../src/services/caregiver/patientService';
+import { fetchTaskCompletionReport } from '../../src/services/caregiver/Reportservice';
+import { exportReportAsCSV, exportReportAsPDF } from '../../src/utils/Reportexport';
 
-const PATIENTS = ['All Patients', 'Eleanor Vance', 'Robert Chen', 'Margaret Hughes', 'Arthur Pendelton'];
-const REPORT_TYPES: ReportType[] = ['Comprehensive Care Summary', 'Medication Adherence', 'Task Completion', 'Behavioral Incident Log'];
 const TIMEFRAMES: ReportTimeframe[] = ['daily', 'weekly', 'monthly'];
+const ALL_PATIENTS = 'All Patients';
+
+const titleCase = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 export default function ReportsScreen() {
-  const [timeframe, setTimeframe]       = useState<ReportTimeframe>('weekly');
-  const [patient, setPatient]           = useState('All Patients');
-  const [reportType, setReportType]     = useState<ReportType>('Comprehensive Care Summary');
+  const [timeframe, setTimeframe]   = useState<ReportTimeframe>('weekly');
+  const [patient, setPatient]       = useState(ALL_PATIENTS);
   const [showPatientDD, setShowPatientDD] = useState(false);
-  const [showTypeDD, setShowTypeDD]     = useState(false);
-  const [generating, setGenerating]     = useState(false);
-  const [generated, setGenerated]       = useState(false);
 
-  // ── Cognitive report (real patients) ───────────────────────────────────────
-  const [cogPatients, setCogPatients]       = useState<PatientDetail[]>([]);
-  const [cogLoading, setCogLoading]         = useState(true);
-  const [cogPatientId, setCogPatientId]     = useState<string | null>(null);
-  const [showCogDD, setShowCogDD]           = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [report, setReport]         = useState<TaskCompletionReport | null>(null);
+  const [exporting, setExporting]   = useState<'csv' | 'pdf' | null>(null);
+
+  // ── Patients (shared by both cards) ──────────────────────────────────────
+  const [cogPatients, setCogPatients]   = useState<PatientDetail[]>([]);
+  const [cogLoading, setCogLoading]     = useState(true);
+  const [cogPatientId, setCogPatientId] = useState<string | null>(null);
+  const [showCogDD, setShowCogDD]       = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -57,12 +65,48 @@ export default function ReportsScreen() {
     } as any);
   };
 
+  // Real names from the database, plus the "everyone" option.
+  const patientOptions = [ALL_PATIENTS, ...cogPatients.map((p) => p.name)];
+
+  // ── Generate ─────────────────────────────────────────────────────────────
   const handleGenerate = async () => {
-    setGenerating(true);
-    setGenerated(false);
-    await new Promise((r) => setTimeout(r, 1500));
-    setGenerating(false);
-    setGenerated(true);
+    try {
+      setGenerating(true);
+      setReport(null);
+      const result = await fetchTaskCompletionReport(timeframe, patient);
+      setReport(result);
+    } catch (error) {
+      console.error('Report generation failed:', error);
+      Alert.alert('Error', 'Could not generate the report. Please try again.');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  // Changing a parameter invalidates the shown report, otherwise the preview
+  // would claim to be "Weekly" while displaying last month's numbers.
+  const changeTimeframe = (tf: ReportTimeframe) => {
+    setTimeframe(tf);
+    setReport(null);
+  };
+  const changePatient = (name: string) => {
+    setPatient(name);
+    setReport(null);
+  };
+
+  // ── Export ───────────────────────────────────────────────────────────────
+  const handleExport = async (format: 'csv' | 'pdf') => {
+    if (!report) return;
+    try {
+      setExporting(format);
+      if (format === 'csv') await exportReportAsCSV(report);
+      else                  await exportReportAsPDF(report);
+    } catch (error: any) {
+      console.error(`${format} export failed:`, error);
+      Alert.alert('Export failed', error?.message || 'Could not export the report.');
+    } finally {
+      setExporting(null);
+    }
   };
 
   const Dropdown = ({
@@ -95,6 +139,44 @@ export default function ReportsScreen() {
     );
   };
 
+  // ── Small presentational pieces ──────────────────────────────────────────
+  const StatBox = ({ value, label, color }: { value: string; label: string; color: string }) => (
+    <View style={{
+      flex: 1, backgroundColor: Colors.background, borderRadius: 14,
+      paddingVertical: 12, alignItems: 'center',
+      borderWidth: 1, borderColor: Colors.borderLight,
+    }}>
+      <Text style={{ fontSize: 20, fontWeight: '800', color }}>{value}</Text>
+      <Text style={{
+        fontSize: 9, fontWeight: '700', color: Colors.textMuted,
+        textTransform: 'uppercase', letterSpacing: 0.6, marginTop: 2,
+      }}>
+        {label}
+      </Text>
+    </View>
+  );
+
+  const BreakdownRow = ({ label, total, completed, rate }: {
+    label: string; total: number; completed: number; rate: number;
+  }) => (
+    <View style={{ marginBottom: 10 }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+        <Text style={{ fontSize: 12, fontWeight: '600', color: Colors.textPrimary }}>
+          {titleCase(label)}
+        </Text>
+        <Text style={{ fontSize: 11, color: Colors.textMuted }}>
+          {completed}/{total} · {rate}%
+        </Text>
+      </View>
+      <View style={{ height: 6, borderRadius: 3, backgroundColor: Colors.borderLight, overflow: 'hidden' }}>
+        <View style={{
+          height: 6, borderRadius: 3, width: `${rate}%`,
+          backgroundColor: rate >= 75 ? Colors.success : rate >= 40 ? '#F97316' : '#DC2626',
+        }} />
+      </View>
+    </View>
+  );
+
   return (
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
       <StatusBar barStyle="dark-content" />
@@ -110,7 +192,7 @@ export default function ReportsScreen() {
           </TouchableOpacity>
           <View>
             <Text style={{ fontSize: 22, fontWeight: '800', color: Colors.textPrimary }}>Reports</Text>
-            <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 2 }}>Generate consent-based care summaries</Text>
+            <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 2 }}>Care summaries and cognitive progress</Text>
           </View>
         </View>
       </View>
@@ -120,7 +202,7 @@ export default function ReportsScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Cognitive Report Card */}
+        {/* ── Cognitive Report Card (unchanged) ── */}
         <View style={{
           backgroundColor: Colors.white, borderRadius: 24, padding: 20,
           marginBottom: 16, borderWidth: 1, borderColor: Colors.borderLight,
@@ -139,7 +221,6 @@ export default function ReportsScreen() {
             </View>
           </View>
 
-          {/* Patient picker */}
           <Text style={{ fontSize: 11, fontWeight: '700', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginTop: 16, marginBottom: 8 }}>Patient</Text>
           {cogLoading ? (
             <View style={{ padding: 14, borderRadius: 14, backgroundColor: Colors.background, borderWidth: 1.5, borderColor: Colors.border, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -153,7 +234,7 @@ export default function ReportsScreen() {
           ) : (
             <View style={{ position: 'relative', zIndex: 30 }}>
               <TouchableOpacity
-                onPress={() => { setShowCogDD(!showCogDD); setShowPatientDD(false); setShowTypeDD(false); }}
+                onPress={() => { setShowCogDD(!showCogDD); setShowPatientDD(false); }}
                 style={{
                   flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
                   padding: 14, borderRadius: 14, backgroundColor: Colors.background,
@@ -177,7 +258,6 @@ export default function ReportsScreen() {
             </View>
           )}
 
-          {/* Unlinked-patient notice */}
           {selectedCogPatient && !selectedCogIsLinked && (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, padding: 10, borderRadius: 12, backgroundColor: '#FFFBEB' }}>
               <Ionicons name="information-circle-outline" size={15} color="#D97706" />
@@ -187,7 +267,6 @@ export default function ReportsScreen() {
             </View>
           )}
 
-          {/* View report button */}
           <TouchableOpacity
             onPress={handleViewCognitiveReport}
             disabled={!canViewCognitiveReport}
@@ -207,27 +286,34 @@ export default function ReportsScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Generate Report Card */}
+        {/* ── Task Completion Report Card ── */}
         <View style={{
           backgroundColor: Colors.white, borderRadius: 24, padding: 20,
           marginBottom: 16, borderWidth: 1, borderColor: Colors.borderLight,
           shadowColor: '#000', shadowOffset: { width: 0, height: 3 },
           shadowOpacity: 0.06, shadowRadius: 12, elevation: 2,
         }}>
-          <Text style={{ fontSize: 16, fontWeight: '800', color: Colors.textPrimary, marginBottom: 16 }}>
-            Generate Report
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+            <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: '#DCFCE7', alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name="checkmark-done-outline" size={18} color="#16A34A" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 16, fontWeight: '800', color: Colors.textPrimary }}>Task Completion Report</Text>
+              <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 1 }}>
+                Completion rate, category & priority breakdown
+              </Text>
+            </View>
+          </View>
 
           {/* Timeframe tabs */}
-          <Text style={{ fontSize: 11, fontWeight: '700', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Timeframe</Text>
+          <Text style={{ fontSize: 11, fontWeight: '700', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginTop: 16, marginBottom: 8 }}>Timeframe</Text>
           <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16, backgroundColor: Colors.borderLight, borderRadius: 14, padding: 4 }}>
             {TIMEFRAMES.map((tf) => (
               <TouchableOpacity
                 key={tf}
-                onPress={() => setTimeframe(tf)}
+                onPress={() => changeTimeframe(tf)}
                 style={{
-                  flex: 1, alignItems: 'center', paddingVertical: 9,
-                  borderRadius: 10,
+                  flex: 1, alignItems: 'center', paddingVertical: 9, borderRadius: 10,
                   backgroundColor: timeframe === tf ? Colors.white : 'transparent',
                   shadowColor: timeframe === tf ? Colors.primary : 'transparent',
                   shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4,
@@ -241,11 +327,11 @@ export default function ReportsScreen() {
             ))}
           </View>
 
-          {/* Patient dropdown */}
+          {/* Patient dropdown — real names, no hardcoded list */}
           <Text style={{ fontSize: 11, fontWeight: '700', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Patient</Text>
-          <View style={{ position: 'relative', marginBottom: 16, zIndex: 20 }}>
+          <View style={{ position: 'relative', marginBottom: 20, zIndex: 20 }}>
             <TouchableOpacity
-              onPress={() => { setShowPatientDD(!showPatientDD); setShowTypeDD(false); }}
+              onPress={() => { setShowPatientDD(!showPatientDD); setShowCogDD(false); }}
               style={{
                 flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
                 padding: 14, borderRadius: 14, backgroundColor: Colors.background,
@@ -255,30 +341,12 @@ export default function ReportsScreen() {
               <Text style={{ fontSize: 14, color: Colors.textPrimary, fontWeight: '500' }}>{patient}</Text>
               <Ionicons name={showPatientDD ? 'chevron-up' : 'chevron-down'} size={16} color={Colors.textMuted} />
             </TouchableOpacity>
-            <Dropdown visible={showPatientDD} options={PATIENTS} onSelect={setPatient} onClose={() => setShowPatientDD(false)} />
-          </View>
-
-          {/* Report type dropdown */}
-          <Text style={{ fontSize: 11, fontWeight: '700', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Report Type</Text>
-          <View style={{ position: 'relative', marginBottom: 20, zIndex: 10 }}>
-            <TouchableOpacity
-              onPress={() => { setShowTypeDD(!showTypeDD); setShowPatientDD(false); }}
-              style={{
-                flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-                padding: 14, borderRadius: 14, backgroundColor: Colors.background,
-                borderWidth: 1.5, borderColor: showTypeDD ? Colors.primary : Colors.border,
-              }}
-            >
-              <Text style={{ fontSize: 14, color: Colors.textPrimary, fontWeight: '500' }} numberOfLines={1}>{reportType}</Text>
-              <Ionicons name={showTypeDD ? 'chevron-up' : 'chevron-down'} size={16} color={Colors.textMuted} />
-            </TouchableOpacity>
-            <Dropdown visible={showTypeDD} options={REPORT_TYPES} onSelect={(v) => setReportType(v as ReportType)} onClose={() => setShowTypeDD(false)} />
-          </View>
-
-          {/* Consent badge */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 16, padding: 10, borderRadius: 12, backgroundColor: Colors.successSoft }}>
-            <Ionicons name="shield-checkmark-outline" size={15} color={Colors.success} />
-            <Text style={{ fontSize: 12, fontWeight: '600', color: Colors.success }}>Family consent verified for data sharing</Text>
+            <Dropdown
+              visible={showPatientDD}
+              options={patientOptions}
+              onSelect={changePatient}
+              onClose={() => setShowPatientDD(false)}
+            />
           </View>
 
           {/* Generate button */}
@@ -286,7 +354,8 @@ export default function ReportsScreen() {
             onPress={handleGenerate}
             disabled={generating}
             style={{
-              height: 50, borderRadius: 16, backgroundColor: generating ? Colors.primaryLight : Colors.primary,
+              height: 50, borderRadius: 16,
+              backgroundColor: generating ? Colors.primaryLight : Colors.primary,
               alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8,
               shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 },
               shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
@@ -302,7 +371,7 @@ export default function ReportsScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Report Preview Card */}
+        {/* ── Report Preview Card ── */}
         <View style={{
           backgroundColor: Colors.white, borderRadius: 24, padding: 20,
           borderWidth: 1, borderColor: Colors.borderLight,
@@ -311,58 +380,116 @@ export default function ReportsScreen() {
         }}>
           <Text style={{ fontSize: 16, fontWeight: '800', color: Colors.textPrimary, marginBottom: 4 }}>Report Preview</Text>
           <Text style={{ fontSize: 12, color: Colors.textMuted, marginBottom: 20 }}>
-            {generated ? `${reportType} • ${patient}` : 'Care Summary • Eleanor Vance'}
+            {report
+              ? `${report.startDate} to ${report.endDate} · ${report.patientFilter}`
+              : 'No report generated yet'}
           </Text>
 
-          {!generated
-            ? <View style={{ alignItems: 'center', paddingVertical: 30 }}>
-                <View style={{ width: 60, height: 60, borderRadius: 18, backgroundColor: Colors.borderLight, alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
-                  <Ionicons name="document-outline" size={28} color={Colors.textMuted} />
-                </View>
-                <Text style={{ fontSize: 14, fontWeight: '700', color: Colors.textPrimary, marginBottom: 4 }}>Ready to Generate</Text>
-                <Text style={{ fontSize: 12, color: Colors.textMuted, textAlign: 'center' }}>
-                  Select your parameters above and tap "Generate Report" to preview.
-                </Text>
+          {!report ? (
+            <View style={{ alignItems: 'center', paddingVertical: 30 }}>
+              <View style={{ width: 60, height: 60, borderRadius: 18, backgroundColor: Colors.borderLight, alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
+                <Ionicons name="document-outline" size={28} color={Colors.textMuted} />
               </View>
-            : <View style={{ paddingVertical: 10 }}>
-                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
-                  {['Tasks: 8/10', 'Meds: 95%', 'Mood: Good'].map((item) => (
-                    <View key={item} style={{ flex: 1, backgroundColor: Colors.primaryLight, borderRadius: 12, padding: 10, alignItems: 'center' }}>
-                      <Text style={{ fontSize: 11, fontWeight: '700', color: Colors.primary }}>{item}</Text>
-                    </View>
-                  ))}
-                </View>
-                <Text style={{ fontSize: 12, color: Colors.textSecondary, lineHeight: 18 }}>
-                  Weekly care summary generated successfully. All patient interactions logged and verified.
-                </Text>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: Colors.textPrimary, marginBottom: 4 }}>Ready to Generate</Text>
+              <Text style={{ fontSize: 12, color: Colors.textMuted, textAlign: 'center' }}>
+                Select your parameters above and tap "Generate Report".
+              </Text>
+            </View>
+          ) : report.summary.total === 0 ? (
+            <View style={{ alignItems: 'center', paddingVertical: 26 }}>
+              <Ionicons name="calendar-outline" size={26} color={Colors.textMuted} />
+              <Text style={{ fontSize: 13, fontWeight: '700', color: Colors.textPrimary, marginTop: 10 }}>
+                No tasks in this period
+              </Text>
+              <Text style={{ fontSize: 12, color: Colors.textMuted, textAlign: 'center', marginTop: 4 }}>
+                Try a longer timeframe or a different patient.
+              </Text>
+            </View>
+          ) : (
+            <View>
+              {/* Summary stats */}
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 20 }}>
+                <StatBox value={String(report.summary.total)}     label="Total"    color={Colors.textPrimary} />
+                <StatBox value={String(report.summary.completed)} label="Done"     color={Colors.success} />
+                <StatBox value={String(report.summary.overdue)}   label="Overdue"  color="#DC2626" />
+                <StatBox value={`${report.summary.completionRate}%`} label="Rate"  color={Colors.primary} />
               </View>
-          }
 
-          {/* Export buttons */}
+              {/* By category */}
+              {report.byCategory.length > 0 && (
+                <>
+                  <Text style={{ fontSize: 11, fontWeight: '700', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>
+                    By Category
+                  </Text>
+                  {report.byCategory.map((c) => (
+                    <BreakdownRow key={c.category} label={c.category} total={c.total} completed={c.completed} rate={c.rate} />
+                  ))}
+                </>
+              )}
+
+              {/* By priority */}
+              {report.byPriority.length > 0 && (
+                <>
+                  <Text style={{ fontSize: 11, fontWeight: '700', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginTop: 12, marginBottom: 10 }}>
+                    By Priority
+                  </Text>
+                  {report.byPriority.map((p) => (
+                    <BreakdownRow key={p.priority} label={p.priority} total={p.total} completed={p.completed} rate={p.rate} />
+                  ))}
+                </>
+              )}
+            </View>
+          )}
+
+          {/* Export buttons — disabled until there's something to export */}
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
             <TouchableOpacity
+              onPress={() => handleExport('csv')}
+              disabled={!report || exporting !== null}
               style={{
                 flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
                 gap: 6, height: 46, borderRadius: 14,
-                borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.white,
+                borderWidth: 1.5, borderColor: Colors.border,
+                backgroundColor: Colors.white,
+                opacity: !report || exporting !== null ? 0.5 : 1,
               }}
             >
-              <Ionicons name="download-outline" size={16} color={Colors.textSecondary} />
-              <Text style={{ fontSize: 13, fontWeight: '700', color: Colors.textSecondary }}>CSV</Text>
+              {exporting === 'csv'
+                ? <ActivityIndicator size="small" color={Colors.textSecondary} />
+                : <>
+                    <Ionicons name="download-outline" size={16} color={Colors.textSecondary} />
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: Colors.textSecondary }}>CSV</Text>
+                  </>
+              }
             </TouchableOpacity>
+
             <TouchableOpacity
+              onPress={() => handleExport('pdf')}
+              disabled={!report || exporting !== null}
               style={{
                 flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
                 gap: 6, height: 46, borderRadius: 14,
                 backgroundColor: Colors.primary,
                 shadowColor: Colors.primary, shadowOffset: { width: 0, height: 3 },
                 shadowOpacity: 0.25, shadowRadius: 6, elevation: 3,
+                opacity: !report || exporting !== null ? 0.5 : 1,
               }}
             >
-              <Ionicons name="download-outline" size={16} color={Colors.white} />
-              <Text style={{ fontSize: 13, fontWeight: '700', color: Colors.white }}>PDF</Text>
+              {exporting === 'pdf'
+                ? <ActivityIndicator size="small" color={Colors.white} />
+                : <>
+                    <Ionicons name="download-outline" size={16} color={Colors.white} />
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: Colors.white }}>PDF</Text>
+                  </>
+              }
             </TouchableOpacity>
           </View>
+
+          {!report && (
+            <Text style={{ fontSize: 11, color: Colors.textMuted, textAlign: 'center', marginTop: 10 }}>
+              Generate a report to enable export
+            </Text>
+          )}
         </View>
       </ScrollView>
     </View>

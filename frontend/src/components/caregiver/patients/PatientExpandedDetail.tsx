@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import { View, Text, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Colors } from '../../../constants/colors';
@@ -72,6 +72,42 @@ export const PatientExpandedDetail: React.FC<PatientExpandedDetailProps> = ({
         </Text>
         <Text className="text-[11px]" style={{ color: Colors.textMuted }}>
           No test needed
+        </Text>
+        <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+      </TouchableOpacity>
+
+      {/* Full Cognitive Report */}
+      <TouchableOpacity
+        onPress={() => {
+          if (!patient.registeredPatientId) {
+            Alert.alert(
+              'Not linked yet',
+              `${patient.name} hasn't been linked to a MemoCare patient account, so there's no cognitive activity to report on yet. Link their account first from the patient's edit screen.`
+            );
+            return;
+          }
+          router.push({
+            pathname: '/caregiver/patient-report',
+            params: {
+              patientId: patient.registeredPatientId,
+              patientName: patient.name,
+            },
+          } as any);
+        }}
+        className="flex-row items-center gap-2 px-3 py-2.5 rounded-xl mb-4"
+        style={{ backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.border }}
+      >
+        <View
+          className="w-8 h-8 rounded-full items-center justify-center"
+          style={{ backgroundColor: '#DBEAFE' }}
+        >
+          <Ionicons name="bar-chart-outline" size={16} color="#2563EB" />
+        </View>
+        <Text className="text-xs font-semibold flex-1" style={{ color: Colors.textPrimary }}>
+          Full Cognitive Report
+        </Text>
+        <Text className="text-[11px]" style={{ color: Colors.textMuted }}>
+          Stats & history
         </Text>
         <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
       </TouchableOpacity>

@@ -21,7 +21,7 @@ const mapPatient = (raw: any): PatientDetail => ({
   condition_notes:       raw.condition_notes,
   condition_description: raw.condition_description,
   routines:              (raw.routines || []).map(mapRoutine),
-  registeredPatientId:   raw.registeredPatientId ? String(raw.registeredPatientId) : null,
+  registeredPatientId:   raw.registeredPatientId ?? null,
 });
 
 export const fetchPatients = async (): Promise<PatientDetail[]> => {
