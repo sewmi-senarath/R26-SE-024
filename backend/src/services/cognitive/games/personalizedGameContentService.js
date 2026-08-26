@@ -20,7 +20,6 @@ const {
 const {
   generateLlmGameContent,
   generateOrientationDistractors,
-  generateFaceNameDecoys,
 } = require("./llmGameContentService");
 
 const VALID_GAMES = new Set([
@@ -45,7 +44,6 @@ const FALLBACK_CITIES = [
   "Colombo", "Kandy", "Galle", "Jaffna", "Negombo",
   "Kurunegala", "Anuradhapura", "Matara", "Trincomalee", "Batticaloa",
 ];
-const FILLER_NAMES = ["Alex", "Maria", "Sam", "Grace", "John", "Emma", "Leo", "Nina", "Ray", "Zoe"];
 
 const FAMILY_EMOJIS = {
   daughter: "\u{1F469}",
@@ -301,6 +299,34 @@ function emojiForRelation(relation) {
   return FAMILY_EMOJIS[key] || "\u{1F46A}";
 }
 
+const MALE_RELATIONS = new Set([
+  "son", "husband", "father", "brother", "grandson", "grandfather",
+  "uncle", "nephew", "dad", "papa",
+]);
+const FEMALE_RELATIONS = new Set([
+  "daughter", "wife", "mother", "sister", "granddaughter", "grandmother",
+  "aunt", "niece", "mom", "mum", "mama",
+]);
+
+// Best-effort gender from the relation word, so hard-level distractors can be
+// same-gender relatives (confusing a daughter with a niece is far harder than
+// with a male name). Returns "male" | "female" | null.
+function genderFromRelation(relation) {
+  const key = normalizeKey(relation);
+  if (MALE_RELATIONS.has(key)) return "male";
+  if (FEMALE_RELATIONS.has(key)) return "female";
+  return null;
+}
+
+// Take up to `count` distinct distractors, preferring the priority pool and
+// topping up from the fallback pool. Never includes any excluded name.
+function chooseDistractors(exclude, priorityPool, fallbackPool, count) {
+  const first = pickDistractors(priorityPool, exclude, count);
+  if (first.length >= count) return first;
+  const more = pickDistractors(fallbackPool, [...exclude, ...first], count - first.length);
+  return [...first, ...more];
+}
+
 function emojiForFood(food) {
   const key = normalizeKey(food);
   return FOOD_EMOJIS[key] || "\u{1F37D}\uFE0F";
@@ -517,14 +543,18 @@ function buildOrientationItems(patient, optionsCount, llmDistractors, opts = {})
   };
 }
 
-function buildFaceNameItems(patient, optionsCount, llmDecoyNames) {
+function buildFaceNameItems(patient, optionsCount, opts = {}) {
+  const { distractorStyle = "mixed" } = opts;
+
   const realPeople = shuffle(
     (patient.familyMembers || [])
       .filter((member) => member?.name)
       .map((member) => ({
         name: member.name.trim(),
+        relation: member.relation ? member.relation.trim() : undefined,
         relationLabel: member.relation ? `Who is your ${member.relation}?` : "Who is this?",
         emoji: emojiForRelation(member.relation),
+        gender: genderFromRelation(member.relation),
         image: normalizePhotoValue(member.photo) || undefined,
       }))
   );
@@ -532,22 +562,31 @@ function buildFaceNameItems(patient, optionsCount, llmDecoyNames) {
   if (!realPeople.length) return [];
 
   const realNames = realPeople.map((p) => p.name);
-  const fillerPool = [...FILLER_NAMES, ...(llmDecoyNames || [])].filter(
-    (name) => !realNames.some((real) => normalizeKey(real) === normalizeKey(name))
-  );
-  const distractorPool = [...realNames, ...fillerPool];
+  // Every wrong option is another real relative — never a random stranger — so
+  // we can only offer as many choices as there are people on file.
+  const effectiveOptions = Math.max(1, Math.min(optionsCount, realNames.length));
+  const preferSameGender = distractorStyle === "sameGender";
 
-  return realPeople.map((person, index) => ({
-    id: `pface${index + 1}`,
-    emoji: person.emoji,
-    ...(person.image ? { image: person.image } : {}),
-    relationLabel: person.relationLabel,
-    correctAnswer: person.name,
-    options: shuffle([
-      person.name,
-      ...pickDistractors(distractorPool, [person.name], optionsCount - 1),
-    ]),
-  }));
+  return realPeople.map((person, index) => {
+    // On medium/hard, prefer other relatives of the same gender as decoys, so
+    // the choice is genuinely confusable (a daughter vs a niece). Easy just
+    // uses any other relative. Either way, all names are real family.
+    const sameGender = person.gender
+      ? realPeople.filter((p) => p.gender === person.gender).map((p) => p.name)
+      : [];
+    const priorityPool = preferSameGender && sameGender.length ? sameGender : realNames;
+    const distractors = chooseDistractors([person.name], priorityPool, realNames, effectiveOptions - 1);
+
+    return {
+      id: `pface${index + 1}`,
+      emoji: person.emoji,
+      ...(person.image ? { image: person.image } : {}),
+      ...(person.relation ? { relation: person.relation } : {}),
+      relationLabel: person.relationLabel,
+      correctAnswer: person.name,
+      options: shuffle([person.name, ...distractors]),
+    };
+  });
 }
 
 async function isAuthorizedForPatient(requestUser, patientId) {
@@ -715,32 +754,39 @@ async function getPersonalizedGameContent({ gameId, patientId, difficulty, reque
   }
 
   if (gameId === "face_name_match") {
-    // The correct name for a photo always comes from the patient's own
-    // family records — the LLM only ever supplies extra decoy first names.
-    const realNames = compactStrings((patient.familyMembers || []).map((m) => m?.name));
-    let llmDecoyNames = null;
-    try {
-      llmDecoyNames = await generateFaceNameDecoys({ patient, realNames });
-    } catch (error) {
-      console.warn("[game-content] Face-name decoy generation failed:", error.message);
+    // Every person shown is a real family member on file, and every wrong-answer
+    // name is another real relative. We never pad the round with generic
+    // strangers — so the number of questions is simply however many family
+    // members were uploaded. Only the game *structure* changes with difficulty.
+    const personalItems = buildFaceNameItems(patient, staticConfig.optionsCount, {
+      distractorStyle: staticConfig.distractorStyle,
+    });
+
+    if (personalItems.length > 0) {
+      logTier("rule-based (face-name)", { gameId, difficulty, patientId, personalized: true });
+      return {
+        config: {
+          ...staticConfig,
+          questionCount: personalItems.length,
+          questions: personalItems,
+        },
+        personalized: true,
+      };
     }
 
-    const requiredCount = staticConfig.questionCount;
-    const personalItems = buildFaceNameItems(patient, staticConfig.optionsCount, llmDecoyNames);
-    const remaining = requiredCount - personalItems.length;
-    const genericPeople = FALLBACK_FACES.filter(
-      (face) => !realNames.some((name) => normalizeKey(name) === normalizeKey(face.name))
+    // No family members on file at all — fall back to generic practice faces so
+    // the game still works (there is nothing real to preserve here).
+    const fallbackItems = buildFaceQuestions(
+      FALLBACK_FACES,
+      Math.min(staticConfig.questionCount, FALLBACK_FACES.length),
+      staticConfig.optionsCount
     );
-    const fallbackItems =
-      remaining > 0 ? buildFaceQuestions(genericPeople, remaining, staticConfig.optionsCount) : [];
-
-    logTier(
-      llmDecoyNames ? "rule-based + groq decoys (face-name)" : "rule-based (face-name)",
-      { gameId, difficulty, patientId, personalized: personalItems.length > 0 }
-    );
+    logTier("static (face-name, no family on file)", {
+      gameId, difficulty, patientId, personalized: false,
+    });
     return {
-      config: { ...staticConfig, questions: [...personalItems, ...fallbackItems].slice(0, requiredCount) },
-      personalized: personalItems.length > 0,
+      config: { ...staticConfig, questionCount: fallbackItems.length, questions: fallbackItems },
+      personalized: false,
     };
   }
 

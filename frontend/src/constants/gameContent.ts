@@ -412,10 +412,20 @@ const ORIENTATION_META: Record<Difficulty, OrientationMeta> = {
   },
 };
 
-const FACE_NAME_META: Record<Difficulty, { questionCount: number; optionsCount: number; timeLimitSeconds: number | null }> = {
-  easy: { questionCount: 3, optionsCount: 3, timeLimitSeconds: null },
-  medium: { questionCount: 4, optionsCount: 3, timeLimitSeconds: 20 },
-  hard: { questionCount: 5, optionsCount: 4, timeLimitSeconds: 15 },
+type FaceNameMeta = Omit<FaceNameMatchConfig, "questions">;
+const FACE_NAME_META: Record<Difficulty, FaceNameMeta> = {
+  easy: {
+    questionCount: 3, optionsCount: 3, timeLimitSeconds: null,
+    answerMode: "choice", studyPhase: false, firstLetterCue: true, distractorStyle: "mixed",
+  },
+  medium: {
+    questionCount: 4, optionsCount: 4, timeLimitSeconds: 20,
+    answerMode: "choice", studyPhase: true, firstLetterCue: false, distractorStyle: "sameGender",
+  },
+  hard: {
+    questionCount: 5, optionsCount: 4, timeLimitSeconds: 15,
+    answerMode: "recall", studyPhase: true, firstLetterCue: false, distractorStyle: "sameGender",
+  },
 };
 
 export const GAME_CONTENT: Record<Exclude<GameId, "orientation_game" | "face_name_match">, Record<Difficulty, any>> = {

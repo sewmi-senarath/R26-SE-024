@@ -1,3 +1,4 @@
+import { FamilyAlbum } from '@/src/components/patient/cognitive/components/games/shared/FamilyAlbum';
 import { GameHeader } from '@/src/components/patient/cognitive/components/games/shared/GameHeader';
 import { GameResultScreen } from '@/src/components/patient/cognitive/components/games/shared/GameResultScreen';
 import { InstructionScreen } from '@/src/components/patient/cognitive/components/games/shared/InstructionScreen';
@@ -9,11 +10,10 @@ import { useSoundEffects } from '@/src/hooks/useSoundEffects';
 import { Difficulty, DifficultyProgressUpdate, FaceNameMatchConfig, GameSessionResult } from '@/src/types/games.types';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Speech from 'expo-speech';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Image, SafeAreaView, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import Animated, {
-  Easing,
   FadeInUp,
   ZoomIn,
   useAnimatedStyle,
@@ -22,7 +22,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-type Phase = 'instruction' | 'playing' | 'result';
+type Phase = 'instruction' | 'album' | 'study' | 'playing' | 'result';
 
 export default function FaceNameMatchGame() {
   const { difficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
@@ -42,6 +42,10 @@ export default function FaceNameMatchGame() {
   const [frozenConfig, setFrozenConfig] = useState<FaceNameMatchConfig | null>(null);
   const config = frozenConfig ?? liveConfig;
 
+  const recallMode = config.answerMode === 'recall';
+  const studyPhase = Boolean(config.studyPhase);
+  const firstLetterCue = Boolean(config.firstLetterCue);
+
   const [phase, setPhase] = useState<Phase>('instruction');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [score, setScore] = useState(0);
@@ -51,13 +55,34 @@ export default function FaceNameMatchGame() {
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<'correct' | 'incorrect' | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [revealed, setRevealed] = useState(false); // free-recall: name shown for self-check
+  const [showHint, setShowHint] = useState(false); // errorless first-letter cue
   const shakeX = useSharedValue(0);
+  const hintTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const currentQuestion = config.questions[currentIndex];
+
+  const albumPeople = useMemo(
+    () =>
+      config.questions.map((q) => ({
+        name: q.correctAnswer,
+        emoji: q.emoji,
+        image: q.image,
+        relation: q.relation,
+      })),
+    [config.questions],
+  );
 
   const shakeStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: shakeX.value }],
   }));
+
+  const clearHintTimer = () => {
+    if (hintTimer.current) {
+      clearTimeout(hintTimer.current);
+      hintTimer.current = null;
+    }
+  };
 
   const finishGame = useCallback(
     (finalScore: number) => {
@@ -88,11 +113,14 @@ export default function FaceNameMatchGame() {
 
   const goToNext = useCallback(
     (finalScore: number) => {
+      clearHintTimer();
       if (currentIndex < config.questions.length - 1) {
         playSound('click');
         setCurrentIndex((i) => i + 1);
         setSelectedOption(null);
         setFeedback(null);
+        setRevealed(false);
+        setShowHint(false);
         timer.reset();
       } else {
         finishGame(finalScore);
@@ -106,30 +134,41 @@ export default function FaceNameMatchGame() {
   React.useEffect(() => { scoreRef.current = score; }, [score]);
 
   const timer = useQuestionTimer({
-    limitSeconds: phase === 'playing' ? config.timeLimitSeconds : null,
+    limitSeconds: phase === 'playing' && !revealed ? config.timeLimitSeconds : null,
     onExpire: () => {
-      if (!selectedOption) {
-        playSound('error');
-        setFeedback('incorrect');
-        setTimeout(() => goToNext(scoreRef.current), 900);
+      if (selectedOption) return;
+      if (recallMode) {
+        // Time's up to remember — reveal the name so they can self-check.
+        setRevealed(true);
+        playSound('click');
+        return;
       }
+      playSound('error');
+      setFeedback('incorrect');
+      setTimeout(() => goToNext(scoreRef.current), 900);
     },
-    autoStart: phase === 'playing' && !selectedOption,
+    autoStart: phase === 'playing' && !selectedOption && !revealed,
   });
 
-  const handleSelect = (option: string) => {
-    if (selectedOption || !currentQuestion) return;
+  // Errorless first-letter cue: if an easy question sits unanswered, gently
+  // fade in the first letter so the patient is guided to success.
+  React.useEffect(() => {
+    clearHintTimer();
+    if (phase === 'playing' && firstLetterCue && !selectedOption && currentQuestion) {
+      hintTimer.current = setTimeout(() => setShowHint(true), 4500);
+    }
+    return clearHintTimer;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, currentIndex, firstLetterCue, selectedOption]);
 
-    setSelectedOption(option);
-    const isCorrect = option === currentQuestion.correctAnswer;
-
-    if (isCorrect) {
+  const resolve = (remembered: boolean) => {
+    if (remembered) {
       const nextScore = score + 1;
       setScore(nextScore);
       scoreRef.current = nextScore;
       setFeedback('correct');
       playSound('success');
-      Speech.speak(`Yes, that's ${currentQuestion.correctAnswer}!`);
+      Speech.speak(`Wonderful, that's ${currentQuestion?.correctAnswer}!`);
       setShowConfetti(true);
       setTimeout(() => {
         setShowConfetti(false);
@@ -138,7 +177,7 @@ export default function FaceNameMatchGame() {
     } else {
       setFeedback('incorrect');
       playSound('error');
-      Speech.speak(`This is ${currentQuestion.correctAnswer}.`);
+      Speech.speak(`This is ${currentQuestion?.correctAnswer}.`);
       shakeX.value = withSequence(
         withTiming(-10, { duration: 60 }),
         withTiming(10, { duration: 60 }),
@@ -150,8 +189,58 @@ export default function FaceNameMatchGame() {
     }
   };
 
+  const handleSelect = (option: string) => {
+    if (selectedOption || !currentQuestion) return;
+    clearHintTimer();
+    setSelectedOption(option);
+    resolve(option === currentQuestion.correctAnswer);
+  };
+
+  // Free-recall self-check (hard): patient reports whether they remembered.
+  const handleSelfCheck = (remembered: boolean) => {
+    if (selectedOption || !currentQuestion) return;
+    setSelectedOption(currentQuestion.correctAnswer);
+    resolve(remembered);
+  };
+
+  const startPlaying = () => {
+    setPhase('playing');
+    setStartTime(Date.now());
+    setCurrentIndex(0);
+    setScore(0);
+    scoreRef.current = 0;
+    setSelectedOption(null);
+    setFeedback(null);
+    setRevealed(false);
+    setShowHint(false);
+  };
+
+  const handleStart = () => {
+    playSound('click');
+    const frozen = liveConfig;
+    setFrozenConfig(frozen);
+    if (frozen.studyPhase) {
+      setPhase('study');
+    } else {
+      startPlaying();
+    }
+  };
+
+  const openAlbum = () => {
+    playSound('click');
+    setFrozenConfig(liveConfig);
+    setPhase('album');
+  };
+
+  const leaveAlbum = () => {
+    Speech.stop();
+    setFrozenConfig(null);
+    setPhase('instruction');
+  };
+
   const handleReset = () => {
     playSound('click');
+    clearHintTimer();
     setFrozenConfig(null);
     setPhase('instruction');
     setCurrentIndex(0);
@@ -161,10 +250,13 @@ export default function FaceNameMatchGame() {
     setProgress(null);
     setSelectedOption(null);
     setFeedback(null);
+    setRevealed(false);
+    setShowHint(false);
   };
 
   const handleGoBack = () => {
     playSound('back');
+    Speech.stop();
     router.back();
   };
 
@@ -175,24 +267,49 @@ export default function FaceNameMatchGame() {
         difficulty={difficulty}
         steps={[
           { icon: '👪', text: `Look at ${config.questionCount} photos of people you know` },
-          { icon: '👆', text: 'Tap the name that matches the person shown' },
-          { icon: '⏱️', text: config.timeLimitSeconds ? `${config.timeLimitSeconds} seconds per photo` : 'No time limit — take your time' },
+          {
+            icon: recallMode ? '💭' : '👆',
+            text: recallMode
+              ? 'Try to remember their name, then check if you got it right'
+              : 'Tap the name that matches the person shown',
+          },
+          studyPhase
+            ? { icon: '📖', text: 'First, look through the Family Album to refresh your memory' }
+            : { icon: '⏱️', text: config.timeLimitSeconds ? `${config.timeLimitSeconds} seconds per photo` : 'No time limit — take your time' },
         ]}
-        onStart={() => {
-          playSound('click');
-          setFrozenConfig(liveConfig);
-          setPhase('playing');
-          setStartTime(Date.now());
-          setCurrentIndex(0);
-          setScore(0);
-          scoreRef.current = 0;
-          setSelectedOption(null);
-          setFeedback(null);
-        }}
+        secondaryAction={{ label: 'Open Family Album', icon: 'book', onPress: openAlbum }}
+        onStart={handleStart}
         onBack={handleGoBack}
         startDisabled={loading}
-        startLabel={loading ? 'Preparing your game…' : 'Start Game'}
+        startLabel={loading ? 'Preparing your game…' : studyPhase ? 'Study & Play' : 'Start Game'}
       />
+    );
+  }
+
+  if (phase === 'album' || phase === 'study') {
+    const isStudy = phase === 'study';
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#f9fafb' }}>
+        <GameHeader
+          title={isStudy ? 'Family Album — Study' : 'Family Album'}
+          difficulty={difficulty}
+          timeLeft={null}
+          totalSeconds={null}
+          onBack={leaveAlbum}
+        />
+        <FamilyAlbum
+          people={albumPeople}
+          mode={isStudy ? 'study' : 'browse'}
+          doneLabel={isStudy ? "I'm ready — start" : 'Done'}
+          onDone={() => {
+            if (isStudy) {
+              startPlaying();
+            } else {
+              leaveAlbum();
+            }
+          }}
+        />
+      </SafeAreaView>
     );
   }
 
@@ -207,13 +324,15 @@ export default function FaceNameMatchGame() {
     );
   }
 
+  const firstLetter = currentQuestion?.correctAnswer?.charAt(0)?.toUpperCase() ?? '';
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#f9fafb' }}>
       {showConfetti && <ConfettiCannon count={70} origin={{ x: -10, y: 0 }} fadeOut />}
       <GameHeader
         title="Who Is This?"
         difficulty={difficulty}
-        timeLeft={config.timeLimitSeconds && !selectedOption ? timer.secondsLeft : null}
+        timeLeft={config.timeLimitSeconds && !selectedOption && !revealed ? timer.secondsLeft : null}
         totalSeconds={config.timeLimitSeconds}
         onBack={handleGoBack}
       />
@@ -272,43 +391,109 @@ export default function FaceNameMatchGame() {
             </Text>
           </Animated.View>
 
-          <View className="gap-3">
-            {currentQuestion?.options.map((option, index) => {
-              const isSelected = selectedOption === option;
-              const isCorrectOption = option === currentQuestion.correctAnswer;
-              const showCorrectHighlight = selectedOption && isCorrectOption;
-              const showWrongHighlight = isSelected && !isCorrectOption;
+          {recallMode ? (
+            // ── Free recall: try to remember, reveal, then self-check ──
+            !revealed ? (
+              <View className="gap-3 items-center">
+                <Text className="text-base text-gray-500 text-center">
+                  Take a moment and try to remember their name.
+                </Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    timer.stop();
+                    setRevealed(true);
+                    playSound('click');
+                  }}
+                  activeOpacity={0.85}
+                  className="py-4 px-8 rounded-2xl items-center bg-purple-600"
+                >
+                  <Text className="text-white text-lg font-bold">Show me the name</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View className="gap-4">
+                <View className="items-center">
+                  <Text className="text-sm text-gray-400">Their name is</Text>
+                  <Text className="text-3xl font-extrabold text-gray-900 mt-1">
+                    {currentQuestion?.correctAnswer}
+                  </Text>
+                </View>
+                {!selectedOption ? (
+                  <>
+                    <Text className="text-base text-gray-600 text-center">Did you remember it?</Text>
+                    <View className="flex-row gap-3">
+                      <TouchableOpacity
+                        onPress={() => handleSelfCheck(false)}
+                        activeOpacity={0.85}
+                        className="flex-1 py-5 rounded-2xl items-center border-2 border-gray-200 bg-white"
+                      >
+                        <Text className="text-gray-700 text-lg font-bold">Not this time</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => handleSelfCheck(true)}
+                        activeOpacity={0.85}
+                        className="flex-1 py-5 rounded-2xl items-center bg-green-500"
+                      >
+                        <Text className="text-white text-lg font-bold">Yes, I did!</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                ) : null}
+              </View>
+            )
+          ) : (
+            // ── Recognition: pick the name ──
+            <>
+              <View className="gap-3">
+                {currentQuestion?.options.map((option, index) => {
+                  const isSelected = selectedOption === option;
+                  const isCorrectOption = option === currentQuestion.correctAnswer;
+                  const showCorrectHighlight = selectedOption && isCorrectOption;
+                  const showWrongHighlight = isSelected && !isCorrectOption;
+                  const cued = showHint && !selectedOption && isCorrectOption;
 
-              return (
-                <Animated.View key={option} entering={FadeInUp.delay(index * 60).duration(300)}>
-                  <TouchableOpacity
-                    onPress={() => handleSelect(option)}
-                    disabled={Boolean(selectedOption)}
-                    activeOpacity={0.8}
-                    className={`py-5 px-6 rounded-2xl border-2 ${
-                      showCorrectHighlight
-                        ? 'bg-green-50 border-green-400'
-                        : showWrongHighlight
-                          ? 'bg-red-50 border-red-400'
-                          : 'bg-white border-gray-200'
-                    }`}
-                  >
-                    <Text
-                      className={`text-lg font-semibold text-center ${
-                        showCorrectHighlight
-                          ? 'text-green-700'
-                          : showWrongHighlight
-                            ? 'text-red-700'
-                            : 'text-gray-800'
-                      }`}
-                    >
-                      {option}
-                    </Text>
-                  </TouchableOpacity>
+                  return (
+                    <Animated.View key={option} entering={FadeInUp.delay(index * 60).duration(300)}>
+                      <TouchableOpacity
+                        onPress={() => handleSelect(option)}
+                        disabled={Boolean(selectedOption)}
+                        activeOpacity={0.8}
+                        className={`py-5 px-6 rounded-2xl border-2 ${
+                          showCorrectHighlight
+                            ? 'bg-green-50 border-green-400'
+                            : showWrongHighlight
+                              ? 'bg-red-50 border-red-400'
+                              : cued
+                                ? 'bg-amber-50 border-amber-300'
+                                : 'bg-white border-gray-200'
+                        }`}
+                      >
+                        <Text
+                          className={`text-lg font-semibold text-center ${
+                            showCorrectHighlight
+                              ? 'text-green-700'
+                              : showWrongHighlight
+                                ? 'text-red-700'
+                                : 'text-gray-800'
+                          }`}
+                        >
+                          {option}
+                        </Text>
+                      </TouchableOpacity>
+                    </Animated.View>
+                  );
+                })}
+              </View>
+
+              {showHint && !selectedOption ? (
+                <Animated.View entering={FadeInUp.duration(300)} className="items-center">
+                  <Text className="text-sm text-amber-600 font-semibold">
+                    💡 Their name starts with “{firstLetter}”
+                  </Text>
                 </Animated.View>
-              );
-            })}
-          </View>
+              ) : null}
+            </>
+          )}
 
           {feedback && (
             <Animated.View

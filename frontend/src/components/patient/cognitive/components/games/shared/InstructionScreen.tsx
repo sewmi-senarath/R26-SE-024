@@ -30,6 +30,8 @@ interface Props {
   onBack?: () => void;
   startDisabled?: boolean;
   startLabel?: string;
+  /** Optional secondary button shown above Start (e.g. "Open Family Album"). */
+  secondaryAction?: { label: string; icon?: keyof typeof Ionicons.glyphMap; onPress: () => void };
 }
 
 export function InstructionScreen({
@@ -40,6 +42,7 @@ export function InstructionScreen({
   onBack,
   startDisabled = false,
   startLabel = 'Start Game',
+  secondaryAction,
 }: Props) {
   const router = useRouter();
   const config = GAME_CONFIGS[gameId];
@@ -195,6 +198,21 @@ export function InstructionScreen({
         entering={FadeInUp.delay(150).duration(400)}
         className="absolute bottom-0 left-0 right-0 px-6 py-6 bg-white border-t border-gray-200"
       >
+        {secondaryAction ? (
+          <TouchableOpacity
+            onPress={() => {
+              stopInstructions();
+              secondaryAction.onPress();
+            }}
+            activeOpacity={0.85}
+            className="py-4 rounded-3xl items-center mb-3 border-2 border-purple-300 bg-purple-50 flex-row justify-center gap-2"
+          >
+            {secondaryAction.icon ? (
+              <Ionicons name={secondaryAction.icon} size={22} color="#9333ea" />
+            ) : null}
+            <Text className="text-purple-700 font-bold text-xl">{secondaryAction.label}</Text>
+          </TouchableOpacity>
+        ) : null}
         <TouchableOpacity
           onPress={handleStartPress}
           disabled={startDisabled}

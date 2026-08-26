@@ -129,6 +129,14 @@ export interface FaceNameMatchConfig {
   optionsCount: number;
   timeLimitSeconds: number | null;
   questions: FaceNameQuestion[];
+  /** "choice" = pick from options; "recall" = free recall, reveal & self-check (hard). */
+  answerMode?: "choice" | "recall";
+  /** Show the Family Album to study before the questions begin (medium/hard). */
+  studyPhase?: boolean;
+  /** Errorless helper: reveal the first letter if the patient hesitates (easy). */
+  firstLetterCue?: boolean;
+  /** Wrong-answer names are always other real relatives; "sameGender" (medium/hard) prefers same-gender relatives for a more confusable choice, "mixed" (easy) uses any. */
+  distractorStyle?: "mixed" | "sameGender";
 }
 export interface FaceNameQuestion {
   id: string;
@@ -136,6 +144,8 @@ export interface FaceNameQuestion {
   /** Real family photo — shown instead of the emoji when present. */
   image?: string;
   relationLabel: string;
+  /** The relation word alone (e.g. "daughter") — used for album narration. */
+  relation?: string;
   correctAnswer: string;
   options: string[];
 }

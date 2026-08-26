@@ -227,9 +227,37 @@ const GAME_CONTENT = {
     },
   },
   face_name_match: {
-    easy: { questionCount: 3, optionsCount: 3, timeLimitSeconds: null },
-    medium: { questionCount: 4, optionsCount: 3, timeLimitSeconds: 20 },
-    hard: { questionCount: 5, optionsCount: 4, timeLimitSeconds: 15 },
+    // Difficulty scales by retrieval depth, not just count/time: easy is pure
+    // recognition with unrelated distractors and an errorless first-letter cue;
+    // medium studies the album first then recognises against confusable family
+    // names; hard studies then does free recall (reveal + self-check).
+    easy: {
+      questionCount: 3,
+      optionsCount: 3,
+      timeLimitSeconds: null,
+      answerMode: "choice",
+      studyPhase: false,
+      firstLetterCue: true,
+      distractorStyle: "mixed",
+    },
+    medium: {
+      questionCount: 4,
+      optionsCount: 4,
+      timeLimitSeconds: 20,
+      answerMode: "choice",
+      studyPhase: true,
+      firstLetterCue: false,
+      distractorStyle: "sameGender",
+    },
+    hard: {
+      questionCount: 5,
+      optionsCount: 4,
+      timeLimitSeconds: 15,
+      answerMode: "recall",
+      studyPhase: true,
+      firstLetterCue: false,
+      distractorStyle: "sameGender",
+    },
   },
 };
 
