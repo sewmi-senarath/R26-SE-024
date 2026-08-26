@@ -359,7 +359,7 @@ export default function FaceNameMatchGame() {
         <View style={{ flex: 1, justifyContent: 'center', gap: 24 }}>
           <Animated.View
             key={currentQuestion?.id}
-            entering={ZoomIn.duration(400).springify().damping(11)}
+            entering={ZoomIn.duration(400)}
             style={{ alignItems: 'center', gap: 10 }}
           >
             {currentQuestion?.image ? (

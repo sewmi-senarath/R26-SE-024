@@ -54,7 +54,7 @@ export function FamilyAlbum({ people, mode, onDone, doneLabel }: Props) {
   return (
     <View style={{ flex: 1, justifyContent: 'space-between', paddingHorizontal: 24, paddingBottom: 24 }}>
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', gap: 18 }}>
-        <Animated.View key={index} entering={ZoomIn.duration(400).springify().damping(12)} style={{ alignItems: 'center', gap: 16 }}>
+        <Animated.View key={index} entering={ZoomIn.duration(400)} style={{ alignItems: 'center', gap: 16 }}>
           {person.image ? (
             <Image
               source={{ uri: person.image }}

@@ -244,8 +244,8 @@ export default function BrainGamesScreen() {
                   key={assignment.gameId}
                   entering={FadeInUp.delay(120 + index * 70)
                     .duration(450)
-                    .springify()
-                    .damping(16)}
+                    
+                    }
                   style={{ width: "48%", marginBottom: 14 }}
                 >
                   <TouchableOpacity

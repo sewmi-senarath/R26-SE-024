@@ -344,7 +344,7 @@ export default function WordPuzzleGame() {
             ) : (
               <Animated.View
                 key={currentWord?.id}
-                entering={ZoomIn.duration(400).springify().damping(11)}
+                entering={ZoomIn.duration(400)}
                 style={{
                   width: 132,
                   height: 132,
@@ -413,7 +413,7 @@ export default function WordPuzzleGame() {
                   return (
                     <Animated.View
                       key={`${currentWord?.id}-${i}`}
-                      entering={ZoomIn.delay(i * 60).duration(350).springify().damping(12)}
+                      entering={ZoomIn.delay(i * 60).duration(350)}
                     >
                       <TouchableOpacity
                         onPress={() => handleTapLetter(i)}

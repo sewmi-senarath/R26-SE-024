@@ -288,7 +288,7 @@ export default function OrientationGame() {
           onBack={handleGoBack}
         />
         <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 24 }}>
-          <Animated.View entering={ZoomIn.duration(400).springify().damping(12)} style={{ alignItems: 'center', gap: 16 }}>
+          <Animated.View entering={ZoomIn.duration(400)} style={{ alignItems: 'center', gap: 16 }}>
             <View className="w-24 h-24 rounded-full bg-purple-100 items-center justify-center">
               <Text style={{ fontSize: 48 }}>{memoryAnchor.icon}</Text>
             </View>
@@ -367,7 +367,7 @@ export default function OrientationGame() {
         <View style={{ flex: 1, justifyContent: 'center', gap: 24 }}>
           <Animated.View
             key={currentQuestion?.id}
-            entering={ZoomIn.duration(400).springify().damping(11)}
+            entering={ZoomIn.duration(400)}
             style={{ alignItems: 'center', gap: 10 }}
           >
             <View
