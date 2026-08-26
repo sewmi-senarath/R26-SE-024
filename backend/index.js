@@ -20,6 +20,7 @@ const cognitivePatientRoutes = require("./src/routes/cognitive/patientRoutes");
 const recommendationRoutes = require('./src/routes/caregiver/recommendationRoutes');
 const { notFoundHandler, errorHandler } = require("./src/middleware/errorHandler");
 const notificationRoutes = require("./src/routes/caregiver/Notificationroutes");
+const reportRoutes = require("./src/routes/caregiver/Reportroutes");
 
 
 // Routes from HEAD
@@ -73,6 +74,7 @@ app.use("/api/caregiver/insights", insightRoutes);
 app.use("/api/caregiver/medications", medicationRoutes);
 app.use('/api/caregiver/recommendations', recommendationRoutes);
 app.use("/api/caregiver/notifications", notificationRoutes);
+app.use("/api/caregiver/reports", reportRoutes);
 // Cognitive Assessment routes
 app.use("/api/cognitive", cognitiveRoutes);
 
