@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import { Colors } from '../../../constants/colors';
 import { PatientDetail } from '../../../types/caregiver.types';
 import { RoutineItem } from './RoutineItem';
@@ -45,36 +44,6 @@ export const PatientExpandedDetail: React.FC<PatientExpandedDetailProps> = ({
           {patient.condition_description}
         </Text>
       </View>
-
-      {/* Dementia Risk Screening */}
-      <TouchableOpacity
-        onPress={() =>
-          router.push({
-            pathname: '/caregiver/dementia-screening',
-            params: {
-              patientId: patient.id,
-              patientName: patient.name,
-              patientAge: String(patient.age ?? ''),
-            },
-          } as any)
-        }
-        className="flex-row items-center gap-2 px-3 py-2.5 rounded-xl mb-4"
-        style={{ backgroundColor: Colors.white, borderWidth: 1, borderColor: Colors.border }}
-      >
-        <View
-          className="w-8 h-8 rounded-full items-center justify-center"
-          style={{ backgroundColor: '#FEF3C7' }}
-        >
-          <Ionicons name="analytics-outline" size={16} color="#D97706" />
-        </View>
-        <Text className="text-xs font-semibold flex-1" style={{ color: Colors.textPrimary }}>
-          Dementia Risk Screening
-        </Text>
-        <Text className="text-[11px]" style={{ color: Colors.textMuted }}>
-          No test needed
-        </Text>
-        <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
-      </TouchableOpacity>
 
       {/* Divider */}
       <View

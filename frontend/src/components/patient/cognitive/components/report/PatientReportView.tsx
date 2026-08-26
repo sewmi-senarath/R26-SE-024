@@ -107,13 +107,10 @@ export const PatientReportView: React.FC<PatientReportViewProps> = ({
     patientId: resolvedPatientId,
     assessments,
     severityHistory,
-    riskHistory,
     assessmentStats,
     gameStats,
-    riskFactorFrequency,
     progress,
     latestSeverityPrediction,
-    latestRiskScreening,
     reload,
   } = usePatientReport(patientId);
   const [refreshing, setRefreshing] = useState(false);
@@ -135,11 +132,8 @@ export const PatientReportView: React.FC<PatientReportViewProps> = ({
         assessmentStats,
         gameStats,
         severityHistory,
-        riskHistory,
-        riskFactorFrequency,
         progress,
         latestSeverityPrediction,
-        latestRiskScreening,
       });
       const { uri } = await Print.printToFileAsync({ html, base64: false });
 
@@ -289,12 +283,6 @@ export const PatientReportView: React.FC<PatientReportViewProps> = ({
           value={String(gameStats.totalPlays)}
           icon="game-controller-outline"
           color="#8B5CF6"
-        />
-        <StatCard
-          label="Screenings"
-          value={String(riskHistory.length)}
-          icon="pulse-outline"
-          color="#F59E0B"
         />
       </View>
 
