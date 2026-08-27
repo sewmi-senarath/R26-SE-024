@@ -1,5 +1,5 @@
 /**
- * Object Navigation Screen — Expo Go Compatible
+ * Object Navigation Screen - Expo Go Compatible
  *
  * - Real-time GPS polling (every 3s) with live distance counter
  * - Animated compass needle points toward the object

@@ -17,7 +17,7 @@ const fileStamp = () => new Date().toISOString().split('T')[0];
 
 /**
  * Wraps a value for CSV. Any field containing a comma, quote or newline must
- * be quoted, and inner quotes doubled — otherwise a task title like
+ * be quoted, and inner quotes doubled - otherwise a task title like
  * "Bathe, then dress" would split into two columns in Excel.
  */
 const csvCell = (value: unknown): string => {

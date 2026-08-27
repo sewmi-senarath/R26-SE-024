@@ -393,7 +393,7 @@ router.get('/stats', async (req, res) => {
   }
 });
 
-// Haversine formula — returns distance in metres between two GPS points
+// Haversine formula - returns distance in metres between two GPS points
 function haversineMetres(lat1, lng1, lat2, lng2) {
   const R = 6371000;
   const toRad = d => (d * Math.PI) / 180;

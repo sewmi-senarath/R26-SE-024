@@ -23,11 +23,6 @@ const SeverityPredictionSchema = new mongoose.Schema(
       moderate: Number,
       severe: Number,
     },
-    ruleBasedSeverity: {
-      type: String,
-      enum: ['none', 'mild', 'moderate', 'severe'],
-    },
-    agreesWithRule: { type: Boolean, default: true },
     message: { type: String, default: '' },
   },
   { timestamps: true, collection: 'severity_predictions' }

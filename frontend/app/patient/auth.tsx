@@ -130,7 +130,7 @@ export default function PatientAuthScreen() {
     if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
       setError(`⏱ Connection timed out.\nMake sure the backend is running on ${BASE_URL}`);
     } else if (err.message?.includes('Network Error') || err.code === 'ERR_NETWORK') {
-      setError(`📡 Network Error — Cannot reach ${BASE_URL}\n\nCheck WiFi and verify backend is running on port 5000.`);
+      setError(`📡 Network Error - Cannot reach ${BASE_URL}\n\nCheck WiFi and verify backend is running on port 5000.`);
     } else if (err.response?.status === 404) {
       setError(isFace 
         ? '❌ Face not recognized or not registered yet.\nTap "Register Face" below or use ID Number.' 

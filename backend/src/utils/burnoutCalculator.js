@@ -152,7 +152,7 @@ const generateForecast = (riskLevel, trend, consecutiveHigh, daysAnalyzed) => {
     return 'You are operating at high burnout risk. Without intervention, this is unsustainable beyond 7-10 days.';
   }
   if (riskLevel === 'High' && trend === 'improving') {
-    return 'Burnout risk is high but improving. Keep up the positive changes — lower risk expected within 3-5 days.';
+    return 'Burnout risk is high but improving. Keep up the positive changes - lower risk expected within 3-5 days.';
   }
   if (riskLevel === 'Moderate' && trend === 'worsening') {
     return 'Burnout risk is increasing. If this trend continues, high risk is expected within 7-14 days.';
@@ -161,7 +161,7 @@ const generateForecast = (riskLevel, trend, consecutiveHigh, daysAnalyzed) => {
     return 'Burnout risk is moderate. Taking small daily actions now will prevent escalation.';
   }
   if (riskLevel === 'Moderate' && trend === 'improving') {
-    return 'Good progress — your burnout risk is improving. On track for low risk within a week.';
+    return 'Good progress - your burnout risk is improving. On track for low risk within a week.';
   }
   return 'Burnout risk is low. You are managing your wellbeing well. Keep it up!';
 };

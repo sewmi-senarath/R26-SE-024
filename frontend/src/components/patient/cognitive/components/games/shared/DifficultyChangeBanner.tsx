@@ -17,7 +17,7 @@ export function DifficultyChangeBanner({ progress }: Props) {
 
   return (
     <Animated.View
-      entering={FadeInUp.delay(300).duration(450).springify().damping(14)}
+      entering={FadeInUp.delay(300).duration(450)}
       style={{
         width: '100%',
         borderRadius: 18,
@@ -29,7 +29,7 @@ export function DifficultyChangeBanner({ progress }: Props) {
       }}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <Animated.Text entering={ZoomIn.delay(400).springify()} style={{ fontSize: 24 }}>
+        <Animated.Text entering={ZoomIn.delay(400)} style={{ fontSize: 24 }}>
           {leveledUp ? '⬆️' : '⬇️'}
         </Animated.Text>
         <View style={{ flex: 1 }}>

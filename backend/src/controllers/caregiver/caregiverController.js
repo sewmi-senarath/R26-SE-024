@@ -62,7 +62,7 @@ const createCaregiver = async (req, res) => {
   }
 };
 
-// UPDATE profile — FIXED 
+// UPDATE profile - FIXED 
 const updateProfile = async (req, res) => {
   try {
     const { id } = req.params;

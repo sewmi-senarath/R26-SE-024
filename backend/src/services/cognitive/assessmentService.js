@@ -34,7 +34,7 @@ async function getAssessmentBySessionId(sessionId) {
   return assessment;
 }
 
-// The assessment screen can fire overlapping writes to the same document — e.g.
+// The assessment screen can fire overlapping writes to the same document - e.g.
 // submitting an answer while tapping "Next" triggers a progress update. Because
 // each handler does load-modify-save, the loser of the race hits a Mongoose
 // VersionError ("No matching document ... version N"). `apply` must reload the

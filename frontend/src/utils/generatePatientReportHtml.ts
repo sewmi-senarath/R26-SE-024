@@ -1,9 +1,9 @@
 import { BRAIN_AREA_BY_SECTION } from "@/src/constants/brainAreas";
 import { GAME_CONFIGS } from "@/src/constants/games";
 import { MMSESession } from "@/src/types/assessment.types";
-import { RiskHistoryItem, SeverityHistoryItem, SeverityLevel } from "@/src/types/dementia.types";
+import { SeverityHistoryItem, SeverityLevel } from "@/src/types/dementia.types";
 import { SectionName } from "@/src/types/games.types";
-import { BrainAreaStat, PatientProgress, PerGameStat, RiskFactorFrequency, Trend } from "@/src/hooks/usePatientReport";
+import { BrainAreaStat, PatientProgress, PerGameStat, Trend } from "@/src/hooks/usePatientReport";
 
 const SEVERITY_META: Record<SeverityLevel, { label: string; color: string }> = {
   none: { label: "No Impairment", color: "#16A34A" },
@@ -19,14 +19,8 @@ const TREND_LABEL: Record<Trend, string> = {
   "insufficient-data": "Not enough data yet",
 };
 
-const RISK_LABEL: Record<string, { label: string; color: string }> = {
-  low: { label: "Low Risk", color: "#16A34A" },
-  moderate: { label: "Moderate Risk", color: "#D97706" },
-  high: { label: "High Risk", color: "#DC2626" },
-};
-
 function fmtDate(d: string | null | undefined) {
-  if (!d) return "—";
+  if (!d) return "-";
   return new Date(d).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
@@ -51,16 +45,13 @@ export interface PatientReportHtmlInput {
     brainAreaPerformance: BrainAreaStat[];
   };
   severityHistory: SeverityHistoryItem[];
-  riskHistory: RiskHistoryItem[];
-  riskFactorFrequency: RiskFactorFrequency[];
   progress: PatientProgress;
   latestSeverityPrediction: SeverityHistoryItem | null;
-  latestRiskScreening: RiskHistoryItem | null;
 }
 
 /**
  * Builds a self-contained, print-friendly HTML document summarizing a
- * patient's cognitive history — MMSE assessment trend, behavioral risk
+ * patient's cognitive history - MMSE assessment trend, behavioral risk
  * screenings, and brain-game performance by targeted brain area. Handed to
  * expo-print's Print.printToFileAsync() to produce a shareable PDF.
  */
@@ -71,15 +62,11 @@ export function generatePatientReportHtml(input: PatientReportHtmlInput): string
     assessments,
     assessmentStats,
     gameStats,
-    riskHistory,
-    riskFactorFrequency,
     progress,
     latestSeverityPrediction,
-    latestRiskScreening,
   } = input;
 
   const severityMeta = latestSeverityPrediction ? SEVERITY_META[latestSeverityPrediction.severity] : null;
-  const riskMeta = latestRiskScreening ? RISK_LABEL[latestRiskScreening.riskLevel] : null;
 
   const assessmentRows = assessments
     .slice()
@@ -89,7 +76,7 @@ export function generatePatientReportHtml(input: PatientReportHtmlInput): string
       <tr>
         <td>${fmtDate(a.completedAt)}</td>
         <td>${a.totalScore}/30</td>
-        <td>${a.severity ? esc(String(a.severity)) : "—"}</td>
+        <td>${a.severity ? esc(String(a.severity)) : "-"}</td>
       </tr>`
     )
     .join("");
@@ -143,12 +130,12 @@ export function generatePatientReportHtml(input: PatientReportHtmlInput): string
           <div style="display:flex;gap:26px;text-align:center;">
             <div>
               <div class="status-label">Baseline</div>
-              <div class="status-value" style="font-size:18px;">${progress.baselineScore ?? "—"}<span style="font-size:11px;color:#94A3B8;">/30</span></div>
+              <div class="status-value" style="font-size:18px;">${progress.baselineScore ?? "-"}<span style="font-size:11px;color:#94A3B8;">/30</span></div>
               <div style="font-size:9px;color:#94A3B8;">${fmtDate(progress.baselineDate)}</div>
             </div>
             <div>
               <div class="status-label">Latest</div>
-              <div class="status-value" style="font-size:18px;color:${dirMeta.color};">${progress.latestScore ?? "—"}<span style="font-size:11px;color:#94A3B8;">/30</span></div>
+              <div class="status-value" style="font-size:18px;color:${dirMeta.color};">${progress.latestScore ?? "-"}<span style="font-size:11px;color:#94A3B8;">/30</span></div>
               <div style="font-size:9px;color:#94A3B8;">${fmtDate(progress.latestDate)}</div>
             </div>
             ${
@@ -184,35 +171,10 @@ export function generatePatientReportHtml(input: PatientReportHtmlInput): string
       <tr>
         <td>${esc(cfg.title)}</td>
         <td>${esc(brain?.shortArea ?? cfg.targetSection)}</td>
-        <td>${g.plays || "—"}</td>
-        <td>${g.plays ? g.avgPercent + "%" : "—"}</td>
-        <td>${g.plays ? g.bestPercent + "%" : "—"}</td>
+        <td>${g.plays || "-"}</td>
+        <td>${g.plays ? g.avgPercent + "%" : "-"}</td>
+        <td>${g.plays ? g.bestPercent + "%" : "-"}</td>
         <td>${fmtDate(g.lastPlayed)}</td>
-      </tr>`;
-    })
-    .join("");
-
-  const riskFactorRows = riskFactorFrequency
-    .map(
-      (f) => `
-      <tr>
-        <td>${esc(f.label)}</td>
-        <td>${f.count}/${riskHistory.length} screenings (${f.percent}%)</td>
-      </tr>`
-    )
-    .join("");
-
-  const riskHistoryRows = riskHistory
-    .slice()
-    .reverse()
-    .slice(0, 10)
-    .map((r) => {
-      const meta = RISK_LABEL[r.riskLevel];
-      return `
-      <tr>
-        <td>${fmtDate(r.createdAt)}</td>
-        <td style="color:${meta?.color ?? "#334155"};font-weight:700;">${meta?.label ?? r.riskLevel}</td>
-        <td>${Math.round(r.riskProbability * 100)}%</td>
       </tr>`;
     })
     .join("");
@@ -298,8 +260,7 @@ export function generatePatientReportHtml(input: PatientReportHtmlInput): string
   <div class="stat-row">
     <div class="stat-card"><div class="value">${assessmentStats.count}</div><div class="label">Assessments Taken</div></div>
     <div class="stat-card"><div class="value">${gameStats.totalPlays}</div><div class="label">Games Played</div></div>
-    <div class="stat-card"><div class="value">${riskHistory.length}</div><div class="label">Risk Screenings</div></div>
-    <div class="stat-card"><div class="value">${assessmentStats.averageScore ?? "—"}</div><div class="label">Avg. MMSE Score /30</div></div>
+    <div class="stat-card"><div class="value">${assessmentStats.averageScore ?? "-"}</div><div class="label">Avg. MMSE Score /30</div></div>
   </div>
 
   ${progressSection}
@@ -318,9 +279,7 @@ export function generatePatientReportHtml(input: PatientReportHtmlInput): string
       ? `<section>
           <h2>Latest Severity Prediction (ML Model)</h2>
           <p style="margin:0 0 10px 0;color:#475569;">
-            Confidence: <strong>${Math.round(latestSeverityPrediction.confidence * 100)}%</strong> &nbsp;•&nbsp;
-            Rule-based cross-check: <strong style="text-transform:capitalize;">${esc(latestSeverityPrediction.ruleBasedSeverity)}</strong>
-            (${latestSeverityPrediction.agreesWithRule ? "agrees" : "differs"})
+            Confidence: <strong>${Math.round(latestSeverityPrediction.confidence * 100)}%</strong>
           </p>
           <table><thead><tr><th>Severity Level</th><th>Model Probability</th></tr></thead><tbody>${severityRows}</tbody></table>
         </section>`
@@ -328,29 +287,7 @@ export function generatePatientReportHtml(input: PatientReportHtmlInput): string
   }
 
   <section>
-    <h2>Behavioral Risk Screening</h2>
-    ${
-      latestRiskScreening
-        ? `<p style="margin:0 0 10px 0;">
-            Latest result: <span class="badge" style="background:${riskMeta?.color};">${riskMeta?.label}</span>
-            &nbsp; (${Math.round(latestRiskScreening.riskProbability * 100)}% probability, screened ${fmtDate(latestRiskScreening.createdAt)})
-          </p>`
-        : `<div class="empty">No screenings completed yet.</div>`
-    }
-    ${
-      riskFactorRows
-        ? `<table><thead><tr><th>Most Reported Factor</th><th>Frequency</th></tr></thead><tbody>${riskFactorRows}</tbody></table>`
-        : ""
-    }
-    ${
-      riskHistoryRows
-        ? `<div style="margin-top:14px;"><table><thead><tr><th>Date</th><th>Result</th><th>Probability</th></tr></thead><tbody>${riskHistoryRows}</tbody></table></div>`
-        : ""
-    }
-  </section>
-
-  <section>
-    <h2>Brain Games — Performance by Brain Area</h2>
+    <h2>Brain Games - Performance by Brain Area</h2>
     ${
       perGameRows
         ? `<table><thead><tr><th>Game</th><th>Brain Area</th><th>Plays</th><th>Avg Score</th><th>Best Score</th><th>Last Played</th></tr></thead><tbody>${perGameRows}</tbody></table>`
@@ -360,8 +297,8 @@ export function generatePatientReportHtml(input: PatientReportHtmlInput): string
 
   <div class="footnote">
     This report was generated by MemoCare. Brain area associations reflect standard MMSE domain groupings and are
-    provided for general context, not a clinical diagnosis. Severity and risk figures are produced by MemoCare's
-    machine-learning models and should be reviewed alongside a qualified clinician's assessment, not used as a
+    provided for general context, not a clinical diagnosis. Severity figures are produced by MemoCare's
+    machine-learning model and should be reviewed alongside a qualified clinician's assessment, not used as a
     substitute for one.
   </div>
 </body>

@@ -56,40 +56,186 @@ function getTimeOfDay(hour: number): string {
   return "Night";
 }
 
-// Deterministic, real-clock questions — never LLM-generated, so "what day is
-// it" can never be answered wrong. Mirrors backend/orientationFacts.js.
-function buildTimeOrientationQuestions(optionsCount: number): OrientationQuestion[] {
+interface OrientationBuildOpts {
+  tiers?: number[];
+  spread?: "near" | "far";
+}
+
+// Neighbours of `correct` within an ordered list - mirrors backend so "near"
+// distractors are genuinely tempting (e.g. Monday next to Sunday/Tuesday).
+function orderedNeighbours(list: string[], correct: string, count: number): string[] {
+  const index = list.indexOf(correct);
+  if (index === -1) return pickDistractors(list, [correct], count);
+  const out: string[] = [];
+  for (let distance = 1; out.length < count && distance < list.length; distance += 1) {
+    const before = list[(index - distance + list.length) % list.length];
+    const after = list[(index + distance) % list.length];
+    if (before !== correct && !out.includes(before)) out.push(before);
+    if (out.length >= count) break;
+    if (after !== correct && !out.includes(after)) out.push(after);
+  }
+  return out.slice(0, count);
+}
+
+const RECALL_WORDS = [
+  "Sunflower", "Elephant", "Rainbow", "Mountain", "River",
+  "Garden", "Butterfly", "Lantern", "Umbrella", "Harbour",
+];
+
+// Deterministic, real-clock questions - never LLM-generated, so "what day is
+// it" can never be answered wrong. Mirrors backend/orientationFacts.js: each
+// item is tagged with a cognitive tier (1=recognition, 2=orientation,
+// 3=reasoning) and honours the requested tier set + distractor spread.
+function buildTimeOrientationQuestions(
+  optionsCount: number,
+  opts: OrientationBuildOpts = {},
+): OrientationQuestion[] {
+  const { tiers = [1, 2, 3], spread = "far" } = opts;
   const now = new Date();
   const year = now.getFullYear();
-  const month = MONTHS[now.getMonth()];
-  const weekday = WEEKDAYS[now.getDay()];
-  const timeOfDay = getTimeOfDay(now.getHours());
-  const yearPool = [year - 2, year - 1, year, year + 1, year + 2].map(String);
+  const monthIndex = now.getMonth();
+  const month = MONTHS[monthIndex];
+  const dayIndex = now.getDay();
+  const weekday = WEEKDAYS[dayIndex];
+  const dateOfMonth = now.getDate();
+  const hour = now.getHours();
+  const timeOfDay = getTimeOfDay(hour);
+  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+  // Nearby years are all tempting, so keep four either way - this also ensures
+  // enough options for the higher medium/hard option counts.
+  const yearPool = [year - 2, year - 1, year + 1, year + 2].map(String);
 
-  const build = (
+  const tomorrow = WEEKDAYS[(dayIndex + 1) % 7];
+  const yesterday = WEEKDAYS[(dayIndex + 6) % 7];
+  const dayAfterTomorrow = WEEKDAYS[(dayIndex + 2) % 7];
+  const nextMonth = MONTHS[(monthIndex + 1) % 12];
+  const twoMonthsAgo = MONTHS[(monthIndex + 10) % 12];
+  const isWeekend = dayIndex === 0 || dayIndex === 6;
+
+  const choice = (
     id: string,
     question: string,
     icon: string,
     correctAnswer: string,
     pool: string[],
+    tier: 1 | 2 | 3,
+    extra: {
+      hint?: string;
+      numeric?: boolean;
+      category?: OrientationQuestion["category"];
+      numericRange?: { min: number; max: number };
+    } = {},
+  ): OrientationQuestion => {
+    const distractors =
+      spread === "near"
+        ? orderedNeighbours(pool, correctAnswer, optionsCount - 1)
+        : pickDistractors(pool, [correctAnswer], optionsCount - 1);
+    return {
+      id,
+      question,
+      icon,
+      category: extra.category ?? "Time",
+      correctAnswer,
+      options: sampleItems([correctAnswer, ...distractors], optionsCount),
+      tier,
+      ...(extra.hint ? { hint: extra.hint } : {}),
+      ...(extra.numeric ? { numeric: true } : {}),
+      ...(extra.numericRange ? { numericRange: extra.numericRange } : {}),
+    };
+  };
+
+  const number = (
+    id: string,
+    question: string,
+    icon: string,
+    answer: number,
+    pool: number[],
+    tier: 1 | 2 | 3,
+    range?: { min: number; max: number },
   ): OrientationQuestion => ({
     id,
     question,
     icon,
     category: "Time",
-    correctAnswer,
+    correctAnswer: String(answer),
     options: sampleItems(
-      [correctAnswer, ...pickDistractors(pool, [correctAnswer], optionsCount - 1)],
+      [String(answer), ...pickDistractors(pool.map(String), [String(answer)], optionsCount - 1)],
       optionsCount,
     ),
+    tier,
+    numeric: true,
+    ...(range ? { numericRange: range } : {}),
   });
 
-  return [
-    build("ot-year", "What year is it right now?", "📅", String(year), yearPool),
-    build("ot-weekday", "What day of the week is it today?", "📆", weekday, WEEKDAYS),
-    build("ot-month", "What month is it right now?", "🗓️", month, MONTHS),
-    build("ot-timeofday", "Is it morning, afternoon, evening, or night right now?", "⏰", timeOfDay, TIMES_OF_DAY),
+  const numberNeighbours = (id: string, question: string, icon: string, answer: number, min: number, max: number, tier: 1 | 2 | 3, range?: { min: number; max: number }): OrientationQuestion => {
+    const maxDelta = spread === "near" ? 2 : 4;
+    const minDelta = spread === "near" ? 1 : 2;
+    const pool: number[] = [];
+    for (let delta = -maxDelta; delta <= maxDelta; delta += 1) {
+      if (delta === 0 || Math.abs(delta) < minDelta) continue;
+      const value = answer + delta;
+      if (value >= min && value <= max) pool.push(value);
+    }
+    return number(id, question, icon, answer, pool, tier, range);
+  };
+
+  const all: OrientationQuestion[] = [
+    // Tier 2 - current date & time awareness
+    choice("ot-year", "What year is it right now?", "📅", String(year), yearPool, 2, {
+      numeric: true,
+      numericRange: { min: year - 5, max: year + 5 },
+      hint: "Think about the year we are living in now.",
+    }),
+    choice("ot-weekday", "What day of the week is it today?", "📆", weekday, WEEKDAYS, 2, {
+      hint: "Think about what you did today or have planned.",
+    }),
+    choice("ot-month", "What month is it right now?", "🗓️", month, MONTHS, 2, {
+      hint: "Think about the season and any recent festivals.",
+    }),
+    choice("ot-timeofday", "Is it morning, afternoon, evening, or night right now?", "⏰", timeOfDay, TIMES_OF_DAY, 2, {
+      hint: "Look at how light or dark it is outside.",
+    }),
+    numberNeighbours("ot-dateofmonth", "What is today's date (the day of the month)?", "📅", dateOfMonth, 1, 31, 2, { min: 1, max: 31 }),
+    choice("ot-ampm", "Right now, is the time AM (before noon) or PM (after noon)?", "🕛", hour < 12 ? "AM" : "PM", ["AM", "PM"], 2),
+    choice("ot-weekpart", "Is today a weekday or part of the weekend?", "📆", isWeekend ? "Weekend" : "Weekday", ["Weekday", "Weekend"], 2),
+
+    // Tier 3 - reasoning about the calendar
+    choice("ot-tomorrow", `Today is ${weekday}. Which day comes tomorrow?`, "➡️", tomorrow, WEEKDAYS, 3, { category: "Calendar" }),
+    choice("ot-yesterday", `Today is ${weekday}. Which day was yesterday?`, "⬅️", yesterday, WEEKDAYS, 3, { category: "Calendar" }),
+    choice("ot-day-after-tomorrow", `Today is ${weekday}. Which day will it be the day after tomorrow?`, "⏩", dayAfterTomorrow, WEEKDAYS, 3, { category: "Calendar" }),
+    choice("ot-nextmonth", `It is ${month} now. Which month comes next?`, "🗓️", nextMonth, MONTHS, 3, { category: "Calendar" }),
+    choice("ot-two-months-ago", `It is ${month} now. Which month was it two months ago?`, "⏪", twoMonthsAgo, MONTHS, 3, { category: "Calendar" }),
+    numberNeighbours("ot-daysinmonth", `How many days does ${month} have this year?`, "📆", daysInMonth, 28, 31, 3, { min: 28, max: 31 }),
+
+    // Tier 1 - general knowledge
+    number("ot-days-in-week", "How many days are there in one week?", "🗓️", 7, [5, 6, 7, 8, 10], 1),
+    number("ot-months-in-year", "How many months are there in one year?", "📅", 12, [10, 11, 12, 13, 14], 1),
+    number("ot-hours-in-day", "How many hours are there in one day?", "⏰", 24, [12, 20, 24, 30, 48], 1),
+    choice("ot-dayorder", "Which comes first in a day - morning or evening?", "🌅", "Morning", ["Morning", "Evening"], 1),
   ];
+
+  const tierSet = new Set(tiers);
+  const selected = all.filter((q) => q.tier && tierSet.has(q.tier));
+  return sampleItems(selected.length ? selected : all, selected.length ? selected.length : all.length);
+}
+
+function buildMemoryAnchor(optionsCount: number) {
+  const word = RECALL_WORDS[Math.floor(Math.random() * RECALL_WORDS.length)];
+  const question: OrientationQuestion = {
+    id: "ot-recall",
+    question: "Which word were you asked to remember at the start?",
+    icon: "🧠",
+    category: "Memory",
+    correctAnswer: word,
+    options: sampleItems([word, ...pickDistractors(RECALL_WORDS, [word], optionsCount - 1)], optionsCount),
+    tier: 3,
+  };
+  const anchor = {
+    word,
+    icon: "🧠",
+    statement: `Please remember this word. We will ask for it again at the end: ${word}`,
+  };
+  return { anchor, question };
 }
 
 const FALLBACK_FACES: { id: string; emoji: string; name: string }[] = [
@@ -242,18 +388,44 @@ const WORD_PUZZLE: Record<Difficulty, WordPuzzleConfig> = {
 
 // orientation_game and face_name_match are always regenerated fresh in
 // getGameContent() below (they depend on the real clock / need reshuffling
-// each play), so there is no eagerly-built module-level config for them —
+// each play), so there is no eagerly-built module-level config for them -
 // unlike the other five games, nothing here would ever be read.
-const ORIENTATION_META: Record<Difficulty, { questionCount: number; optionsCount: number; timeLimitSeconds: number | null }> = {
-  easy: { questionCount: 4, optionsCount: 3, timeLimitSeconds: null },
-  medium: { questionCount: 5, optionsCount: 3, timeLimitSeconds: 30 },
-  hard: { questionCount: 6, optionsCount: 4, timeLimitSeconds: 20 },
+type OrientationMeta = Omit<OrientationGameConfig, "questions" | "memoryAnchor">;
+const ORIENTATION_META: Record<Difficulty, OrientationMeta> = {
+  easy: {
+    questionCount: 4, optionsCount: 3, timeLimitSeconds: null,
+    tiers: [1, 2], distractorSpread: "far",
+    showHints: true, showCategory: true, autoReadAloud: true,
+    answerMode: "choice", delayedRecall: false,
+  },
+  medium: {
+    questionCount: 5, optionsCount: 4, timeLimitSeconds: 30,
+    tiers: [2], distractorSpread: "near",
+    showHints: false, showCategory: true, autoReadAloud: false,
+    answerMode: "choice", delayedRecall: false,
+  },
+  hard: {
+    questionCount: 6, optionsCount: 5, timeLimitSeconds: 20,
+    tiers: [2, 3], distractorSpread: "near",
+    showHints: false, showCategory: false, autoReadAloud: false,
+    answerMode: "recall", delayedRecall: true,
+  },
 };
 
-const FACE_NAME_META: Record<Difficulty, { questionCount: number; optionsCount: number; timeLimitSeconds: number | null }> = {
-  easy: { questionCount: 3, optionsCount: 3, timeLimitSeconds: null },
-  medium: { questionCount: 4, optionsCount: 3, timeLimitSeconds: 20 },
-  hard: { questionCount: 5, optionsCount: 4, timeLimitSeconds: 15 },
+type FaceNameMeta = Omit<FaceNameMatchConfig, "questions">;
+const FACE_NAME_META: Record<Difficulty, FaceNameMeta> = {
+  easy: {
+    questionCount: 3, optionsCount: 3, timeLimitSeconds: null,
+    answerMode: "choice", studyPhase: false, firstLetterCue: true, distractorStyle: "mixed",
+  },
+  medium: {
+    questionCount: 4, optionsCount: 4, timeLimitSeconds: 20,
+    answerMode: "choice", studyPhase: true, firstLetterCue: false, distractorStyle: "sameGender",
+  },
+  hard: {
+    questionCount: 5, optionsCount: 4, timeLimitSeconds: 15,
+    answerMode: "recall", studyPhase: true, firstLetterCue: false, distractorStyle: "sameGender",
+  },
 };
 
 export const GAME_CONTENT: Record<Exclude<GameId, "orientation_game" | "face_name_match">, Record<Difficulty, any>> = {
@@ -294,8 +466,19 @@ export function getGameContent<T>(gameId: GameId, difficulty: Difficulty): T {
 
   if (gameId === "orientation_game") {
     const meta = ORIENTATION_META[difficulty];
-    const questions = buildTimeOrientationQuestions(meta.optionsCount).slice(0, meta.questionCount);
-    return { ...meta, questions } as T;
+    const timeQuestions = buildTimeOrientationQuestions(meta.optionsCount, {
+      tiers: meta.tiers,
+      spread: meta.distractorSpread,
+    });
+    const recall = meta.delayedRecall ? buildMemoryAnchor(meta.optionsCount) : null;
+    const slots = recall ? meta.questionCount - 1 : meta.questionCount;
+    const chosen = timeQuestions.slice(0, Math.max(1, slots));
+    const questions = recall ? [...chosen, recall.question] : chosen;
+    return {
+      ...meta,
+      questions,
+      ...(recall ? { memoryAnchor: recall.anchor } : {}),
+    } as T;
   }
 
   if (gameId === "face_name_match") {

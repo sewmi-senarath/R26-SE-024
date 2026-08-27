@@ -12,12 +12,11 @@ import * as Speech from 'expo-speech';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Image, SafeAreaView, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import Animated, {
-  BounceIn,
   FadeIn,
   ZoomIn,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 
 type Phase = 'instruction' | 'showing' | 'recall' | 'result';
@@ -34,7 +33,7 @@ function SelectableOption({
   const scale = useSharedValue(1);
 
   useEffect(() => {
-    scale.value = withSpring(selected ? 1.05 : 1, { damping: 10 });
+    scale.value = withTiming(selected ? 1.05 : 1, { duration: 130 });
   }, [selected]);
 
   const animStyle = useAnimatedStyle(() => ({
@@ -70,7 +69,7 @@ export default function MemoryRecallGame() {
   );
 
   // Freeze the content for the duration of a round. Without this, a late
-  // personalized response would swap the words mid-game — which looked like the
+  // personalized response would swap the words mid-game - which looked like the
   // items "reloading" a second or two after they first appeared.
   const [frozenConfig, setFrozenConfig] = useState<MemoryRecallConfig | null>(null);
   const config = frozenConfig ?? liveConfig;
@@ -244,7 +243,7 @@ export default function MemoryRecallGame() {
             {currentShowIndex < config.items.length ? (
               <Animated.View
                 key={currentShowIndex}
-                entering={BounceIn.duration(500)}
+                entering={ZoomIn.duration(400)}
                 style={{ overflow: 'hidden' }}
                 className="w-56 h-56 bg-white rounded-3xl border border-gray-100 items-center justify-center shadow-sm"
               >

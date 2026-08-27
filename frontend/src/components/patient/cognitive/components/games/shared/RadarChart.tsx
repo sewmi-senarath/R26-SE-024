@@ -45,7 +45,7 @@ export function RadarChart({ data, size = 220, color = '#3b82f6', ringCount = 4 
 
   const animatedProps = useAnimatedProps(() => {
     // NOTE: this runs on the UI thread on native. It must NOT call an external
-    // non-worklet function (e.g. pointOnAxis) — doing so is a silent hard crash
+    // non-worklet function (e.g. pointOnAxis) - doing so is a silent hard crash
     // on iOS/Android while working fine on web. So the axis math is inlined.
     const points = data
       .map((point, i) => {

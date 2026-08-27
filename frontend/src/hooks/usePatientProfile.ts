@@ -101,29 +101,6 @@ function getGameReview(averageScore: number, sessions: number) {
     : "A few more plays are needed before a clear pattern appears.";
 }
 
-export function getLevel(severity?: Severity, totalScore = 0) {
-  if (severity === "none" || totalScore >= 24) return "Independent";
-  if (severity === "mild" || totalScore >= 18) return "Mild Support";
-  if (severity === "moderate" || totalScore >= 10) return "Guided Support";
-  if (severity === "severe") return "High Support";
-  return "Awaiting Screening";
-}
-
-export function getLevelDescription(level: string) {
-  switch (level) {
-    case "Independent":
-      return "Current results suggest strong day-to-day independence.";
-    case "Mild Support":
-      return "Light reminders and short practice sessions are recommended.";
-    case "Guided Support":
-      return "Caregiver-guided routines and simpler game levels are recommended.";
-    case "High Support":
-      return "Frequent support and calm, familiar activities are recommended.";
-    default:
-      return "Complete the screening test to personalize this level.";
-  }
-}
-
 export function usePatientProfile() {
   const [user, setUser] = useState<UserProfile>(fallbackUser);
   const [latestSession, setLatestSession] = useState<MMSESession | null>(null);
@@ -176,11 +153,6 @@ export function usePatientProfile() {
       mounted = false;
     };
   }, []);
-
-  const patientLevel = getLevel(
-    latestSession?.severity,
-    latestSession?.totalScore ?? 0,
-  );
 
   const screeningRows = useMemo<ScreeningRow[]>(() => {
     if (!latestSession?.sectionScores) return [];
@@ -271,7 +243,6 @@ export function usePatientProfile() {
     user,
     latestSession,
     loadingScreening,
-    patientLevel,
     screeningRows,
     appStats,
     gameReviews,

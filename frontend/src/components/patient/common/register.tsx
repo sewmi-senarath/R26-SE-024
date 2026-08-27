@@ -176,7 +176,7 @@ export default function PatientRegistration() {
         ))}
       </View>
       <Text className="text-sm text-gray-600 text-center">
-        Step {currentStep} of 3 —{" "}
+        Step {currentStep} of 3 -{" "}
         {currentStep === 1
           ? "Basic Info"
           : currentStep === 2

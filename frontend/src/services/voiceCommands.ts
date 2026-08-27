@@ -1,5 +1,5 @@
 /**
- * Voice Command Logic — Object Finder with GPS + Navigation
+ * Voice Command Logic - Object Finder with GPS + Navigation
  */
 import * as Speech from 'expo-speech';
 import axios from 'axios';

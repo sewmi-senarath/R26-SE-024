@@ -100,7 +100,7 @@ export const StressGauge: React.FC<StressGaugeProps> = ({ level, score }) => {
             strokeWidth={14} fill="none" strokeLinecap="round"
           />
 
-          {/* Active arc — fills based on score */}
+          {/* Active arc - fills based on score */}
           <Path
             d={describeArc(-180, -180 + (score / 100) * 180)}
             stroke={cfg.color}

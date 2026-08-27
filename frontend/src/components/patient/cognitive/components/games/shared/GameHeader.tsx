@@ -18,7 +18,7 @@ interface Props {
   title: string;
   difficulty: Difficulty;
   timeLeft?: number | null;
-  /** Total seconds for the countdown — enables the circular ring timer. */
+  /** Total seconds for the countdown - enables the circular ring timer. */
   totalSeconds?: number | null;
   onExit?: () => void;
   onBack?: () => void;
