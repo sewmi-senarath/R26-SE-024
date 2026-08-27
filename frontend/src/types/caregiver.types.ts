@@ -240,3 +240,70 @@ export interface BurnoutRisk {
   avgSleep?:        number;
   consecutiveHigh?: number;
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// PASTE THIS INTO: frontend/src/types/caregiver.types.ts
+// Add it anywhere near your existing ReportTimeframe / ReportType types.
+// Nothing existing needs to change.
+// ─────────────────────────────────────────────────────────────────────────
+
+export interface ReportSummary {
+  total: number;
+  completed: number;
+  pending: number;
+  overdue: number;
+  completionRate: number;   // 0–100
+}
+
+export interface CategoryBreakdown {
+  category: string;
+  total: number;
+  completed: number;
+  rate: number;
+}
+
+export interface PriorityBreakdown {
+  priority: string;
+  total: number;
+  completed: number;
+  rate: number;
+}
+
+export interface PatientBreakdown {
+  patientName: string;
+  total: number;
+  completed: number;
+  rate: number;
+}
+
+export interface DayBreakdown {
+  date: string;
+  total: number;
+  completed: number;
+  rate: number;
+}
+
+export interface ReportTaskRow {
+  date: string;
+  time: string;
+  title: string;
+  patientName: string;
+  category: string;
+  priority: string;
+  status: 'todo' | 'done';
+}
+
+export interface TaskCompletionReport {
+  type: string;
+  timeframe: ReportTimeframe;
+  startDate: string;
+  endDate: string;
+  patientFilter: string;
+  generatedAt: string;
+  summary: ReportSummary;
+  byCategory: CategoryBreakdown[];
+  byPriority: PriorityBreakdown[];
+  byPatient: PatientBreakdown[];
+  byDay: DayBreakdown[];
+  rows: ReportTaskRow[];
+}
