@@ -13,7 +13,7 @@ import {
 } from '../../types/family.types';
 
 export const getLinkedPatient = (): LinkedPatient => ({
-  id: 'p-001',
+  id: '6a8eb91cb3e48b7f1a6ccc06',   // real MongoDB ObjectId — matches seeded Patient
   name: 'Margaret Hughes',
   initials: 'MH',
   avatarColor: '#4F8EF7',

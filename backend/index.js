@@ -23,6 +23,9 @@ const notificationRoutes = require("./src/routes/caregiver/Notificationroutes");
 const reportRoutes = require("./src/routes/caregiver/Reportroutes");
 
 
+const memoryRoutes = require("./src/routes/family/memoryRoutes");
+const familyProfileRoutes = require("./src/routes/family/profileRoutes");
+
 // Routes from HEAD
 const lifeLoggingRoutes = require('./src/routes/life-logging-memory-vault');
 const adminPatientRoutes = require('./src/routes/patientRoutes');
@@ -85,6 +88,10 @@ app.use("/api/admin/behavior", behaviorRoutes);
 app.use("/api/admin/personal-objects", personalObjectRoutes);
 app.use("/api/patients", cognitivePatientRoutes);
 app.use("/api", protectedRoutes);
+
+// Family Memory Story routes
+app.use("/api/family/memories", memoryRoutes);
+app.use("/api/family/profile", familyProfileRoutes);
 
 // Health check
 app.get("/health", (req, res) => {

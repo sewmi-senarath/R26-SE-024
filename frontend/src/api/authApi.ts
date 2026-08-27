@@ -118,25 +118,36 @@ import { Platform } from "react-native";
 const BASE_URL = `${process.env.EXPO_PUBLIC_API_URL}/api`;
 
 // ✅ Web-safe storage
-const storage = {
+export const storage = {
   getItem: async (key: string): Promise<string | null> => {
     try {
+      console.log('storage: getItem called for', key, 'Platform:', Platform.OS);
       if (Platform.OS === "web") {
-        return window.localStorage.getItem(key);
+        const val = window.localStorage.getItem(key);
+        console.log('storage: getItem (web) for', key, 'returned', val);
+        return val;
       }
-      return await AsyncStorage.getItem(key);
-    } catch {
+      const val = await AsyncStorage.getItem(key);
+      console.log('storage: getItem (native) for', key, 'returned', val);
+      return val;
+    } catch (e) {
+      console.log('storage: getItem error', e);
       return null;
     }
   },
   setItem: async (key: string, value: string): Promise<void> => {
     try {
+      console.log('storage: setItem called for', key, 'Platform:', Platform.OS);
       if (Platform.OS === "web") {
         window.localStorage.setItem(key, value);
+        console.log('storage: setItem (web) finished for', key);
         return;
       }
       await AsyncStorage.setItem(key, value);
-    } catch {}
+      console.log('storage: setItem (native) finished for', key);
+    } catch (e) {
+      console.log('storage: setItem error', e);
+    }
   },
   multiRemove: async (keys: string[]): Promise<void> => {
     try {
@@ -157,14 +168,19 @@ export const registerUser = async (
   role: "patient" | "caregiver" | "family",
   extraData?: Record<string, any>,
 ) => {
+  console.log('registerUser: calling fetch for', email);
   try {
     const response = await fetch(`${BASE_URL}/auth/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ fullName, email, password, role, ...extraData }),
     });
-    return await response.json();
+    console.log('registerUser: response status', response.status);
+    const data = await response.json();
+    console.log('registerUser: data received', JSON.stringify(data));
+    return data;
   } catch (error) {
+    console.error('registerUser error:', error);
     return { success: false, message: "Cannot connect to server." };
   }
 };
