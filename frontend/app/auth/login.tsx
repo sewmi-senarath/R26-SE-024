@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Platform,
   ScrollView,
   Text,
   TextInput,
@@ -19,47 +20,60 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-const handleLogin = async () => {
-  if (!email || !password) {
-    Alert.alert('Error', 'Please enter email and password');
-    return;
-  }
-  setLoading(true);
-  try {
-    const result = await loginUser(email, password);
-    if (result.success) {
-      const role = result.data.user.role;
-
-      // ── Save caregiverId for web + mobile ──────────────────────────────
-      const userId = result.data.user._id || result.data.user.id;
-      const token  = result.data.token;
-
-      // Web (browser)
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('caregiverId', userId);
-        localStorage.setItem('token', token);
-      }
-
-      // Mobile (AsyncStorage)
-      try {
-        const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-        await AsyncStorage.setItem('caregiverId', userId);
-        await AsyncStorage.setItem('token', token);
-      } catch {}
-      // ──────────────────────────────────────────────────────────────────
-
-      if (role === 'patient') router.replace('/patient/activity-selector');
-      else if (role === 'caregiver') router.replace('/caregiver');
-      else if (role === 'family') router.replace('/family');
-    } else {
-      Alert.alert('Login Failed', result.message);
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert('Error', 'Please enter email and password');
+      return;
     }
-  } catch {
-    Alert.alert('Error', 'Cannot connect to server.');
-  } finally {
-    setLoading(false);
-  }
-};
+    setLoading(true);
+    try {
+      const result = await loginUser(email, password);
+      if (result.success) {
+        const role = result.data.user.role;
+
+        // ── Save caregiverId for web + mobile ──────────────────────────────
+        const userId = result.data.user._id || result.data.user.id;
+        const token  = result.data.token;
+
+        // Web (browser)
+        if (typeof localStorage !== 'undefined') {
+          try {
+            localStorage.setItem('caregiverId', userId);
+            localStorage.setItem('token', token);
+          } catch (e) {
+            console.error('Error saving to localStorage', e);
+          }
+        }
+
+        // Mobile (AsyncStorage)
+        try {
+          const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+          await AsyncStorage.setItem('caregiverId', userId);
+          await AsyncStorage.setItem('token', token);
+        } catch (e) {
+          console.error('Error saving to AsyncStorage', e);
+        }
+        // ──────────────────────────────────────────────────────────────────
+
+        if (role === 'patient') {
+          if (Platform.OS === 'web') window.location.href = '/patient/activity-selector';
+          else router.replace('/patient/activity-selector');
+        } else if (role === 'caregiver') {
+          if (Platform.OS === 'web') window.location.href = '/caregiver';
+          else router.replace('/caregiver');
+        } else if (role === 'family') {
+          if (Platform.OS === 'web') window.location.href = '/family';
+          else router.replace('/family');
+        }
+      } else {
+        Alert.alert('Login Failed', result.message);
+      }
+    } catch {
+      Alert.alert('Error', 'Cannot connect to server.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <ScrollView
