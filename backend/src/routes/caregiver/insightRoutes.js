@@ -78,7 +78,7 @@ router.post('/checkin', async (req, res) => {
       burnoutRiskLevel: burnoutRisk.riskLevel,
     });
 
-    // Trigger: weekly burnout risk is High — the bigger-picture, multi-day signal
+    // Trigger: weekly burnout risk is High - the bigger-picture, multi-day signal
     if (burnoutRisk.riskLevel === 'High') {
       await createNotification({
         caregiverId,

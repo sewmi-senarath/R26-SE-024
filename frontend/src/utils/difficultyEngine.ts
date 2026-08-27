@@ -1,7 +1,7 @@
 import { GamePlan, GameDifficultyAssignment, Difficulty, SectionName } from '../types/games.types';
 import { GAME_CONFIGS, GAME_ORDER } from '../constants/games';
 
-// MMSESession is a simplified interface here — 
+// MMSESession is a simplified interface here - 
 // import your full MMSESession from assessment.ts if you have it,
 // or use this minimal version that matches what the games need
 export interface SessionScores {
@@ -44,7 +44,7 @@ export function generateGamePlan(session: SessionScores): GamePlan {
 
     const reason =
       difficulty === 'easy'
-        ? `${config.targetSection} score was low (${sectionScore}/${config.sectionMax}) — starting with a gentler level`
+        ? `${config.targetSection} score was low (${sectionScore}/${config.sectionMax}) - starting with a gentler level`
         : difficulty === 'medium'
         ? `${config.targetSection} score was moderate (${sectionScore}/${config.sectionMax})`
         : `${config.targetSection} score was strong (${sectionScore}/${config.sectionMax})`;

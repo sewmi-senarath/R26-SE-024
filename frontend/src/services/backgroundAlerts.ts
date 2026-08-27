@@ -1,6 +1,6 @@
 /**
  * Background alert registration helper.
- * The task itself is defined in app/_layout.tsx (module root level — required by Expo).
+ * The task itself is defined in app/_layout.tsx (module root level - required by Expo).
  */
 import * as BackgroundFetch from 'expo-background-fetch';
 import * as Notifications from 'expo-notifications';

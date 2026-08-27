@@ -236,7 +236,7 @@ export default function PatientHomeScreen() {
               <Text style={styles.voicePanelSub}>
                 {voiceActive
                   ? 'Tap 🎤 on keyboard to speak, or type below'
-                  : 'Tap mic — then speak or type what you lost'}
+                  : 'Tap mic - then speak or type what you lost'}
               </Text>
             </View>
             <TouchableOpacity onPress={voiceActive ? closeVoiceSearch : openVoiceSearch} activeOpacity={0.8}>
@@ -256,7 +256,7 @@ export default function PatientHomeScreen() {
                 </Text>
               </View>
 
-              {/* Text input — use OS voice keyboard */}
+              {/* Text input - use OS voice keyboard */}
               <View style={styles.voiceInputRow}>
                 <Ionicons name="search" size={18} color="#64748b" />
                 <TextInput
@@ -326,7 +326,7 @@ export default function PatientHomeScreen() {
                     <Ionicons name="stop-circle" size={13} color="#f87171" />
                     <Text style={styles.stopSpeakText}>Stop</Text>
                   </TouchableOpacity>
-                  {/* View on Map button — only if GPS coordinates exist */}
+                  {/* View on Map button - only if GPS coordinates exist */}
                   {voiceResult.found && voiceResult.objLat && voiceResult.objLng && (
                     <TouchableOpacity
                       style={styles.mapBtn}

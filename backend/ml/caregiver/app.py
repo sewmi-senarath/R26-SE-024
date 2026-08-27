@@ -14,7 +14,7 @@ try:
     feature_cols = saved['feature_cols']
     model_name   = saved.get('model_name', 'Unknown')
     accuracy     = saved.get('accuracy', 0)
-    print(f"✅ Model loaded — {model_name} — Accuracy: {accuracy*100:.1f}%")
+    print(f"✅ Model loaded - {model_name} - Accuracy: {accuracy*100:.1f}%")
     print(f"✅ Features required: {len(feature_cols)}")
 except Exception as e:
     print(f"❌ Run tune_model.py first! Error: {e}")
@@ -34,7 +34,7 @@ TIPS = {
         'Talk to a colleague about how you are feeling.',
     ],
     'High': [
-        'Please take a break now — your wellbeing matters.',
+        'Please take a break now - your wellbeing matters.',
         'Ask for help with some of your tasks today.',
         'Try a 5-minute breathing exercise right now.',
         'Speak to your supervisor about your workload.',
@@ -113,7 +113,7 @@ def predict():
 
         # ── Build ALL features ─────────────────────────────────────────────
         all_features = {
-            # Encoded categorical — age/type/experience/support aren't
+            # Encoded categorical - age/type/experience/support aren't
             # collected anywhere in the app yet (no registration field for
             # them), so these stay as neutral fixed defaults until that's
             # added. Patient count IS real data your Caregiver profile
@@ -183,14 +183,14 @@ def predict():
         # but 'Moderate' often still wins the plain argmax by a small margin.
         # Since under-flagging a genuinely High-stress caregiver is worse than
         # occasionally over-flagging one, treat 'High' as the prediction
-        # whenever its own probability crosses this bar — even if it isn't
+        # whenever its own probability crosses this bar - even if it isn't
         # technically the single highest of the three.
         HIGH_RISK_THRESHOLD = 0.35
         if prob_map and prob_map.get('High', 0) >= HIGH_RISK_THRESHOLD:
             prediction = 'High'
 
         # Confidence should reflect the probability of whichever class is
-        # actually being returned, not just whichever was highest overall —
+        # actually being returned, not just whichever was highest overall -
         # otherwise an overridden 'High' would misleadingly report Moderate's
         # (higher) probability as its own confidence.
         if prob_map:
@@ -244,7 +244,7 @@ if __name__ == '__main__':
 #     val_acc      = saved.get('val_acc',   0)
 #     test_acc     = saved.get('test_acc',  0)
 #     cv_acc       = saved.get('cv_acc',    0)
-#     print(f"Model loaded — {model_name}")
+#     print(f"Model loaded - {model_name}")
 #     print(f"Train: {train_acc*100:.1f}%  Val: {val_acc*100:.1f}%  Test: {test_acc*100:.1f}%  CV: {cv_acc*100:.1f}%")
 # except Exception as e:
 #     print(f"Run train.py first! Error: {e}")
@@ -266,10 +266,10 @@ if __name__ == '__main__':
 #         'You are managing well today. Keep up your healthy habits.',
 #         'Maintain your current sleep schedule.',
 #         'Continue taking regular breaks throughout the day.',
-#         'Your balance today is good — well done.',
+#         'Your balance today is good - well done.',
 #     ],
 #     'Stressed': [
-#         'Please take a short break now — your wellbeing matters.',
+#         'Please take a short break now - your wellbeing matters.',
 #         'Try a 5-minute breathing exercise right now.',
 #         'Ask for help with some of your tasks today.',
 #         'Drink water and step outside briefly.',
@@ -501,7 +501,7 @@ if __name__ == '__main__':
 
 # if __name__ == '__main__':
 #     print("=" * 50)
-#     print("  CAREGIVER ML API — PORT 5001")
+#     print("  CAREGIVER ML API - PORT 5001")
 #     print("  Labels: Not Stressed / Stressed")
 #     print("  Rule-based override: enabled")
 #     print("=" * 50)

@@ -293,7 +293,7 @@ function buildStaticConfig(gameId, difficulty) {
   }
 
   if (gameId === "orientation_game") {
-    // No profile data available yet — only the deterministic, real-clock
+    // No profile data available yet - only the deterministic, real-clock
     // time questions are available (no festival/place to personalize with).
     const timeQuestions = buildTimeOrientationQuestions(config.optionsCount, {
       tiers: config.tiers,

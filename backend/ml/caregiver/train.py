@@ -167,7 +167,7 @@ imp = pd.Series(rf.feature_importances_, index=feature_cols).nlargest(10)
 print("Top 10 Features:")
 for feat, val in imp.items():
     bar = '█' * int(val * 60)
-    print(f"  {bar} {val:.4f} — {feat}")
+    print(f"  {bar} {val:.4f} - {feat}")
 
 joblib.dump({
     'model':        rf,

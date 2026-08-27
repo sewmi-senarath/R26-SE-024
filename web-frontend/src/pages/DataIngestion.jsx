@@ -111,7 +111,7 @@ const DataIngestion = () => {
         {file ? (
           <div>
             <p className="text-xl font-black text-slate-800">{file.name}</p>
-            <p className="text-slate-400 font-medium mt-1">{(file.size / 1024).toFixed(1)} KB — Ready to upload</p>
+            <p className="text-slate-400 font-medium mt-1">{(file.size / 1024).toFixed(1)} KB - Ready to upload</p>
           </div>
         ) : (
           <div>

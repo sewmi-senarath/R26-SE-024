@@ -23,7 +23,7 @@ export interface SequenceItem {
   emoji: string;
   label: string;
   category: string;
-  /** Real personal photo (e.g. a family member's photo) — shown instead of the emoji when present. */
+  /** Real personal photo (e.g. a family member's photo) - shown instead of the emoji when present. */
   image?: string;
 }
 
@@ -40,7 +40,7 @@ export interface RecallObject {
   emoji: string;
   label: string;
   category: string;
-  /** Real personal photo (e.g. a family member's photo) — shown instead of the emoji when present. */
+  /** Real personal photo (e.g. a family member's photo) - shown instead of the emoji when present. */
   image?: string;
 }
 
@@ -117,7 +117,7 @@ export interface OrientationQuestion {
   tier?: 1 | 2 | 3;
   /** Optional hint shown on easy difficulty. */
   hint?: string;
-  /** True when the answer is a plain number — eligible for hard-level recall input. */
+  /** True when the answer is a plain number - eligible for hard-level recall input. */
   numeric?: boolean;
   /** Inclusive range for the hard-level number wheel (recall input). */
   numericRange?: { min: number; max: number };
@@ -141,16 +141,16 @@ export interface FaceNameMatchConfig {
 export interface FaceNameQuestion {
   id: string;
   emoji: string;
-  /** Real family photo — shown instead of the emoji when present. */
+  /** Real family photo - shown instead of the emoji when present. */
   image?: string;
   relationLabel: string;
-  /** The relation word alone (e.g. "daughter") — used for album narration. */
+  /** The relation word alone (e.g. "daughter") - used for album narration. */
   relation?: string;
   correctAnswer: string;
   options: string[];
 }
 
-// Union type — any game config
+// Union type - any game config
 export type GameConfig =
   | MemoryRecallConfig
   | ObjectRecallConfig
@@ -196,7 +196,7 @@ export interface GamePlan {
   basedOnSessionId: string;
 }
 
-// Adaptive difficulty — server-computed, updated after every session
+// Adaptive difficulty - server-computed, updated after every session
 export interface DifficultyProgressUpdate {
   gameId: GameId;
   previousDifficulty: Difficulty;

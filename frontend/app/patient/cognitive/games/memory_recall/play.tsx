@@ -69,7 +69,7 @@ export default function MemoryRecallGame() {
   );
 
   // Freeze the content for the duration of a round. Without this, a late
-  // personalized response would swap the words mid-game — which looked like the
+  // personalized response would swap the words mid-game - which looked like the
   // items "reloading" a second or two after they first appeared.
   const [frozenConfig, setFrozenConfig] = useState<MemoryRecallConfig | null>(null);
   const config = frozenConfig ?? liveConfig;

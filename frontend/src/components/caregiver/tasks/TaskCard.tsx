@@ -120,7 +120,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               </Text>
             </View>
 
-            {/* Time chip only — assignee moved to main row */}
+            {/* Time chip only - assignee moved to main row */}
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <View style={{
                 flexDirection: 'row', alignItems: 'center', gap: 4,

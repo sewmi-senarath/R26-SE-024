@@ -38,7 +38,7 @@ export default function ObjectRecallGame() {
   );
 
   // Freeze the content for the duration of a round. Without this, a late
-  // personalized response would swap the objects mid-game — which looked like
+  // personalized response would swap the objects mid-game - which looked like
   // the items "reloading" a second or two after they first appeared.
   const [frozenConfig, setFrozenConfig] = useState<ObjectRecallConfig | null>(null);
   const config = frozenConfig ?? liveConfig;

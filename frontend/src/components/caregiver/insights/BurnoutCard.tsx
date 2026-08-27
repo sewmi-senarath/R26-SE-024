@@ -112,7 +112,7 @@ export const BurnoutCard: React.FC<Props> = ({ burnout }) => {
           {burnout.trend}
         </Text>
         <Text style={{ fontSize: 12, color: Colors.textSecondary, flex: 1 }}>
-          — {burnout.forecast}
+          - {burnout.forecast}
         </Text>
       </View>
 

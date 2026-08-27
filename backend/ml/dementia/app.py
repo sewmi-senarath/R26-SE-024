@@ -29,7 +29,7 @@ try:
     test_mf1      = saved.get('test_macro_f1', 0)
     cv_mf1        = saved.get('cv_macro_f1', 0)
     severity_order = saved.get('severity_order', ['none', 'mild', 'moderate', 'severe'])
-    print(f"Severity model loaded — {model_name}")
+    print(f"Severity model loaded - {model_name}")
     print(f"Test acc: {test_acc*100:.1f}%  Test macro-F1: {test_mf1*100:.1f}%  CV macro-F1: {cv_mf1*100:.1f}%")
 except Exception as e:
     print(f"Run train.py first! Error: {e}")
@@ -108,7 +108,7 @@ def predict():
 
 if __name__ == '__main__':
     print("=" * 50)
-    print("  DEMENTIA ML API — PORT 5002")
+    print("  DEMENTIA ML API - PORT 5002")
     print("  /predict       - severity classifier")
     print("-" * 50)
     if model:

@@ -182,7 +182,7 @@ function getSchemaDescription(gameId, staticConfig) {
     return (
       'Respond with JSON of the exact shape {"words": [{"word": string, "hint": string, "category": string}, ...]}. ' +
       `"word" must be a real, correctly spelled, common English dictionary word, alphabetic, uppercase, with ${lengthRule}. ` +
-      "Never truncate, pad, or invent a word just to match the length — if no themed word of that exact length comes " +
+      "Never truncate, pad, or invent a word just to match the length - if no themed word of that exact length comes " +
       "to mind, use any common everyday word of that length instead. " +
       '"hint" is a gentle clue under 60 characters. No other top-level keys.'
     );
@@ -280,8 +280,8 @@ async function generateLlmGameContent({ gameId, difficulty, patient, staticConfi
 }
 
 // Narrow, low-risk LLM calls used by orientation_game and face_name_match.
-// Unlike generateLlmGameContent, these NEVER supply a "correct answer" —
-// only extra wrong-answer options — so a hallucination can at worst make a
+// Unlike generateLlmGameContent, these NEVER supply a "correct answer" -
+// only extra wrong-answer options - so a hallucination can at worst make a
 // distractor odd, never make the quiz factually wrong.
 
 async function generateOrientationDistractors({ patient }) {

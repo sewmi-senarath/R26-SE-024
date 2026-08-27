@@ -192,7 +192,7 @@ export const PatientReportView: React.FC<PatientReportViewProps> = ({
   const trend = TREND_META[assessmentStats.trend];
 
   // Merge assessment-derived and game-derived section performance into one
-  // "brain area profile" — averaged when both sources are available so the
+  // "brain area profile" - averaged when both sources are available so the
   // radar reflects the fullest picture of function in that domain.
   const sections: SectionName[] = [
     "Orientation",
@@ -372,7 +372,7 @@ export const PatientReportView: React.FC<PatientReportViewProps> = ({
                   style={{ backgroundColor: info.color }}
                 />
                 <Text className="text-[11px] text-gray-500 flex-1">
-                  <Text className="font-semibold text-gray-700">{s}</Text> —{" "}
+                  <Text className="font-semibold text-gray-700">{s}</Text> -{" "}
                   {info.shortArea}
                 </Text>
               </View>
@@ -398,7 +398,7 @@ export const PatientReportView: React.FC<PatientReportViewProps> = ({
       <Text className="text-[10px] text-gray-300 text-center px-6 leading-4">
         Brain area associations reflect standard MMSE domain groupings and are
         provided for general context, not a clinical diagnosis. Severity/risk
-        figures come from MemoCare's ML models — see the assessment and
+        figures come from MemoCare's ML models - see the assessment and
         screening screens for full details.
       </Text>
     </ScrollView>

@@ -77,7 +77,7 @@ export default function TasksScreen() {
     return tasks.filter((t) => t.status === 'done');
   }, [tasks, activeTab]);
 
-  // Toggle — optimistic update + backend sync 
+  // Toggle - optimistic update + backend sync 
   const handleToggleComplete = async (id: string) => {
     // 1. Update UI immediately
     setTasks((prev) =>
@@ -107,7 +107,7 @@ export default function TasksScreen() {
     }
   };
 
-  // Add task — prepend to list 
+  // Add task - prepend to list 
   const handleAddTask = (task: CaregiverTask) => {
     setTasks((prev) => [task, ...prev]);
   };

@@ -19,21 +19,21 @@ export const BRAIN_AREA_BY_SECTION: Record<SectionName, BrainAreaInfo> = {
     section: "Orientation",
     area: "Prefrontal Cortex & Hippocampus",
     shortArea: "Prefrontal Cortex",
-    description: "Awareness of time, place, and context — coordinated by the frontal lobe and hippocampus.",
+    description: "Awareness of time, place, and context - coordinated by the frontal lobe and hippocampus.",
     color: "#0EA5E9",
   },
   Registration: {
     section: "Registration",
     area: "Hippocampus (Medial Temporal Lobe)",
     shortArea: "Hippocampus",
-    description: "Immediate encoding of new information — the hippocampus's core function.",
+    description: "Immediate encoding of new information - the hippocampus's core function.",
     color: "#8B5CF6",
   },
   Attention: {
     section: "Attention",
     area: "Prefrontal Cortex & Parietal Lobe",
     shortArea: "Prefrontal Cortex",
-    description: "Sustained focus and working memory — frontal-parietal attention network.",
+    description: "Sustained focus and working memory - frontal-parietal attention network.",
     color: "#F59E0B",
   },
   Recall: {
@@ -47,7 +47,7 @@ export const BRAIN_AREA_BY_SECTION: Record<SectionName, BrainAreaInfo> = {
     section: "Language",
     area: "Broca's & Wernicke's Areas (Frontal/Temporal Lobe)",
     shortArea: "Language Centers",
-    description: "Word finding, comprehension, and expression — classic language centers of the brain.",
+    description: "Word finding, comprehension, and expression - classic language centers of the brain.",
     color: "#F43F5E",
   },
 };

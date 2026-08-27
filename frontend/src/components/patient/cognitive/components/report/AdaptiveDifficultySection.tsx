@@ -59,7 +59,7 @@ const MetricBar: React.FC<{ label: string; value: number | null; color: string }
       <View className="flex-row justify-between mb-1">
         <Text className="text-[11px] text-gray-500">{label}</Text>
         <Text className="text-[11px] font-bold text-gray-700">
-          {value == null ? "—" : `${Math.round(value)}%`}
+          {value == null ? "-" : `${Math.round(value)}%`}
         </Text>
       </View>
       <View className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
@@ -78,7 +78,7 @@ const ChangeTimeline: React.FC<{ report: DifficultyGameReport }> = ({ report }) 
       <View className="flex-row items-center gap-2 mt-3 pt-3 border-t border-gray-50">
         <Ionicons name="lock-closed-outline" size={13} color="#94A3B8" />
         <Text className="text-[11px] text-gray-400 flex-1">
-          No level changes yet — holding at {report.currentDifficulty} while more
+          No level changes yet - holding at {report.currentDifficulty} while more
           games are played.
         </Text>
       </View>
@@ -175,7 +175,7 @@ export const AdaptiveDifficultySection: React.FC<Props> = ({ patientId }) => {
           <Text className="text-[11px] text-gray-400 mb-3 leading-4">
             Difficulty is reviewed after every 3 games at a level. It moves up
             when performance is consistently strong and eases down when games get
-            too hard — {totalChanges} automatic change
+            too hard - {totalChanges} automatic change
             {totalChanges === 1 ? "" : "s"} so far.
           </Text>
 
@@ -213,7 +213,7 @@ export const AdaptiveDifficultySection: React.FC<Props> = ({ patientId }) => {
                     <View>
                       <Text className="text-base font-extrabold text-gray-900">
                         {report.averageComposite == null
-                          ? "—"
+                          ? "-"
                           : `${report.averageComposite}%`}
                       </Text>
                       <Text className="text-[10px] text-gray-400">Recent average</Text>

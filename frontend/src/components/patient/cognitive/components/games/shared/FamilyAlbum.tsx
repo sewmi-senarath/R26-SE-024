@@ -29,7 +29,7 @@ export function FamilyAlbum({ people, mode, onDone, doneLabel }: Props) {
   const person = people[index];
   const isLast = index === people.length - 1;
 
-  // Gently narrate each face as it appears — "This is Nimal, your son".
+  // Gently narrate each face as it appears - "This is Nimal, your son".
   useEffect(() => {
     if (!person) return;
     const line = person.relation ? `This is ${person.name}, your ${person.relation}.` : `This is ${person.name}.`;

@@ -82,7 +82,7 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({
           paddingTop: 0,
         }}
       >
-        {/* Avatar — overlaps the band */}
+        {/* Avatar - overlaps the band */}
         <View style={{ alignItems: 'flex-start', marginTop: -30 }}>
           <View style={{ position: 'relative' }}>
             <View

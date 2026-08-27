@@ -40,7 +40,7 @@ export default function ReportsScreen() {
         const data = await fetchPatients();
         if (mounted) setCogPatients(data);
       } catch {
-        // Non-fatal — the card shows an empty state if patients can't load.
+        // Non-fatal - the card shows an empty state if patients can't load.
       } finally {
         if (mounted) setCogLoading(false);
       }
@@ -327,7 +327,7 @@ export default function ReportsScreen() {
             ))}
           </View>
 
-          {/* Patient dropdown — real names, no hardcoded list */}
+          {/* Patient dropdown - real names, no hardcoded list */}
           <Text style={{ fontSize: 11, fontWeight: '700', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Patient</Text>
           <View style={{ position: 'relative', marginBottom: 20, zIndex: 20 }}>
             <TouchableOpacity
@@ -441,7 +441,7 @@ export default function ReportsScreen() {
             </View>
           )}
 
-          {/* Export buttons — disabled until there's something to export */}
+          {/* Export buttons - disabled until there's something to export */}
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 16 }}>
             <TouchableOpacity
               onPress={() => handleExport('csv')}

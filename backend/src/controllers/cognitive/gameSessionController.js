@@ -28,7 +28,7 @@ async function createSession(req, res, next) {
     const session = await gameSessionService.createGameSession(req.body);
 
     // Adapt the difficulty from this session's performance. Bookkeeping must
-    // never sink the save — if it fails we still return the saved session with
+    // never sink the save - if it fails we still return the saved session with
     // a null progress update, and the client simply shows no change banner.
     let progress = null;
     try {

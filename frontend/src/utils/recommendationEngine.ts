@@ -46,7 +46,7 @@ export const generateRecommendations = (
         `Sleep at least ${isCritical ? '8–9' : '7–8'} hours tonight without interruption.`,
         'Reduce or eliminate overnight caregiving duties this evening.',
         'Ask a family member or colleague to cover the late shift.',
-        'Maintain a consistent sleep schedule — same bedtime every night.',
+        'Maintain a consistent sleep schedule - same bedtime every night.',
         'Avoid screens and caffeine at least 1 hour before bed.',
       ],
       priority:        isCritical ? 'High' : 'High',
@@ -65,14 +65,14 @@ export const generateRecommendations = (
       bg:           '#FEF2F2',
       title:        isExtreme ? 'Critical Emotional Overload' : 'High Emotional Burden',
       primaryCause: 'Emotional Overload',
-      reason:       `The caregiver reported an emotional overwhelm score of ${form.emotionalOverwhelm}/5, mental exhaustion of ${form.mentallyExhausted}/5, and emotional drain of ${form.emotionallyDrained}/5 — giving a combined emotional burden of ${emotionalTotal}/15. This is ${isExtreme ? 'dangerously high' : 'significantly elevated'} and is the primary driver of today's ${result.stressLevel.toLowerCase()} stress prediction. Handling ${form.difficultSituations} difficult situation${form.difficultSituations !== 1 ? 's' : ''} today has compounded this burden.`,
+      reason:       `The caregiver reported an emotional overwhelm score of ${form.emotionalOverwhelm}/5, mental exhaustion of ${form.mentallyExhausted}/5, and emotional drain of ${form.emotionallyDrained}/5 - giving a combined emotional burden of ${emotionalTotal}/15. This is ${isExtreme ? 'dangerously high' : 'significantly elevated'} and is the primary driver of today's ${result.stressLevel.toLowerCase()} stress prediction. Handling ${form.difficultSituations} difficult situation${form.difficultSituations !== 1 ? 's' : ''} today has compounded this burden.`,
       recommendations: [
         'Practice 5 minutes of deep breathing right now: inhale 4 counts, hold 4, exhale 6.',
-        'Take a 10-minute mindfulness break — focus only on your breathing, nothing else.',
+        'Take a 10-minute mindfulness break - focus only on your breathing, nothing else.',
         isExtreme
-          ? 'Contact a professional counsellor or mental health helpline today — this is urgent.'
+          ? 'Contact a professional counsellor or mental health helpline today - this is urgent.'
           : 'Talk to a trusted colleague or friend about how you are feeling.',
-        'Journal 3 things you handled well today — acknowledge your own strength.',
+        'Journal 3 things you handled well today - acknowledge your own strength.',
         'Schedule a proper decompression activity tonight: walk, music, or a warm bath.',
       ],
       priority:        isExtreme ? 'High' : 'High',
@@ -92,7 +92,7 @@ export const generateRecommendations = (
       primaryCause: 'Excessive Pending Tasks',
       reason:       `The caregiver has ${pending} tasks still pending from ${form.tasksAssigned} assigned today, achieving only a ${completionPct}% completion rate. With ${pending} unfinished tasks, the accumulated workload pressure is a major contributor to the current ${result.stressLevel.toLowerCase()} stress level. This volume of unfinished work creates cognitive overload and anxiety that persists beyond the shift.`,
       recommendations: [
-        `Immediately identify the top 3 most critical tasks from the ${pending} pending — focus only on those.`,
+        `Immediately identify the top 3 most critical tasks from the ${pending} pending - focus only on those.`,
         'Delegate non-urgent tasks to available family members or colleagues right now.',
         `Defer at least ${Math.floor(pending / 2)} of the lower-priority tasks to tomorrow with supervisor approval.`,
         'Communicate your workload situation clearly to your supervisor today.',
@@ -134,10 +134,10 @@ export const generateRecommendations = (
       primaryCause: 'No Recovery Time',
       reason:       `The caregiver took zero breaks during ${form.hoursCaregiving} hours of continuous caregiving today. Research consistently shows that performance degrades by approximately 20% every 2 hours without a break, and the risk of caregiving errors increases significantly. No breaks also means no physical or mental recovery time, which directly contributes to the ${result.stressLevel.toLowerCase()} stress level recorded today.`,
       recommendations: [
-        'Take a 10–15 minute break RIGHT NOW — step completely away from your duties.',
-        'During your break: go outside, sit quietly, or do gentle stretching — nothing work-related.',
+        'Take a 10–15 minute break RIGHT NOW - step completely away from your duties.',
+        'During your break: go outside, sit quietly, or do gentle stretching - nothing work-related.',
         'Set a recurring phone alarm every 90–120 minutes for future break reminders.',
-        'Eat something nutritious during your next break — skipping meals worsens stress.',
+        'Eat something nutritious during your next break - skipping meals worsens stress.',
         'Even a 5-minute walk to a different room significantly improves mental clarity.',
       ],
       priority:        'High',
@@ -156,7 +156,7 @@ export const generateRecommendations = (
       recommendations: [
         `For the remaining ${Math.max(1, form.hoursCaregiving - 6)} hours of your shift, take at least one more break immediately.`,
         'Each break should be at least 10 minutes and away from the caregiving environment.',
-        'Combine breaks with hydration — drink a full glass of water each time.',
+        'Combine breaks with hydration - drink a full glass of water each time.',
         'Plan tomorrow\'s breaks in advance: schedule them as non-negotiable appointments.',
       ],
       priority:        'Medium',
@@ -172,17 +172,17 @@ export const generateRecommendations = (
       icon:         'sunny-outline',
       color:        '#EC4899',
       bg:           '#FDF2F8',
-      title:        form.mood === 1 ? 'Very Low Mood — Urgent Support Needed' : 'Low Mood Detected',
+      title:        form.mood === 1 ? 'Very Low Mood - Urgent Support Needed' : 'Low Mood Detected',
       primaryCause: 'Low Mood',
-      reason:       `The caregiver rated their mood at only ${form.mood}/5 today. This significantly low mood — particularly in the context of ${form.difficultSituations} difficult situation${form.difficultSituations !== 1 ? 's' : ''} and a ${result.stressLevel.toLowerCase()} stress prediction — indicates a risk of compassion fatigue. Low mood in caregivers directly impairs the quality of patient interactions and increases the likelihood of burnout if unaddressed.`,
+      reason:       `The caregiver rated their mood at only ${form.mood}/5 today. This significantly low mood - particularly in the context of ${form.difficultSituations} difficult situation${form.difficultSituations !== 1 ? 's' : ''} and a ${result.stressLevel.toLowerCase()} stress prediction - indicates a risk of compassion fatigue. Low mood in caregivers directly impairs the quality of patient interactions and increases the likelihood of burnout if unaddressed.`,
       recommendations: [
         'Listen to your favourite calming or uplifting music for at least 10 minutes now.',
-        'Step outside for a 5-minute walk — natural light and fresh air are evidence-based mood boosters.',
-        'Call or message a trusted friend or family member — connection is a powerful antidote to low mood.',
-        'Write down one thing — however small — that went well today. Finding positives rewires your stress response.',
+        'Step outside for a 5-minute walk - natural light and fresh air are evidence-based mood boosters.',
+        'Call or message a trusted friend or family member - connection is a powerful antidote to low mood.',
+        'Write down one thing - however small - that went well today. Finding positives rewires your stress response.',
         form.mood === 1
           ? 'If this low mood persists for several days, please speak to a mental health professional.'
-          : 'Treat yourself to one small act of self-care this evening — you have earned it.',
+          : 'Treat yourself to one small act of self-care this evening - you have earned it.',
       ],
       priority:        form.mood === 1 ? 'High' : 'Medium',
       expectedBenefit: `These activities can elevate mood within 20–30 minutes through natural neurotransmitter release. Addressing low mood early prevents escalation to clinical depression, which affects 1 in 3 long-term caregivers.`,
@@ -200,14 +200,14 @@ export const generateRecommendations = (
       bg:           '#FFF7ED',
       title:        isExtreme ? 'Extreme Physical Exhaustion' : 'High Physical Fatigue',
       primaryCause: 'Physical Exhaustion',
-      reason:       `The caregiver reported physical tiredness of ${form.physicalTiredness}/5 after ${form.hoursCaregiving} hours of caregiving. At this level of physical fatigue, the risk of caregiving errors increases by up to 40% according to healthcare research. Physical exhaustion also amplifies emotional stress — the two feed each other in a cycle that accelerates burnout.`,
+      reason:       `The caregiver reported physical tiredness of ${form.physicalTiredness}/5 after ${form.hoursCaregiving} hours of caregiving. At this level of physical fatigue, the risk of caregiving errors increases by up to 40% according to healthcare research. Physical exhaustion also amplifies emotional stress - the two feed each other in a cycle that accelerates burnout.`,
       recommendations: [
         isExtreme
           ? 'Stop all non-essential physical activities immediately and inform your supervisor.'
           : 'Request a reduction in physically demanding tasks for the remainder of your shift.',
-        'Drink a full glass of water now — dehydration dramatically worsens physical fatigue.',
+        'Drink a full glass of water now - dehydration dramatically worsens physical fatigue.',
         'Do a 3-minute seated stretch: neck rolls, shoulder shrugs, ankle rotations, wrist circles.',
-        'Eat a small nutritious snack if you have not eaten recently — low blood sugar intensifies fatigue.',
+        'Eat a small nutritious snack if you have not eaten recently - low blood sugar intensifies fatigue.',
         'Schedule proper rest periods into tomorrow\'s shift plan before it begins.',
       ],
       priority:        isExtreme ? 'High' : 'Medium',
@@ -226,14 +226,14 @@ export const generateRecommendations = (
       bg:           '#F5F3FF',
       title:        isSevere ? 'High Exposure to Trauma Events' : 'Emotional Decompression Needed',
       primaryCause: 'High Exposure to Difficult Situations',
-      reason:       `The caregiver encountered ${form.difficultSituations} difficult situation${form.difficultSituations !== 1 ? 's' : ''} today — including patient confusion and agitation episodes. Each of these events requires significant emotional labour and leaves a physiological stress residue. Without deliberate decompression, these accumulate into secondary traumatic stress and eventual burnout. This is one of the key factors in today's ${result.stressLevel.toLowerCase()} stress prediction.`,
+      reason:       `The caregiver encountered ${form.difficultSituations} difficult situation${form.difficultSituations !== 1 ? 's' : ''} today - including patient confusion and agitation episodes. Each of these events requires significant emotional labour and leaves a physiological stress residue. Without deliberate decompression, these accumulate into secondary traumatic stress and eventual burnout. This is one of the key factors in today's ${result.stressLevel.toLowerCase()} stress prediction.`,
       recommendations: [
-        'Take a 5-minute "debrief walk" alone right now — mentally review each situation and consciously release it.',
+        'Take a 5-minute "debrief walk" alone right now - mentally review each situation and consciously release it.',
         'Use the 4-7-8 breathing technique: inhale 4, hold 7, exhale 8 counts. Repeat 4 times.',
         isSevere
-          ? 'Speak to your supervisor or a mental health professional about today\'s experiences — this level of exposure requires formal debriefing.'
-          : 'Share the experience with a trusted colleague — verbalising difficult events reduces their psychological weight.',
-        'Write briefly about what happened — journalling trauma events reduces their emotional impact by 30%.',
+          ? 'Speak to your supervisor or a mental health professional about today\'s experiences - this level of exposure requires formal debriefing.'
+          : 'Share the experience with a trusted colleague - verbalising difficult events reduces their psychological weight.',
+        'Write briefly about what happened - journalling trauma events reduces their emotional impact by 30%.',
         'Remind yourself: these patient behaviours are symptoms of dementia, not personal.',
       ],
       priority:        isSevere ? 'High' : 'Medium',
@@ -255,9 +255,9 @@ export const generateRecommendations = (
       bg:           '#ECFEFF',
       title:        'Professional Support Recommended',
       primaryCause: 'Sustained High Stress Pattern',
-      reason:       `The caregiver's combined stress indicators — ${result.stressLevel} stress level, emotional burden of ${emotionalTotal}/15, and ${form.difficultSituations} difficult situation${form.difficultSituations !== 1 ? 's' : ''} today — suggest that professional psychological support would be significantly beneficial. Self-care strategies alone may be insufficient at this stress level without professional guidance.`,
+      reason:       `The caregiver's combined stress indicators - ${result.stressLevel} stress level, emotional burden of ${emotionalTotal}/15, and ${form.difficultSituations} difficult situation${form.difficultSituations !== 1 ? 's' : ''} today - suggest that professional psychological support would be significantly beneficial. Self-care strategies alone may be insufficient at this stress level without professional guidance.`,
       recommendations: [
-        'Schedule an appointment with a counsellor or psychologist this week — do not delay.',
+        'Schedule an appointment with a counsellor or psychologist this week - do not delay.',
         'Contact a caregiver-specific support helpline for immediate telephone support.',
         'Speak honestly with your supervisor about your current mental health state.',
         'Join a dementia caregiver support group to connect with others who understand your experience.',
@@ -284,7 +284,7 @@ export const generateRecommendations = (
       primaryCause: 'Caregiver Isolation',
       reason:       `With ${pending} pending tasks and ${result.stressLevel.toLowerCase()} stress, the caregiver appears to be managing too much alone. Research shows that caregivers with active family support systems experience 40% lower burnout rates. Sharing the ${form.tasksAssigned} daily tasks across family members creates a more sustainable caregiving model.`,
       recommendations: [
-        'Contact a family member today with a specific, concrete request for help — not a general "I need help."',
+        'Contact a family member today with a specific, concrete request for help - not a general "I need help."',
         'List which of the ${pending} pending tasks can be handled by non-professional family members.',
         'Schedule a family meeting this week to redistribute caregiving responsibilities fairly.',
         'Share this stress assessment with family to help them understand the urgency.',
@@ -305,13 +305,13 @@ export const generateRecommendations = (
       bg:           '#F7FEE7',
       title:        'Hydration & Nutrition Check',
       primaryCause: 'Dehydration Risk',
-      reason:       `After ${form.hoursCaregiving} hours of active caregiving, the body loses significant fluids through physical activity and stress-related perspiration. Even mild dehydration of just 1–2% of body weight worsens fatigue by 15%, impairs concentration, and negatively affects mood — all of which compound the already ${result.stressLevel.toLowerCase()} stress state recorded today.`,
+      reason:       `After ${form.hoursCaregiving} hours of active caregiving, the body loses significant fluids through physical activity and stress-related perspiration. Even mild dehydration of just 1–2% of body weight worsens fatigue by 15%, impairs concentration, and negatively affects mood - all of which compound the already ${result.stressLevel.toLowerCase()} stress state recorded today.`,
       recommendations: [
         'Drink a full glass of water (250ml) right now before doing anything else.',
-        'Keep a visible water bottle at your workstation — visibility increases consumption by 3x.',
+        'Keep a visible water bottle at your workstation - visibility increases consumption by 3x.',
         'Aim for 8 glasses (2 litres) of water throughout the day.',
         'Eat a nutritious meal or snack within the next hour if you have not done so.',
-        'Avoid excessive coffee — it dehydrates and increases anxiety at high stress levels.',
+        'Avoid excessive coffee - it dehydrates and increases anxiety at high stress levels.',
       ],
       priority:        'Low',
       expectedBenefit: `Proper hydration can reduce fatigue symptoms by 15–20% within 30 minutes and improve mood and concentration. Consistent hydration throughout caregiving shifts is one of the simplest and most effective wellbeing interventions.`,
@@ -328,18 +328,18 @@ export const generateRecommendations = (
       bg:           '#FEF2F2',
       title:        `${weekly.consecutiveHigh} Consecutive High-Stress Days`,
       primaryCause: 'Sustained Weekly Stress Pattern',
-      reason:       `This is your ${weekly.consecutiveHigh} day in a row with high stress readings, with a burnout risk score of ${weekly.riskScore}/100 (${weekly.riskLevel}). A single hard day is normal caregiving — but ${weekly.consecutiveHigh} in a row is a pattern, not an exception, and today's individual check-in should be read in that context rather than in isolation.`,
+      reason:       `This is your ${weekly.consecutiveHigh} day in a row with high stress readings, with a burnout risk score of ${weekly.riskScore}/100 (${weekly.riskLevel}). A single hard day is normal caregiving - but ${weekly.consecutiveHigh} in a row is a pattern, not an exception, and today's individual check-in should be read in that context rather than in isolation.`,
       recommendations: [
-        'Treat this as a multi-day pattern, not a single bad day — one night of good sleep will not fully resolve it.',
+        'Treat this as a multi-day pattern, not a single bad day - one night of good sleep will not fully resolve it.',
         'Book a lighter shift or a rest day within the next 48 hours if at all possible.',
         'Tell your supervisor specifically about the multi-day pattern, not just today\'s workload.',
         'Ask a family member or colleague to fully cover at least one shift this week.',
         weekly.riskLevel === 'High'
-          ? 'Speak to a counsellor or mental health professional this week — sustained high stress compounds faster than single-day stress.'
-          : 'Keep monitoring daily — if a 3rd consecutive high day occurs, treat it as urgent.',
+          ? 'Speak to a counsellor or mental health professional this week - sustained high stress compounds faster than single-day stress.'
+          : 'Keep monitoring daily - if a 3rd consecutive high day occurs, treat it as urgent.',
       ],
       priority:        'High',
-      expectedBenefit: `Caregivers with 3+ consecutive high-stress days who don't intervene are significantly more likely to progress to clinical burnout. Breaking the pattern now — even with one lighter day — meaningfully lowers that risk compared to waiting.`,
+      expectedBenefit: `Caregivers with 3+ consecutive high-stress days who don't intervene are significantly more likely to progress to clinical burnout. Breaking the pattern now - even with one lighter day - meaningfully lowers that risk compared to waiting.`,
     });
   }
 
@@ -353,12 +353,12 @@ export const generateRecommendations = (
       bg:           '#FFF7ED',
       title:        'Your Stress Has Been Climbing',
       primaryCause: 'Worsening Weekly Trend',
-      reason:       `Looking at your last ${weekly.daysAnalyzed} check-ins, your average stress score is ${(weekly.avgStressScore ?? 0).toFixed(1)}/10 and trending upward — even though today's ${result.stressLevel} reading may not look critical on its own. Catching a rising trend early is far more effective than waiting until it becomes a high-stress emergency.`,
+      reason:       `Looking at your last ${weekly.daysAnalyzed} check-ins, your average stress score is ${(weekly.avgStressScore ?? 0).toFixed(1)}/10 and trending upward - even though today's ${result.stressLevel} reading may not look critical on its own. Catching a rising trend early is far more effective than waiting until it becomes a high-stress emergency.`,
       recommendations: [
-        'Think back over the last few days — a new task, less sleep, fewer breaks — and address that specific cause directly.',
+        'Think back over the last few days - a new task, less sleep, fewer breaks - and address that specific cause directly.',
         'Proactively schedule one lighter day this week before stress escalates further.',
         'Check in with yourself a second time later today, not just once, to catch rising stress earlier.',
-        'Share the trend (not just today\'s score) with someone you trust — patterns are easier to act on together than single days.',
+        'Share the trend (not just today\'s score) with someone you trust - patterns are easier to act on together than single days.',
       ],
       priority:        'Medium',
       expectedBenefit: `Addressing a rising trend early typically prevents escalation to high burnout risk, and requires far less recovery time than intervening only once stress has already peaked.`,
@@ -375,14 +375,14 @@ export const generateRecommendations = (
       bg:           '#EEF2FF',
       title:        'Weekly Sleep Debt Still Present',
       primaryCause: 'Cumulative Sleep Deficit',
-      reason:       `You slept ${form.sleepHours} hours last night — good on its own — but your average over the last ${weekly.daysAnalyzed} check-ins is only ${weekly.avgSleep.toFixed(1)} hours, still below the 6-hour threshold. One good night does not clear an accumulated sleep debt; recovery typically needs several consecutive nights of adequate sleep.`,
+      reason:       `You slept ${form.sleepHours} hours last night - good on its own - but your average over the last ${weekly.daysAnalyzed} check-ins is only ${weekly.avgSleep.toFixed(1)} hours, still below the 6-hour threshold. One good night does not clear an accumulated sleep debt; recovery typically needs several consecutive nights of adequate sleep.`,
       recommendations: [
         'Aim for 7–8 hours for at least 3 consecutive nights this week to start repaying the debt, not just tonight.',
-        'Avoid trying to "catch up" with one very long sleep — consistency matters more than a single long night.',
+        'Avoid trying to "catch up" with one very long sleep - consistency matters more than a single long night.',
         'If poor sleep keeps recurring, write down what is interrupting it (caregiving duties, worry, environment) and address that specific cause.',
       ],
       priority:        'Medium',
-      expectedBenefit: `Fully recovering from a week of sleep debt usually takes 3–4 nights of consistent, adequate sleep. Tracking the weekly pattern — not just single nights — is what actually reduces cumulative fatigue and stress.`,
+      expectedBenefit: `Fully recovering from a week of sleep debt usually takes 3–4 nights of consistent, adequate sleep. Tracking the weekly pattern - not just single nights - is what actually reduces cumulative fatigue and stress.`,
     });
   }
 
@@ -396,7 +396,7 @@ export const generateRecommendations = (
       bg:           '#F0FDF4',
       title:        'Your Stress Trend Is Improving',
       primaryCause: 'Positive Weekly Trend',
-      reason:       `Over your last ${weekly.daysAnalyzed} check-ins, your stress trend is moving in the right direction and your burnout risk is now ${weekly.riskLevel}. Whatever you've changed recently — more breaks, better sleep, delegating tasks — appears to be working.`,
+      reason:       `Over your last ${weekly.daysAnalyzed} check-ins, your stress trend is moving in the right direction and your burnout risk is now ${weekly.riskLevel}. Whatever you've changed recently - more breaks, better sleep, delegating tasks - appears to be working.`,
       recommendations: [
         'Note down what changed recently so you can deliberately repeat it.',
         'Don\'t drop the habits that are working just because you\'re feeling better today.',
@@ -417,18 +417,18 @@ export const generateRecommendations = (
       bg:           '#FEF2F2',
       title:        'Today Was Rated High Stress Overall',
       primaryCause: 'Combined Daily Load',
-      reason:       `Individually, none of today's answers looked extreme, but the model classified today as High stress (score ${result.stressScore}/10, ${Math.round(result.confidence * 100)}% confidence). This happens when several moderate factors — ${form.hoursCaregiving} hours of caregiving, ${pending} pending task${pending !== 1 ? 's' : ''}, and ${form.difficultSituations} difficult situation${form.difficultSituations !== 1 ? 's' : ''} — combine rather than any single cause standing out. Small stressors stack up even when no one factor crosses an obvious line.`,
+      reason:       `Individually, none of today's answers looked extreme, but the model classified today as High stress (score ${result.stressScore}/10, ${Math.round(result.confidence * 100)}% confidence). This happens when several moderate factors - ${form.hoursCaregiving} hours of caregiving, ${pending} pending task${pending !== 1 ? 's' : ''}, and ${form.difficultSituations} difficult situation${form.difficultSituations !== 1 ? 's' : ''} - combine rather than any single cause standing out. Small stressors stack up even when no one factor crosses an obvious line.`,
       recommendations: [
-        'Don\'t dismiss this because no single thing feels "bad enough" — the combination is the issue today.',
+        'Don\'t dismiss this because no single thing feels "bad enough" - the combination is the issue today.',
         'Pick the one factor above that\'s easiest to change right now and address just that one.',
-        'Keep tomorrow\'s check-in honest — a repeat High day with the same pattern is worth flagging to someone.',
+        'Keep tomorrow\'s check-in honest - a repeat High day with the same pattern is worth flagging to someone.',
       ],
       priority:        'High',
-      expectedBenefit: `Catching a "quietly High" day — one without an obvious single cause — before it repeats is exactly what prevents gradual, hard-to-notice burnout.`,
+      expectedBenefit: `Catching a "quietly High" day - one without an obvious single cause - before it repeats is exactly what prevents gradual, hard-to-notice burnout.`,
     });
   }
 
-  // 16. LOW STRESS TODAY — positive reinforcement (mirrors weekly rule 14, but for today) 
+  // 16. LOW STRESS TODAY - positive reinforcement (mirrors weekly rule 14, but for today) 
   if (result.stressLevel === 'Low' && !suppressed.includes('today-low')) {
     recs.push({
       id:           'today-low',
@@ -436,13 +436,13 @@ export const generateRecommendations = (
       icon:         'happy-outline',
       color:        '#22C55E',
       bg:           '#F0FDF4',
-      title:        'Low Stress Day — Keep This Rhythm',
+      title:        'Low Stress Day - Keep This Rhythm',
       primaryCause: 'Well-Balanced Day',
       reason:       `Today's check-in came back Low stress (score ${result.stressScore}/10) with ${form.breaksTaken} break${form.breaksTaken !== 1 ? 's' : ''} taken and ${completionPct}% of tasks completed. Whatever balance you struck today between workload, rest, and recovery is worth noticing and repeating.`,
       recommendations: [
-        'Notice what made today easier — the same routine tomorrow is a reasonable goal.',
+        'Notice what made today easier - the same routine tomorrow is a reasonable goal.',
         'Use today\'s lower load to catch up on anything you\'ve been putting off.',
-        'A good day doesn\'t need to be undone by overcommitting tomorrow — pace stays worth protecting.',
+        'A good day doesn\'t need to be undone by overcommitting tomorrow - pace stays worth protecting.',
       ],
       priority:        'Low',
       expectedBenefit: `Recognising what a good day looked like makes it easier to recreate deliberately, rather than by chance.`,
@@ -488,5 +488,5 @@ export const getSummaryMessage = (
   } else if (result.stressLevel === 'Moderate') {
     return `You are managing well with ${rate}% task completion and ${form.breaksTaken} break${form.breaksTaken !== 1 ? 's' : ''} taken. A few targeted actions can help you finish the day stronger:`;
   }
-  return `Excellent work today — ${rate}% task completion with low stress. Here are tips to maintain this positive balance:`;
+  return `Excellent work today - ${rate}% task completion with low stress. Here are tips to maintain this positive balance:`;
 };

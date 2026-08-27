@@ -12,7 +12,7 @@ import {
   View,
 } from "react-native";
 
-// Section max scores — fixed MMSE values
+// Section max scores - fixed MMSE values
 const SECTION_MAX: Record<string, number> = {
   Orientation: 10,
   Registration: 3,
@@ -34,7 +34,7 @@ function describeUserAnswer(q: Question, answer: any): string {
       return String(answer);
     case "serial_subtraction":
       return Array.isArray(answer)
-        ? answer.map((x) => (x === "" || x == null ? "—" : x)).join(", ")
+        ? answer.map((x) => (x === "" || x == null ? "-" : x)).join(", ")
         : String(answer);
     case "word_recall_display":
     case "word_recall_input":
@@ -109,7 +109,7 @@ export default function ResultsScreen() {
   const router = useRouter();
   const { session, questions } = useAssessmentSession();
 
-  // ── Move ALL hooks to top — BEFORE any conditional logic ──────
+  // ── Move ALL hooks to top - BEFORE any conditional logic ──────
   const animatedScore = useRef(new Animated.Value(0)).current;
   const scoreBarWidth = useRef(new Animated.Value(0)).current;
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
@@ -336,7 +336,7 @@ export default function ResultsScreen() {
                           <View className="flex-row items-center gap-2 py-1">
                             <Text className="text-green-600">✓</Text>
                             <Text className="text-xs text-gray-600 flex-1">
-                              All questions answered correctly — no marks lost
+                              All questions answered correctly - no marks lost
                               here.
                             </Text>
                           </View>
@@ -476,7 +476,7 @@ export default function ResultsScreen() {
                 label: "Duration",
                 value: session.completedAt
                   ? `${Math.round((new Date(session.completedAt).getTime() - new Date(session.startedAt).getTime()) / 60000)} min`
-                  : "—",
+                  : "-",
               },
               { label: "Mode", value: session.administrationMode },
             ].map((row, index, arr) => (

@@ -20,7 +20,7 @@ const TREND_LABEL: Record<Trend, string> = {
 };
 
 function fmtDate(d: string | null | undefined) {
-  if (!d) return "—";
+  if (!d) return "-";
   return new Date(d).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
@@ -51,7 +51,7 @@ export interface PatientReportHtmlInput {
 
 /**
  * Builds a self-contained, print-friendly HTML document summarizing a
- * patient's cognitive history — MMSE assessment trend, behavioral risk
+ * patient's cognitive history - MMSE assessment trend, behavioral risk
  * screenings, and brain-game performance by targeted brain area. Handed to
  * expo-print's Print.printToFileAsync() to produce a shareable PDF.
  */
@@ -76,7 +76,7 @@ export function generatePatientReportHtml(input: PatientReportHtmlInput): string
       <tr>
         <td>${fmtDate(a.completedAt)}</td>
         <td>${a.totalScore}/30</td>
-        <td>${a.severity ? esc(String(a.severity)) : "—"}</td>
+        <td>${a.severity ? esc(String(a.severity)) : "-"}</td>
       </tr>`
     )
     .join("");
@@ -130,12 +130,12 @@ export function generatePatientReportHtml(input: PatientReportHtmlInput): string
           <div style="display:flex;gap:26px;text-align:center;">
             <div>
               <div class="status-label">Baseline</div>
-              <div class="status-value" style="font-size:18px;">${progress.baselineScore ?? "—"}<span style="font-size:11px;color:#94A3B8;">/30</span></div>
+              <div class="status-value" style="font-size:18px;">${progress.baselineScore ?? "-"}<span style="font-size:11px;color:#94A3B8;">/30</span></div>
               <div style="font-size:9px;color:#94A3B8;">${fmtDate(progress.baselineDate)}</div>
             </div>
             <div>
               <div class="status-label">Latest</div>
-              <div class="status-value" style="font-size:18px;color:${dirMeta.color};">${progress.latestScore ?? "—"}<span style="font-size:11px;color:#94A3B8;">/30</span></div>
+              <div class="status-value" style="font-size:18px;color:${dirMeta.color};">${progress.latestScore ?? "-"}<span style="font-size:11px;color:#94A3B8;">/30</span></div>
               <div style="font-size:9px;color:#94A3B8;">${fmtDate(progress.latestDate)}</div>
             </div>
             ${
@@ -171,9 +171,9 @@ export function generatePatientReportHtml(input: PatientReportHtmlInput): string
       <tr>
         <td>${esc(cfg.title)}</td>
         <td>${esc(brain?.shortArea ?? cfg.targetSection)}</td>
-        <td>${g.plays || "—"}</td>
-        <td>${g.plays ? g.avgPercent + "%" : "—"}</td>
-        <td>${g.plays ? g.bestPercent + "%" : "—"}</td>
+        <td>${g.plays || "-"}</td>
+        <td>${g.plays ? g.avgPercent + "%" : "-"}</td>
+        <td>${g.plays ? g.bestPercent + "%" : "-"}</td>
         <td>${fmtDate(g.lastPlayed)}</td>
       </tr>`;
     })
@@ -260,7 +260,7 @@ export function generatePatientReportHtml(input: PatientReportHtmlInput): string
   <div class="stat-row">
     <div class="stat-card"><div class="value">${assessmentStats.count}</div><div class="label">Assessments Taken</div></div>
     <div class="stat-card"><div class="value">${gameStats.totalPlays}</div><div class="label">Games Played</div></div>
-    <div class="stat-card"><div class="value">${assessmentStats.averageScore ?? "—"}</div><div class="label">Avg. MMSE Score /30</div></div>
+    <div class="stat-card"><div class="value">${assessmentStats.averageScore ?? "-"}</div><div class="label">Avg. MMSE Score /30</div></div>
   </div>
 
   ${progressSection}
@@ -287,7 +287,7 @@ export function generatePatientReportHtml(input: PatientReportHtmlInput): string
   }
 
   <section>
-    <h2>Brain Games — Performance by Brain Area</h2>
+    <h2>Brain Games - Performance by Brain Area</h2>
     ${
       perGameRows
         ? `<table><thead><tr><th>Game</th><th>Brain Area</th><th>Plays</th><th>Avg Score</th><th>Best Score</th><th>Last Played</th></tr></thead><tbody>${perGameRows}</tbody></table>`

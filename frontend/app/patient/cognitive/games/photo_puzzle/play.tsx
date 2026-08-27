@@ -50,7 +50,7 @@ const SNAP_THRESHOLD = 60;
 const TRAY_PADDING = 10;
 const PIECE_GAP = 1;
 const TRAY_PIECE_SCALE = 0.9; // or any value less than 1 for smaller tray pieces
-// Smooth, non-bouncy glide for snapping pieces into place — a plain timing
+// Smooth, non-bouncy glide for snapping pieces into place - a plain timing
 // curve so there is no spring overshoot/bounce at all.
 const SNAP_TIMING = { duration: 180, easing: Easing.out(Easing.cubic) };
 
@@ -742,7 +742,7 @@ export default function PhotoPuzzleGame() {
             style={{
               width: PUZZLE_SIZE,
               alignSelf: 'center',
-              // Exact calculated height — no overflow, no clipping
+              // Exact calculated height - no overflow, no clipping
               height: TRAY_HEIGHT,
               backgroundColor: '#ffffff',
               borderRadius: 14,
@@ -765,7 +765,7 @@ export default function PhotoPuzzleGame() {
               Drag pieces onto the board ↑
             </Text>
 
-            {/* Tray slot outlines — visual placeholders */}
+            {/* Tray slot outlines - visual placeholders */}
             {Array(pieceCount).fill(null).map((_, i) => {
               const col = i % config.gridSize;
               const row = Math.floor(i / config.gridSize);
@@ -784,7 +784,7 @@ export default function PhotoPuzzleGame() {
             })}
           </View>
 
-          {/* Reshuffle — always visible below tray */}
+          {/* Reshuffle - always visible below tray */}
           <TouchableOpacity
             onPress={() => {
               setPieces(prev => shuffle([...prev]));

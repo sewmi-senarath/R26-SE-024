@@ -7,7 +7,7 @@ export const fetchTaskCompletionReport = async (
 ): Promise<TaskCompletionReport> => {
   const params = new URLSearchParams({ timeframe });
 
-  // Only send the filter when it's an actual patient — the backend treats a
+  // Only send the filter when it's an actual patient - the backend treats a
   // missing patientName as "all".
   if (patientName && patientName !== 'All Patients') {
     params.append('patientName', patientName);

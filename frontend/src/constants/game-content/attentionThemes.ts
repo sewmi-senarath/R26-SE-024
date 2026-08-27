@@ -1,8 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // The Attention Game has no personal content to draw on, so "freshness" here
-// means changing WHAT the patient hunts for each session — a star among circles
-// one time, a rabbit among animals the next — while keeping the difficulty
+// means changing WHAT the patient hunts for each session - a star among circles
+// one time, a rabbit among animals the next - while keeping the difficulty
 // identical (same grid size, speed, target count, and number of distractor
 // types). Each theme pairs one visually distinct target with a family of
 // look-alike distractors so the discrimination task stays equally hard.
@@ -49,7 +49,7 @@ export async function pickAttentionTheme(
     const next = [...recent, theme.id].slice(-AVOID_LAST);
     await AsyncStorage.setItem(RECENT_KEY, JSON.stringify(next));
   } catch {
-    // ignore — a missed write just means a slightly higher repeat chance
+    // ignore - a missed write just means a slightly higher repeat chance
   }
 
   return {

@@ -3,7 +3,7 @@ import { SeverityLevel, SeverityPrediction } from "@/src/types/dementia.types";
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 
-// Severity colour map for the ML prediction card — this card is the single
+// Severity colour map for the ML prediction card - this card is the single
 // place a severity band is shown on the results screen.
 const SEVERITY_STYLES: Record<
   SeverityLevel,

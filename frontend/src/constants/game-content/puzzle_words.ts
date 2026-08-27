@@ -1,5 +1,5 @@
 export const PUZZLE_WORDS = [
-  // easy — 3 letters
+  // easy - 3 letters
   {
     id: "w1",
     word: "CAT",
@@ -381,7 +381,7 @@ export const PUZZLE_WORDS = [
     category: "Objects",
   },
 
-  // medium — 5 letters
+  // medium - 5 letters
   {
     id: "w66",
     word: "APPLE",
@@ -683,7 +683,7 @@ export const PUZZLE_WORDS = [
     category: "Nature",
   },
 
-  // hard — 8+ letters
+  // hard - 8+ letters
   {
     id: "w121",
     word: "CALENDAR",
