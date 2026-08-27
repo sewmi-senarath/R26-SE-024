@@ -4,6 +4,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../../constants/colors';
 import { WellbeingStats as WellbeingStatsType } from '../../../types/caregiver.types';
 
+
+const formatStat = (value: number, decimals = 1): string => {
+  if (value === null || value === undefined || isNaN(Number(value))) return '0';
+  return String(Number(Number(value).toFixed(decimals)));
+};
+
 interface StatItemProps {
   icon: keyof typeof Ionicons.glyphMap;
   iconColor: string;
@@ -62,14 +68,14 @@ export const WellbeingStats: React.FC<WellbeingStatsProps> = ({ stats }) => (
         iconColor="#8B5CF6"
         iconBg="#F5F3FF"
         label="Avg Sleep"
-        value={`${stats.avgSleep} hrs`}
+        value={`${formatStat(stats.avgSleep)} hrs`}
       />
       <StatItem
         icon="heart-outline"
         iconColor={Colors.danger}
         iconBg={Colors.dangerSoft}
         label="Active Hours"
-        value={`${stats.activeHours} hrs`}
+        value={`${formatStat(stats.activeHours)} hrs`}
       />
     </View>
     <View style={{ flexDirection: 'row', gap: 10 }}>

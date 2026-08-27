@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   View, Text, ScrollView, StatusBar,
@@ -111,7 +110,7 @@ export default function MedicationsScreen() {
           gap: 12, paddingHorizontal: 20, marginBottom: 16,
         }}>
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => router.replace('/caregiver/more')}
             style={{
               width: 38, height: 38, borderRadius: 13,
               backgroundColor: Colors.white,
