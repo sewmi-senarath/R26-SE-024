@@ -7,8 +7,6 @@ export interface SeverityPrediction {
   severity: SeverityLevel;
   confidence: number; // 0-1
   probabilities: Record<SeverityLevel, number>;
-  ruleBasedSeverity: SeverityLevel;
-  agreesWithRule: boolean;
   message: string;
   basedOnAssessment: string;
   submittedAt: string;
@@ -22,8 +20,6 @@ export interface SeverityHistoryItem {
   severity: SeverityLevel;
   confidence: number;
   probabilities: Record<SeverityLevel, number>;
-  ruleBasedSeverity: SeverityLevel;
-  agreesWithRule: boolean;
   message: string;
   createdAt: string;
 }

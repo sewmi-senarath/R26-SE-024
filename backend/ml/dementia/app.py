@@ -8,8 +8,7 @@ backend/src/routes/caregiver/insightRoutes.js).
 /predict - severity classifier (train.py / dementia_model.pkl)
    Input: age, educationYears, ses, totalScore (0-30, same scale as
    scoringService.js's MMSE-style score), sex
-   Output: none/mild/moderate/severe + confidence, alongside the existing
-   rule-based severity so the two can be compared.
+   Output: none/mild/moderate/severe + confidence + per-class probabilities.
 """
 
 from flask import Flask, request, jsonify
@@ -42,13 +41,6 @@ MESSAGES = {
     'moderate': 'Moderate cognitive impairment detected. Consider a clinical follow-up.',
     'severe':   'Significant cognitive impairment detected. Please consult a clinician promptly.',
 }
-
-# ── Same thresholds as backend/src/services/cognitive/scoringService.js ────
-def rule_based_severity(total_score):
-    if total_score >= 24: return 'none'
-    if total_score >= 19: return 'mild'
-    if total_score >= 10: return 'moderate'
-    return 'severe'
 
 @app.route('/health', methods=['GET'])
 def health():
@@ -95,10 +87,7 @@ def predict():
         proba_dict    = {cls: round(float(p), 3) for cls, p in zip(classes, proba)}
         confidence    = float(max(proba))
 
-        rule_prediction = rule_based_severity(total_score)
-        agrees          = (ml_prediction == rule_prediction)
-
-        print(f"[Dementia API] ML -> {ml_prediction} ({confidence*100:.1f}%)  |  Rule -> {rule_prediction}"
+        print(f"[Dementia API] ML -> {ml_prediction} ({confidence*100:.1f}%)"
               f"  |  Model: {model_name} (test acc {test_acc*100:.1f}%, macro-F1 {test_mf1*100:.1f}%)")
 
         return jsonify({
@@ -106,8 +95,6 @@ def predict():
             'severity':       ml_prediction,
             'confidence':     round(confidence, 3),
             'probabilities':  proba_dict,
-            'ruleBasedSeverity': rule_prediction,
-            'agreesWithRule': agrees,
             'message':        MESSAGES.get(ml_prediction, ''),
             'submittedAt':    pd.Timestamp.now().isoformat(),
         })

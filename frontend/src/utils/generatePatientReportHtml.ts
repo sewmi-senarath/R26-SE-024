@@ -279,9 +279,7 @@ export function generatePatientReportHtml(input: PatientReportHtmlInput): string
       ? `<section>
           <h2>Latest Severity Prediction (ML Model)</h2>
           <p style="margin:0 0 10px 0;color:#475569;">
-            Confidence: <strong>${Math.round(latestSeverityPrediction.confidence * 100)}%</strong> &nbsp;•&nbsp;
-            Rule-based cross-check: <strong style="text-transform:capitalize;">${esc(latestSeverityPrediction.ruleBasedSeverity)}</strong>
-            (${latestSeverityPrediction.agreesWithRule ? "agrees" : "differs"})
+            Confidence: <strong>${Math.round(latestSeverityPrediction.confidence * 100)}%</strong>
           </p>
           <table><thead><tr><th>Severity Level</th><th>Model Probability</th></tr></thead><tbody>${severityRows}</tbody></table>
         </section>`

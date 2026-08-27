@@ -1,7 +1,6 @@
 import { AIPredictionCard } from "@/src/components/patient/cognitive/components/screening-test/AIPredictionCard";
 import { useAssessmentSession } from "@/src/hooks/useAssessmentSession";
 import { Question } from "@/src/types/assessment.types";
-import { getSeverityInfo } from "@/src/utils/scoring";
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -12,50 +11,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-
-// ── Colour maps for each severity level
-const SEVERITY_STYLES = {
-  none: {
-    bg: "bg-green-50",
-    border: "border-green-200",
-    badge: "bg-green-100",
-    badgeText: "text-green-800",
-    bar: "bg-green-500",
-    icon: "✓",
-    iconBg: "bg-green-100",
-    iconColor: "text-green-600",
-  },
-  mild: {
-    bg: "bg-amber-50",
-    border: "border-amber-200",
-    badge: "bg-amber-100",
-    badgeText: "text-amber-800",
-    bar: "bg-amber-500",
-    icon: "!",
-    iconBg: "bg-amber-100",
-    iconColor: "text-amber-600",
-  },
-  moderate: {
-    bg: "bg-orange-50",
-    border: "border-orange-200",
-    badge: "bg-orange-100",
-    badgeText: "text-orange-800",
-    bar: "bg-orange-500",
-    icon: "!!",
-    iconBg: "bg-orange-100",
-    iconColor: "text-orange-600",
-  },
-  severe: {
-    bg: "bg-red-50",
-    border: "border-red-200",
-    badge: "bg-red-100",
-    badgeText: "text-red-800",
-    bar: "bg-red-500",
-    icon: "!!!",
-    iconBg: "bg-red-100",
-    iconColor: "text-red-600",
-  },
-};
 
 // Section max scores — fixed MMSE values
 const SECTION_MAX: Record<string, number> = {
@@ -191,10 +146,6 @@ export default function ResultsScreen() {
     );
   }
 
-  // Now it's safe to compute severity info
-  const severityInfo = getSeverityInfo(session.totalScore);
-  const styles = SEVERITY_STYLES[severityInfo.level];
-
   // Per-question earned marks (from the backend scoring log), keyed by id.
   const earnedByQuestion: Record<string, number> = {};
   (session.scoringLog ?? []).forEach((entry) => {
@@ -233,33 +184,12 @@ export default function ResultsScreen() {
         </View>
 
         {/* ── Total score card ───────────────────────────────── */}
-        <View
-          className={`mx-6 rounded-3xl border p-6 mb-4 ${styles.bg} ${styles.border}`}
-        >
-          {/* Severity icon + label row */}
-          <View className="flex-row items-center gap-3 mb-5">
-            <View
-              className={`w-10 h-10 rounded-full items-center justify-center ${styles.iconBg}`}
-            >
-              <Text className={`font-bold text-sm ${styles.iconColor}`}>
-                {styles.icon}
-              </Text>
-            </View>
-            <View>
-              <Text className="text-xs text-gray-500 uppercase tracking-wide">
-                Dementia Level
-              </Text>
-              <Text className="text-lg font-bold text-gray-900">
-                {severityInfo.label}
-              </Text>
-            </View>
-
-            {/* Score badge — top right */}
-            <View className={`ml-auto px-3 py-1.5 rounded-xl ${styles.badge}`}>
-              <Text className={`text-xs font-semibold ${styles.badgeText}`}>
-                Range: {severityInfo.scoreRange}
-              </Text>
-            </View>
+        <View className="mx-6 rounded-3xl border border-gray-100 bg-white p-6 mb-4">
+          {/* Score label */}
+          <View className="mb-4">
+            <Text className="text-xs text-gray-500 uppercase tracking-wide">
+              Your MMSE Score
+            </Text>
           </View>
 
           {/* Animated total score */}
@@ -279,15 +209,12 @@ export default function ResultsScreen() {
                 / {format3(30)}
               </Text>
             </View>
-            <Text className="text-sm text-gray-500 text-center mt-1">
-              {severityInfo.description}
-            </Text>
           </View>
 
           {/* Score progress bar */}
-          <View className="h-3 bg-white rounded-full overflow-hidden">
+          <View className="h-3 bg-gray-100 rounded-full overflow-hidden">
             <Animated.View
-              className={`h-full rounded-full ${styles.bar}`}
+              className="h-full rounded-full bg-blue-500"
               style={{
                 width: scoreBarWidth.interpolate({
                   inputRange: [0, 100],
@@ -318,7 +245,7 @@ export default function ResultsScreen() {
           </View>
         )}
 
-        {/* ── AI severity prediction (ML model, alongside the rule-based score above) ── */}
+        {/* ── AI severity prediction (ML model) ── */}
         {session.patientId && (
           <AIPredictionCard patientId={session.patientId} />
         )}
@@ -505,41 +432,23 @@ export default function ResultsScreen() {
                 color: "bg-red-400",
               },
             ].map((band, index, arr) => {
-              const isActive = severityInfo.scoreRange === band.range;
               const isLast = index === arr.length - 1;
 
               return (
                 <View
                   key={band.range}
-                  className={`
-                    flex-row items-center px-4 py-3 gap-3
-                    ${isActive ? "bg-gray-50" : ""}
-                    ${!isLast ? "border-b border-gray-50" : ""}
-                  `}
+                  className={`flex-row items-center px-4 py-3 gap-3 ${!isLast ? "border-b border-gray-50" : ""}`}
                 >
                   {/* Colour dot */}
                   <View className={`w-2.5 h-2.5 rounded-full ${band.color}`} />
 
-                  <Text
-                    className={`flex-1 text-sm ${isActive ? "font-semibold text-gray-900" : "text-gray-500"}`}
-                  >
+                  <Text className="flex-1 text-sm text-gray-500">
                     {band.label}
                   </Text>
 
-                  <Text
-                    className={`text-sm ${isActive ? "font-semibold text-gray-900" : "text-gray-400"}`}
-                  >
+                  <Text className="text-sm text-gray-400">
                     {band.range}
                   </Text>
-
-                  {/* Active indicator */}
-                  {isActive && (
-                    <View className="bg-blue-500 rounded-full px-2 py-0.5">
-                      <Text className="text-white text-xs font-medium">
-                        Patient
-                      </Text>
-                    </View>
-                  )}
                 </View>
               );
             })}

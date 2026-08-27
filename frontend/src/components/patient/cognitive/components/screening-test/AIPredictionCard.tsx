@@ -3,8 +3,8 @@ import { SeverityLevel, SeverityPrediction } from "@/src/types/dementia.types";
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 
-// Mirrors the SEVERITY_STYLES map in results.tsx so the ML card visually
-// matches the rule-based score card above it.
+// Severity colour map for the ML prediction card — this card is the single
+// place a severity band is shown on the results screen.
 const SEVERITY_STYLES: Record<
   SeverityLevel,
   { bg: string; border: string; badge: string; badgeText: string; bar: string; dot: string }
@@ -143,20 +143,6 @@ export const AIPredictionCard: React.FC<AIPredictionCardProps> = ({ patientId })
             </View>
           );
         })}
-      </View>
-
-      {/* Agreement with rule-based score */}
-      <View
-        className={`flex-row items-center gap-2 px-3 py-2.5 rounded-xl ${
-          result.agreesWithRule ? "bg-white/70" : "bg-white"
-        }`}
-      >
-        <View className={`w-2 h-2 rounded-full ${result.agreesWithRule ? "bg-green-500" : "bg-amber-500"}`} />
-        <Text className="text-xs text-gray-600 flex-1">
-          {result.agreesWithRule
-            ? `Agrees with the MMSE rule-based score (${LABELS[result.ruleBasedSeverity]}).`
-            : `Differs from the MMSE rule-based score (${LABELS[result.ruleBasedSeverity]}) — worth a second look.`}
-        </Text>
       </View>
     </View>
   );
