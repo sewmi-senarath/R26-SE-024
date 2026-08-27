@@ -13,10 +13,9 @@ const ML_URL = 'http://localhost:5002';
 
 // POST /api/cognitive/dementia/predict/:patientId
 // Pulls the patient's latest completed assessment score + profile info,
-// calls the ML model, and returns both the ML prediction and the existing
-// rule-based severity (from scoringService) so they can be compared. Also
-// persists a SeverityPrediction row so the Reporting tab can chart this
-// over time instead of only ever seeing the most recent call.
+// calls the ML model, and returns the ML severity prediction. Also persists
+// a SeverityPrediction row so the Reporting tab can chart this over time
+// instead of only ever seeing the most recent call.
 router.post('/predict/:patientId', protect, authorize('patient', 'caregiver', 'family'), async (req, res) => {
   try {
     const { patientId } = req.params;
@@ -62,8 +61,6 @@ router.post('/predict/:patientId', protect, authorize('patient', 'caregiver', 'f
         severity: result.severity,
         confidence: result.confidence,
         probabilities: result.probabilities,
-        ruleBasedSeverity: result.ruleBasedSeverity,
-        agreesWithRule: result.agreesWithRule,
         message: result.message,
       });
     } catch (saveErr) {
@@ -76,8 +73,6 @@ router.post('/predict/:patientId', protect, authorize('patient', 'caregiver', 'f
         severity: result.severity,
         confidence: result.confidence,
         probabilities: result.probabilities,
-        ruleBasedSeverity: result.ruleBasedSeverity,
-        agreesWithRule: result.agreesWithRule,
         message: result.message,
         basedOnAssessment: latestAssessment.sessionId,
         submittedAt: result.submittedAt,

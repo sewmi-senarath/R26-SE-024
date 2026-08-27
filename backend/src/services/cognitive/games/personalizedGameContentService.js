@@ -228,7 +228,7 @@ function buildFamilyPhotoMap(patient) {
     if (name) map.set(normalizeKey(name), photo);
 
     // The LLM sometimes echoes the relation ("Mom") instead of the literal
-    // name — index that too so the real photo still gets matched.
+    // name - index that too so the real photo still gets matched.
     const relation = member?.relation?.trim();
     if (relation && !map.has(normalizeKey(relation))) {
       map.set(normalizeKey(relation), photo);
@@ -411,7 +411,7 @@ function buildObjectItems(patient) {
     ...item,
   }));
 
-  // Family members with a real photo take priority — recalling a loved one's
+  // Family members with a real photo take priority - recalling a loved one's
   // face and name is more meaningful than a generic occupation/food object.
   return [...buildFamilyObjectItems(patient), ...genericItems];
 }
@@ -499,7 +499,7 @@ function buildFestivalQuestion(patient, optionsCount, extraDistractors = []) {
 function buildPlaceQuestion(patient, optionsCount, extraDistractors = []) {
   // Only a real hometown answers "which town do you call home". A favorite
   // place (e.g. "Village") is not necessarily where the patient is from, so we
-  // no longer fall back to it — the question is simply skipped without one.
+  // no longer fall back to it - the question is simply skipped without one.
   const home = (patient.hometown || "").trim();
   if (!home) return null;
 
@@ -562,7 +562,7 @@ function buildFaceNameItems(patient, optionsCount, opts = {}) {
   if (!realPeople.length) return [];
 
   const realNames = realPeople.map((p) => p.name);
-  // Every wrong option is another real relative — never a random stranger — so
+  // Every wrong option is another real relative - never a random stranger - so
   // we can only offer as many choices as there are people on file.
   const effectiveOptions = Math.max(1, Math.min(optionsCount, realNames.length));
   const preferSameGender = distractorStyle === "sameGender";
@@ -714,8 +714,8 @@ async function getPersonalizedGameContent({ gameId, patientId, difficulty, reque
 
   if (gameId === "orientation_game") {
     // The correct answer for every question here is either a real fact from
-    // the patient's profile or the actual current date/time — never
-    // LLM-generated — so a hallucination can never surface as "correct".
+    // the patient's profile or the actual current date/time - never
+    // LLM-generated - so a hallucination can never surface as "correct".
     // The LLM is only ever asked for plausible extra wrong-answer options.
     let llmDistractors = null;
     try {
@@ -756,7 +756,7 @@ async function getPersonalizedGameContent({ gameId, patientId, difficulty, reque
   if (gameId === "face_name_match") {
     // Every person shown is a real family member on file, and every wrong-answer
     // name is another real relative. We never pad the round with generic
-    // strangers — so the number of questions is simply however many family
+    // strangers - so the number of questions is simply however many family
     // members were uploaded. Only the game *structure* changes with difficulty.
     const personalItems = buildFaceNameItems(patient, staticConfig.optionsCount, {
       distractorStyle: staticConfig.distractorStyle,
@@ -774,7 +774,7 @@ async function getPersonalizedGameContent({ gameId, patientId, difficulty, reque
       };
     }
 
-    // No family members on file at all — fall back to generic practice faces so
+    // No family members on file at all - fall back to generic practice faces so
     // the game still works (there is nothing real to preserve here).
     const fallbackItems = buildFaceQuestions(
       FALLBACK_FACES,

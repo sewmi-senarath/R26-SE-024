@@ -213,7 +213,7 @@ async def predict_alert(req: AlertRequest):
                 "speak": True
             }
         else:
-            # Hour not in routine — no scheduled activity
+            # Hour not in routine - no scheduled activity
             return {
                 "status": "no_alert",
                 "message": "",
@@ -221,7 +221,7 @@ async def predict_alert(req: AlertRequest):
                 "speak": False
             }
 
-    # ── No model trained yet — tell the user ──
+    # ── No model trained yet - tell the user ──
     return {
         "status": "not_trained",
         "message": f"{name}, your routine model has not been trained yet. Please contact your caregiver.",

@@ -38,7 +38,7 @@ export const AssessmentTrendChart: React.FC<AssessmentTrendChartProps> = ({ asse
       <View className="items-center justify-center py-8">
         <Text className="text-sm text-gray-400 text-center">
           {assessments.length === 1
-            ? "One assessment completed so far — trend chart appears after the next one."
+            ? "One assessment completed so far - trend chart appears after the next one."
             : "No completed assessments yet."}
         </Text>
       </View>

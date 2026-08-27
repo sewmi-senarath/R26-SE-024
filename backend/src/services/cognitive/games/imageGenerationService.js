@@ -2,8 +2,8 @@
 // a permanent server-side cache.
 //
 // Why this stack:
-//   * Stock photos (Pexels/Openverse) were uncontrollable — wrong matches,
-//     watermarks, baked-in text — which confuses dementia patients.
+//   * Stock photos (Pexels/Openverse) were uncontrollable - wrong matches,
+//     watermarks, baked-in text - which confuses dementia patients.
 //   * Pollinations was free but rate-limited to ONE request at a time per IP, so
 //     rendering the ~6 fresh images a game needs took 30-60s serialized.
 //   * fal.ai runs FLUX concurrently and fast (~1-3s each), so we can render all
@@ -25,11 +25,11 @@ const CACHE_DIR = path.resolve(__dirname, "../../../../public/game-images");
 try {
   fs.mkdirSync(CACHE_DIR, { recursive: true });
 } catch {
-  /* ignore — surfaced later if writes fail */
+  /* ignore - surfaced later if writes fail */
 }
 
 // One shared, deliberately plain style so every generated item looks like part
-// of the same set, and — crucially — never contains text/watermarks.
+// of the same set, and - crucially - never contains text/watermarks.
 const IMAGE_STYLE =
   "simple realistic illustration, single centered subject, plain white " +
   "background, soft even lighting, clean, clear and instantly recognizable, " +
@@ -42,7 +42,7 @@ function falKey() {
   if (!config.falApiKey) {
     if (!warnedNoKey) {
       console.warn(
-        "[game-images] FAL_KEY is not set — game items will show emojis " +
+        "[game-images] FAL_KEY is not set - game items will show emojis " +
           "instead of images. Get a key at https://fal.ai/dashboard/keys"
       );
       warnedNoKey = true;
@@ -193,7 +193,7 @@ async function warmToCache(term, prompt, category) {
 
 // Categories we must NOT auto-illustrate. A "Family" item's label is a real
 // person's name, so a generated face would be a wrong, confusing face for that
-// relative — those keep their emoji, or the real uploaded photo if present.
+// relative - those keep their emoji, or the real uploaded photo if present.
 const SKIP_CATEGORIES = new Set(["family"]);
 
 function shouldSkip(item) {
@@ -220,7 +220,7 @@ async function resolvePrompts(items) {
 
 // Fill `image` for every item that doesn't already have one (real family photos
 // are attached earlier and take priority). Cached items get our own fast URL;
-// uncached items are rendered NOW — all in parallel via fal.ai — so real images
+// uncached items are rendered NOW - all in parallel via fal.ai - so real images
 // appear on the very first play, then are downloaded into the cache in the
 // background for next time. `baseUrl` is this server's origin so devices can
 // reach the cached files.

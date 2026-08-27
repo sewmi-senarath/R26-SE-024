@@ -111,7 +111,7 @@ export default function ObjectDetectorScreen() {
         (gpsRef.current ? ` · GPS recorded` : ' · No GPS')
       );
     } catch {
-      setAutoSaved('⚠️ Auto-save failed — no connection');
+      setAutoSaved('⚠️ Auto-save failed - no connection');
     }
   };
 

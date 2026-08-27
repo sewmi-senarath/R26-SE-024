@@ -37,7 +37,7 @@ export default function FaceNameMatchGame() {
   );
 
   // Freeze the content for the duration of a round. Without this, a late
-  // personalized response would swap the people mid-game — which looked like the
+  // personalized response would swap the people mid-game - which looked like the
   // items "reloading" a second or two after they first appeared.
   const [frozenConfig, setFrozenConfig] = useState<FaceNameMatchConfig | null>(null);
   const config = frozenConfig ?? liveConfig;
@@ -138,7 +138,7 @@ export default function FaceNameMatchGame() {
     onExpire: () => {
       if (selectedOption) return;
       if (recallMode) {
-        // Time's up to remember — reveal the name so they can self-check.
+        // Time's up to remember - reveal the name so they can self-check.
         setRevealed(true);
         playSound('click');
         return;
@@ -275,7 +275,7 @@ export default function FaceNameMatchGame() {
           },
           studyPhase
             ? { icon: '📖', text: 'First, look through the Family Album to refresh your memory' }
-            : { icon: '⏱️', text: config.timeLimitSeconds ? `${config.timeLimitSeconds} seconds per photo` : 'No time limit — take your time' },
+            : { icon: '⏱️', text: config.timeLimitSeconds ? `${config.timeLimitSeconds} seconds per photo` : 'No time limit - take your time' },
         ]}
         secondaryAction={{ label: 'Open Family Album', icon: 'book', onPress: openAlbum }}
         onStart={handleStart}
@@ -291,7 +291,7 @@ export default function FaceNameMatchGame() {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: '#f9fafb' }}>
         <GameHeader
-          title={isStudy ? 'Family Album — Study' : 'Family Album'}
+          title={isStudy ? 'Family Album - Study' : 'Family Album'}
           difficulty={difficulty}
           timeLeft={null}
           totalSeconds={null}
@@ -300,7 +300,7 @@ export default function FaceNameMatchGame() {
         <FamilyAlbum
           people={albumPeople}
           mode={isStudy ? 'study' : 'browse'}
-          doneLabel={isStudy ? "I'm ready — start" : 'Done'}
+          doneLabel={isStudy ? "I'm ready - start" : 'Done'}
           onDone={() => {
             if (isStudy) {
               startPlaying();

@@ -45,12 +45,12 @@ export default function OrientationGame() {
   );
 
   // Freeze the content for the duration of a round. Without this, a late
-  // personalized response would swap the questions mid-game — which looked like
+  // personalized response would swap the questions mid-game - which looked like
   // the items "reloading" a second or two after they first appeared.
   const [frozenConfig, setFrozenConfig] = useState<OrientationGameConfig | null>(null);
   const config = frozenConfig ?? liveConfig;
 
-  // Difficulty-driven presentation knobs (all optional — sensible defaults keep
+  // Difficulty-driven presentation knobs (all optional - sensible defaults keep
   // older content shapes working).
   const showCategory = config.showCategory !== false;
   const showHints = Boolean(config.showHints);
@@ -73,7 +73,7 @@ export default function OrientationGame() {
   const currentQuestion = config.questions[currentIndex];
   const categoryStyle = CATEGORY_STYLE[currentQuestion?.category ?? 'Time'];
   // A spin-wheel recall answer only makes sense for numeric questions (spinning
-  // to a word is impractical) — everything else stays multiple choice.
+  // to a word is impractical) - everything else stays multiple choice.
   const useWheelAnswer = recallMode && Boolean(currentQuestion?.numeric);
   // Range the wheel spins through: the question's own range, else derived from
   // its options with a little padding so the answer isn't the only edge value.
@@ -257,11 +257,11 @@ export default function OrientationGame() {
         icon: '⏱️',
         text: config.timeLimitSeconds
           ? `${config.timeLimitSeconds} seconds per question`
-          : 'No time limit — take your time',
+          : 'No time limit - take your time',
       },
     ];
     if (memoryAnchor) {
-      steps.push({ icon: '🧠', text: "First you'll get a word to remember — we ask for it at the end" });
+      steps.push({ icon: '🧠', text: "First you'll get a word to remember - we ask for it at the end" });
     }
 
     return (

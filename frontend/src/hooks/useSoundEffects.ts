@@ -21,7 +21,7 @@ async function fireHaptic(type: SoundType) {
         break;
     }
   } catch {
-    // haptics unavailable (e.g. web) — ignore
+    // haptics unavailable (e.g. web) - ignore
   }
 }
 

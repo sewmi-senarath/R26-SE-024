@@ -300,7 +300,7 @@ export function usePatientReport(explicitPatientId?: string) {
         )
       : null;
 
-  // Overall direction — a ±2 point MMSE swing is the meaningful threshold.
+  // Overall direction - a ±2 point MMSE swing is the meaningful threshold.
   let direction: ProgressDirection = "insufficient-data";
   if (hasComparison && scoreDelta !== null) {
     if (scoreDelta >= 2) direction = "improved";

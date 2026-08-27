@@ -6,7 +6,7 @@
 //
 // Novel words the LLM invents for a specific patient are still generated on
 // first sight, but the common vocabulary below covers the bulk of what players
-// see. Safe to re-run — already-cached images are skipped.
+// see. Safe to re-run - already-cached images are skipped.
 
 require("dotenv").config();
 
@@ -31,7 +31,7 @@ const EXTRA_TERMS = [
 
 // We warm the two picture-heavy recall games (memory_recall, object_recall)
 // plus common personalization terms. Word-puzzle clue images are left to
-// on-demand generation — only one shows at a time and it has an emoji fallback.
+// on-demand generation - only one shows at a time and it has an emoji fallback.
 function collectTerms() {
   const terms = [
     ...(SEQUENCE_ITEMS || []).map((i) => i.label),

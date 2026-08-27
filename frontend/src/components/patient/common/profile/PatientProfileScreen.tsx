@@ -13,7 +13,6 @@ import {
 import { usePatientProfile } from "../../../../hooks/usePatientProfile";
 import { useSettings } from "../../../../hooks/useSettings";
 import { PatientReportView } from "../../cognitive/components/report/PatientReportView";
-import { CurrentLevelSection } from "./sections/CurrentLevelSection";
 import { GameReviewsSection } from "./sections/GameReviewsSection";
 import { PatientDetailsSection } from "./sections/PatientDetailsSection";
 import { PatientHero } from "./sections/PatientHero";
@@ -28,7 +27,6 @@ export default function PatientProfileScreen() {
     user,
     latestSession,
     loadingScreening,
-    patientLevel,
     screeningRows,
     appStats,
     gameReviews,
@@ -69,7 +67,6 @@ export default function PatientProfileScreen() {
             loadingScreening={loadingScreening}
             screeningRows={screeningRows}
           />
-          <CurrentLevelSection patientLevel={patientLevel} />
           <StatisticsSection stats={appStats} />
           <GameReviewsSection reviews={gameReviews} />
           <SettingsSection settings={settings} onToggleSetting={toggleSetting} />

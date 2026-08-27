@@ -149,7 +149,7 @@ const getTaskCompletionReport = async (req, res) => {
           patientName: g.key, total: g.total, completed: g.completed, rate: g.rate,
         })),
         byDay,
-        // Flat rows — this is what the CSV export writes out.
+        // Flat rows - this is what the CSV export writes out.
         rows: tasks.map((t) => ({
           date:        t.date,
           time:        t.time,

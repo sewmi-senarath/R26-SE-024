@@ -2,8 +2,8 @@ const mongoose = require("mongoose");
 
 // A small rolling record of the content a patient has recently been shown for
 // one game, so the content service can avoid repeating items across the next
-// few sessions. Keys are normalized item labels/words — stable across the LLM,
-// rule-based, and static tiers — never the tier-specific ids.
+// few sessions. Keys are normalized item labels/words - stable across the LLM,
+// rule-based, and static tiers - never the tier-specific ids.
 const PatientContentHistorySchema = new mongoose.Schema(
   {
     patientId: {

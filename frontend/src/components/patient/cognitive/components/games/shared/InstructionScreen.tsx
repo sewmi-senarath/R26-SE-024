@@ -23,7 +23,7 @@ interface InstructionStep {
 }
 
 // Step icons may be an emoji ("✋", "⏱️") or an Ionicons glyph name ("image",
-// "book"). Emoji are non-ASCII, glyph names are plain ASCII words — so we can
+// "book"). Emoji are non-ASCII, glyph names are plain ASCII words - so we can
 // tell them apart and render each correctly.
 function StepIcon({ icon, size, color }: { icon: string; size: number; color: string }) {
   const isGlyphName = /^[a-z0-9-]+$/.test(icon);
@@ -211,7 +211,7 @@ export function InstructionScreen({
               >
                 {/* Numbered icon medallion */}
                 <View className={`w-16 h-16 rounded-2xl items-center justify-center ${c.icon}`}>
-                  <StepIcon icon={step.icon} size={30} color={tile} />
+                  {/* <StepIcon icon={step.icon} size={25} color={tile} />
                   <View
                     style={{
                       position: 'absolute',
@@ -226,9 +226,9 @@ export function InstructionScreen({
                       borderWidth: 2.5,
                       borderColor: '#ffffff',
                     }}
-                  >
-                    <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '800' }}>{i + 1}</Text>
-                  </View>
+                  > */}
+                    <Text style={{ color: '#070101', fontSize: 13, fontWeight: '800' }}>{i + 1}</Text>
+                  {/* </View> */}
                 </View>
 
                 <Text className="flex-1 text-xl font-bold text-gray-800 leading-snug">
@@ -243,15 +243,11 @@ export function InstructionScreen({
             entering={FadeInUp.delay(260 + steps.length * 90).duration(400)}
             className="flex-row items-center justify-center gap-2 mt-6"
           >
-            <Text style={{ fontSize: 20 }}>💛</Text>
-            <Text className="text-base text-gray-500 font-semibold text-center">
-              Take your time — there is no rush.
-            </Text>
           </Animated.View>
         </Animated.View>
       </ScrollView>
 
-      {/* Start button — fixed at bottom */}
+      {/* Start button - fixed at bottom */}
       <Animated.View
         entering={FadeInUp.delay(150).duration(400)}
         className="absolute bottom-0 left-0 right-0 px-6 py-6 bg-white border-t border-gray-200"

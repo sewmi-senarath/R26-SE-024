@@ -3,7 +3,7 @@ const { shuffle } = require("./gameContentUtils");
 
 // Games whose content is drawn from a shared pool and therefore benefits from
 // "don't repeat for a few sessions" rotation. Personalized items (a patient's
-// own family / foods / places) are always kept regardless — rotation only ever
+// own family / foods / places) are always kept regardless - rotation only ever
 // gates the generic pool that pads a round out, so personalization is preserved.
 const ROTATION_GAMES = new Set(["memory_recall", "object_recall", "word_puzzle"]);
 
@@ -52,7 +52,7 @@ async function recordServedKeys(patientId, gameId, servedKeys, windowSize) {
 // Pick `count` items from `pool`, preferring ones whose key is NOT in the recent
 // window so a returning patient sees fresh content. When there aren't enough
 // fresh items (small pool / large window), the shortfall is filled with the
-// LEAST recently seen items — the game always gets a full round.
+// LEAST recently seen items - the game always gets a full round.
 function rotateSample(pool, count, recentKeys, keyOf) {
   const recencyRank = new Map();
   recentKeys.forEach((key, index) => recencyRank.set(key, index)); // higher = more recent

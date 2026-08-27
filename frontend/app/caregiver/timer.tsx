@@ -12,7 +12,7 @@ const TOTAL_SECONDS = 15 * 60;
 const TIPS = [
   { emoji: '💧', text: 'Drink a full glass of water'          },
   { emoji: '🚶', text: 'Take a gentle walk around the ward'   },
-  { emoji: '👀', text: 'Rest your eyes — look at something far away' },
+  { emoji: '👀', text: 'Rest your eyes - look at something far away' },
   { emoji: '🧘', text: 'Do some light neck and shoulder rolls' },
   { emoji: '🍎', text: 'Have a healthy snack if you need one' },
 ];

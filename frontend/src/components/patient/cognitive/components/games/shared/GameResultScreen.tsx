@@ -63,7 +63,7 @@ export function GameResultScreen({ result, onPlayAgain, onBack, progress }: Prop
         />
       )}
 
-      {/* ── Top section — centred content ──────────────────── */}
+      {/* ── Top section - centred content ──────────────────── */}
       <View
         style={{
           flex: 1,

@@ -489,13 +489,13 @@ const StoryModal: React.FC<{
           <Ionicons name="close" size={18} color={Colors.white} />
         </TouchableOpacity>
 
-        {/* Tap zones — left = back, right = forward */}
+        {/* Tap zones - left = back, right = forward */}
         <View style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, flexDirection: 'row' }}>
           <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={goPrev} />
           <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={goNext} />
         </View>
 
-        {/* Slide content — icon appears first, then a glass card holding the label and text (staggered) */}
+        {/* Slide content - icon appears first, then a glass card holding the label and text (staggered) */}
         <View
           key={index}
           style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28 }}
@@ -851,8 +851,8 @@ const RecCard: React.FC<{
                   color: given === 'helpful' ? Colors.success : Colors.danger,
                 }}>
                   {given === 'helpful'
-                    ? 'Marked as Helpful — we will prioritise this for you'
-                    : 'Marked as Not Helpful — we will suggest alternatives next time'}
+                    ? 'Marked as Helpful - we will prioritise this for you'
+                    : 'Marked as Not Helpful - we will suggest alternatives next time'}
                 </Text>
               </Animated.View>
             ) : (
@@ -1044,7 +1044,7 @@ export default function WellbeingScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ padding: 20, paddingBottom: 120 }}
       >
-        {/* Stress hero — full-bleed colour, breathing mascot */}
+        {/* Stress hero - full-bleed colour, breathing mascot */}
         <Animated.View
           entering={FadeIn.duration(420)}
           style={{

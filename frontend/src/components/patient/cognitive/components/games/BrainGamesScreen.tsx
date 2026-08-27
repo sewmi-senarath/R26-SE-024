@@ -55,7 +55,7 @@ export default function BrainGamesScreen() {
 
   // Once a game has been played at least once, its difficulty is driven by
   // the patient's actual performance (accuracy + speed) rather than the
-  // one-time assessment score — the assessment plan is just the starting point.
+  // one-time assessment score - the assessment plan is just the starting point.
   const assignments: GameDifficultyAssignment[] = useMemo(() => {
     const progressByGame = new Map(adaptiveProgress.map((p) => [p.gameId, p]));
     return gamePlan.assignments.map((assignment) => {

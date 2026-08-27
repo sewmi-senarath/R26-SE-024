@@ -43,12 +43,12 @@ const PatientGameProgressSchema = new mongoose.Schema(
     difficulty: { type: String, enum: DIFFICULTIES, required: true },
 
     totalSessions: { type: Number, required: true, default: 0, min: 0 },
-    // Games played at the current difficulty since the last change — powers the
+    // Games played at the current difficulty since the last change - powers the
     // cooldown that stops the level oscillating every session.
     sessionsSinceLastChange: { type: Number, required: true, default: 0, min: 0 },
 
     // Composite performance scores (0-100) for recent sessions, newest last.
-    // Capped to a short history — only the last few drive decisions, the rest
+    // Capped to a short history - only the last few drive decisions, the rest
     // is kept for the trend chart in the report.
     recentScores: { type: [Number], default: [] },
     // Per-metric snapshot of the most recent session, surfaced in the report.

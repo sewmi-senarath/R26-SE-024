@@ -61,7 +61,7 @@ interface OrientationBuildOpts {
   spread?: "near" | "far";
 }
 
-// Neighbours of `correct` within an ordered list — mirrors backend so "near"
+// Neighbours of `correct` within an ordered list - mirrors backend so "near"
 // distractors are genuinely tempting (e.g. Monday next to Sunday/Tuesday).
 function orderedNeighbours(list: string[], correct: string, count: number): string[] {
   const index = list.indexOf(correct);
@@ -82,7 +82,7 @@ const RECALL_WORDS = [
   "Garden", "Butterfly", "Lantern", "Umbrella", "Harbour",
 ];
 
-// Deterministic, real-clock questions — never LLM-generated, so "what day is
+// Deterministic, real-clock questions - never LLM-generated, so "what day is
 // it" can never be answered wrong. Mirrors backend/orientationFacts.js: each
 // item is tagged with a cognitive tier (1=recognition, 2=orientation,
 // 3=reasoning) and honours the requested tier set + distractor spread.
@@ -101,7 +101,7 @@ function buildTimeOrientationQuestions(
   const hour = now.getHours();
   const timeOfDay = getTimeOfDay(hour);
   const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
-  // Nearby years are all tempting, so keep four either way — this also ensures
+  // Nearby years are all tempting, so keep four either way - this also ensures
   // enough options for the higher medium/hard option counts.
   const yearPool = [year - 2, year - 1, year + 1, year + 2].map(String);
 
@@ -180,7 +180,7 @@ function buildTimeOrientationQuestions(
   };
 
   const all: OrientationQuestion[] = [
-    // Tier 2 — current date & time awareness
+    // Tier 2 - current date & time awareness
     choice("ot-year", "What year is it right now?", "📅", String(year), yearPool, 2, {
       numeric: true,
       numericRange: { min: year - 5, max: year + 5 },
@@ -199,7 +199,7 @@ function buildTimeOrientationQuestions(
     choice("ot-ampm", "Right now, is the time AM (before noon) or PM (after noon)?", "🕛", hour < 12 ? "AM" : "PM", ["AM", "PM"], 2),
     choice("ot-weekpart", "Is today a weekday or part of the weekend?", "📆", isWeekend ? "Weekend" : "Weekday", ["Weekday", "Weekend"], 2),
 
-    // Tier 3 — reasoning about the calendar
+    // Tier 3 - reasoning about the calendar
     choice("ot-tomorrow", `Today is ${weekday}. Which day comes tomorrow?`, "➡️", tomorrow, WEEKDAYS, 3, { category: "Calendar" }),
     choice("ot-yesterday", `Today is ${weekday}. Which day was yesterday?`, "⬅️", yesterday, WEEKDAYS, 3, { category: "Calendar" }),
     choice("ot-day-after-tomorrow", `Today is ${weekday}. Which day will it be the day after tomorrow?`, "⏩", dayAfterTomorrow, WEEKDAYS, 3, { category: "Calendar" }),
@@ -207,11 +207,11 @@ function buildTimeOrientationQuestions(
     choice("ot-two-months-ago", `It is ${month} now. Which month was it two months ago?`, "⏪", twoMonthsAgo, MONTHS, 3, { category: "Calendar" }),
     numberNeighbours("ot-daysinmonth", `How many days does ${month} have this year?`, "📆", daysInMonth, 28, 31, 3, { min: 28, max: 31 }),
 
-    // Tier 1 — general knowledge
+    // Tier 1 - general knowledge
     number("ot-days-in-week", "How many days are there in one week?", "🗓️", 7, [5, 6, 7, 8, 10], 1),
     number("ot-months-in-year", "How many months are there in one year?", "📅", 12, [10, 11, 12, 13, 14], 1),
     number("ot-hours-in-day", "How many hours are there in one day?", "⏰", 24, [12, 20, 24, 30, 48], 1),
-    choice("ot-dayorder", "Which comes first in a day — morning or evening?", "🌅", "Morning", ["Morning", "Evening"], 1),
+    choice("ot-dayorder", "Which comes first in a day - morning or evening?", "🌅", "Morning", ["Morning", "Evening"], 1),
   ];
 
   const tierSet = new Set(tiers);
@@ -388,7 +388,7 @@ const WORD_PUZZLE: Record<Difficulty, WordPuzzleConfig> = {
 
 // orientation_game and face_name_match are always regenerated fresh in
 // getGameContent() below (they depend on the real clock / need reshuffling
-// each play), so there is no eagerly-built module-level config for them —
+// each play), so there is no eagerly-built module-level config for them -
 // unlike the other five games, nothing here would ever be read.
 type OrientationMeta = Omit<OrientationGameConfig, "questions" | "memoryAnchor">;
 const ORIENTATION_META: Record<Difficulty, OrientationMeta> = {

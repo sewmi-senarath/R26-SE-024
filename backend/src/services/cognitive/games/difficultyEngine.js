@@ -7,7 +7,7 @@ const { GAME_CONTENT } = require("./staticGameContent");
 // "every session in the window must clear PROMOTE_MIN_EACH" rule, this keeps
 // the level stable instead of bouncing between tiers on a single lucky/unlucky
 // game. Time is captured too (each change is timestamped), but the *unit* of
-// adaptation is games played, not calendar time — an elderly patient may play
+// adaptation is games played, not calendar time - an elderly patient may play
 // in bursts, and reacting to demonstrated ability is fairer than to the clock.
 const WINDOW = 3; // sessions averaged for a decision
 const COOLDOWN = 3; // sessions to hold a new level before re-evaluating
@@ -72,7 +72,7 @@ function computeSessionMetrics(session) {
 }
 
 // Decide whether the level should move, given the current tier, how long it has
-// been held, and the recent composite window. Pure — no persistence here.
+// been held, and the recent composite window. Pure - no persistence here.
 function decideDifficulty({ currentDifficulty, sessionsSinceLastChange, window }) {
   const tierIndex = ORDER.indexOf(currentDifficulty);
   const avg = round(mean(window));
@@ -82,7 +82,7 @@ function decideDifficulty({ currentDifficulty, sessionsSinceLastChange, window }
       changed: false,
       difficulty: currentDifficulty,
       avgComposite: avg,
-      reason: `Getting to know your level — difficulty is reviewed after ${WINDOW} games at ${currentDifficulty}.`,
+      reason: `Getting to know your level - difficulty is reviewed after ${WINDOW} games at ${currentDifficulty}.`,
     };
   }
 
@@ -91,7 +91,7 @@ function decideDifficulty({ currentDifficulty, sessionsSinceLastChange, window }
       changed: false,
       difficulty: currentDifficulty,
       avgComposite: avg,
-      reason: `Settling in at ${currentDifficulty} — we'll review the level again after a few more games.`,
+      reason: `Settling in at ${currentDifficulty} - we'll review the level again after a few more games.`,
     };
   }
 
@@ -103,7 +103,7 @@ function decideDifficulty({ currentDifficulty, sessionsSinceLastChange, window }
       direction: "up",
       difficulty: to,
       avgComposite: avg,
-      reason: `Great progress — your last ${WINDOW} games averaged ${avg}%, so we raised the challenge from ${currentDifficulty} to ${to}.`,
+      reason: `Great progress - your last ${WINDOW} games averaged ${avg}%, so we raised the challenge from ${currentDifficulty} to ${to}.`,
     };
   }
 
@@ -122,7 +122,7 @@ function decideDifficulty({ currentDifficulty, sessionsSinceLastChange, window }
     changed: false,
     difficulty: currentDifficulty,
     avgComposite: avg,
-    reason: `${currentDifficulty.charAt(0).toUpperCase() + currentDifficulty.slice(1)} looks like the right fit right now — recent games averaged ${avg}%.`,
+    reason: `${currentDifficulty.charAt(0).toUpperCase() + currentDifficulty.slice(1)} looks like the right fit right now - recent games averaged ${avg}%.`,
   };
 }
 
