@@ -75,7 +75,7 @@ export function GameResultScreen({ result, onPlayAgain, onBack, progress }: Prop
       >
         {/* Result emoji circle */}
         <Animated.View
-          entering={ZoomIn.duration(500).springify().damping(11)}
+          entering={ZoomIn.duration(500)}
           style={{
             width: 100,
             height: 100,
@@ -117,7 +117,7 @@ export function GameResultScreen({ result, onPlayAgain, onBack, progress }: Prop
 
         {/* Score card */}
         <Animated.View
-          entering={FadeInUp.delay(220).duration(500).springify().damping(14)}
+          entering={FadeInUp.delay(220).duration(500)}
           style={{
             width: '100%',
             backgroundColor: '#ffffff',

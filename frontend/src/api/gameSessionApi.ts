@@ -1,4 +1,9 @@
-import { DifficultyProgressUpdate, GameSessionResult, PatientGameProgress } from "@/src/types/games.types";
+import {
+  DifficultyGameReport,
+  DifficultyProgressUpdate,
+  GameSessionResult,
+  PatientGameProgress,
+} from "@/src/types/games.types";
 import { authFetch } from "./authApi";
 
 const API_BASE_URL = `${process.env.EXPO_PUBLIC_API_URL}/api/cognitive/games`;
@@ -67,6 +72,20 @@ export async function getPatientGameProgress(
   }
 
   return body.data?.progress || [];
+}
+
+export async function getPatientDifficultyReport(
+  patientId: string,
+): Promise<DifficultyGameReport[]> {
+  const body = await authFetch(`/cognitive/games/progress/${patientId}/report`, {
+    method: "GET",
+  });
+
+  if (!body?.success) {
+    throw new Error(body?.error?.message || body?.message || "Request failed");
+  }
+
+  return body.data?.report || [];
 }
 
 export async function getPatientGameSessions(

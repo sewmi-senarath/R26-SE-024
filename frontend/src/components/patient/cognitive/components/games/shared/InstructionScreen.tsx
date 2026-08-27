@@ -22,6 +22,17 @@ interface InstructionStep {
   text: string;
 }
 
+// Step icons may be an emoji ("✋", "⏱️") or an Ionicons glyph name ("image",
+// "book"). Emoji are non-ASCII, glyph names are plain ASCII words — so we can
+// tell them apart and render each correctly.
+function StepIcon({ icon, size, color }: { icon: string; size: number; color: string }) {
+  const isGlyphName = /^[a-z0-9-]+$/.test(icon);
+  if (isGlyphName) {
+    return <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={size} color={color} />;
+  }
+  return <Text style={{ fontSize: size }}>{icon}</Text>;
+}
+
 interface Props {
   gameId: GameId;
   difficulty: Difficulty;
@@ -30,6 +41,8 @@ interface Props {
   onBack?: () => void;
   startDisabled?: boolean;
   startLabel?: string;
+  /** Optional secondary button shown above Start (e.g. "Open Family Album"). */
+  secondaryAction?: { label: string; icon?: keyof typeof Ionicons.glyphMap; onPress: () => void };
 }
 
 export function InstructionScreen({
@@ -40,10 +53,12 @@ export function InstructionScreen({
   onBack,
   startDisabled = false,
   startLabel = 'Start Game',
+  secondaryAction,
 }: Props) {
   const router = useRouter();
   const config = GAME_CONFIGS[gameId];
   const c = config.color;
+  const tile = c.tile; // vivid per-game accent color (hex)
   const [isSpeaking, setIsSpeaking] = useState(false);
   const pulse = useSharedValue(1);
 
@@ -134,12 +149,13 @@ export function InstructionScreen({
 
         {/* Hero */}
         <Animated.View
-          entering={FadeInDown.duration(450).springify().damping(16)}
+          entering={FadeInDown.duration(450)}
           className={`mx-6 rounded-3xl border p-8 items-center mb-8 mt-6 ${c.bg} ${c.border}`}
         >
           <Animated.View
-            entering={ZoomIn.delay(100).duration(400).springify().damping(12)}
+            entering={ZoomIn.delay(100).duration(400)}
             className={`w-28 h-28 rounded-3xl items-center justify-center mb-6 ${c.icon}`}
+            style={{ borderWidth: 3, borderColor: tile }}
           >
             <Text style={{ fontSize: 56 }}>{config.icon}</Text>
           </Animated.View>
@@ -171,22 +187,67 @@ export function InstructionScreen({
         </Animated.View>
 
         {/* How to play */}
-        <Animated.View entering={FadeInUp.delay(200).duration(450)} className="mx-6 mb-8">
-          <View className="flex-row items-center gap-2 mb-4">
-            <Text className="text-3xl bg-lime-200 rounded-xl">❓</Text>
+        <Animated.View entering={FadeInUp.delay(200).duration(450)} className="mx-6 mb-6">
+          <View className="flex-row items-center gap-3 mb-4">
+            <View className="w-11 h-11 rounded-2xl bg-lime-100 items-center justify-center">
+              <Text style={{ fontSize: 22 }}>❓</Text>
+            </View>
             <Text className="text-2xl font-bold text-gray-900">How to play</Text>
           </View>
-          <View className="bg-white rounded-3xl border border-gray-200 overflow-hidden">
+
+          <View className="gap-3">
             {steps.map((step, i) => (
               <Animated.View
                 key={i}
-                entering={FadeInUp.delay(260 + i * 80).duration(400)}
-                className={`px-6 py-5 gap-4 ${i < steps.length - 1 ? 'border-b border-gray-100' : ''}`}
+                entering={FadeInUp.delay(260 + i * 90).duration(420)}
+                className="bg-white rounded-3xl border border-gray-100 p-4 flex-row items-center gap-4"
+                style={{
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.06,
+                  shadowRadius: 8,
+                  elevation: 2,
+                }}
               >
-                <Text className="text-xl text-gray-700 leading-relaxed font-bold">{step.text}</Text>
+                {/* Numbered icon medallion */}
+                <View className={`w-16 h-16 rounded-2xl items-center justify-center ${c.icon}`}>
+                  <StepIcon icon={step.icon} size={30} color={tile} />
+                  <View
+                    style={{
+                      position: 'absolute',
+                      top: -7,
+                      left: -7,
+                      width: 26,
+                      height: 26,
+                      borderRadius: 13,
+                      backgroundColor: tile,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderWidth: 2.5,
+                      borderColor: '#ffffff',
+                    }}
+                  >
+                    <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '800' }}>{i + 1}</Text>
+                  </View>
+                </View>
+
+                <Text className="flex-1 text-xl font-bold text-gray-800 leading-snug">
+                  {step.text}
+                </Text>
               </Animated.View>
             ))}
           </View>
+
+          {/* Gentle reassurance */}
+          <Animated.View
+            entering={FadeInUp.delay(260 + steps.length * 90).duration(400)}
+            className="flex-row items-center justify-center gap-2 mt-6"
+          >
+            <Text style={{ fontSize: 20 }}>💛</Text>
+            <Text className="text-base text-gray-500 font-semibold text-center">
+              Take your time — there is no rush.
+            </Text>
+          </Animated.View>
         </Animated.View>
       </ScrollView>
 
@@ -195,6 +256,21 @@ export function InstructionScreen({
         entering={FadeInUp.delay(150).duration(400)}
         className="absolute bottom-0 left-0 right-0 px-6 py-6 bg-white border-t border-gray-200"
       >
+        {secondaryAction ? (
+          <TouchableOpacity
+            onPress={() => {
+              stopInstructions();
+              secondaryAction.onPress();
+            }}
+            activeOpacity={0.85}
+            className="py-4 rounded-3xl items-center mb-3 border-2 border-purple-300 bg-purple-50 flex-row justify-center gap-2"
+          >
+            {secondaryAction.icon ? (
+              <Ionicons name={secondaryAction.icon} size={22} color="#9333ea" />
+            ) : null}
+            <Text className="text-purple-700 font-bold text-xl">{secondaryAction.label}</Text>
+          </TouchableOpacity>
+        ) : null}
         <TouchableOpacity
           onPress={handleStartPress}
           disabled={startDisabled}

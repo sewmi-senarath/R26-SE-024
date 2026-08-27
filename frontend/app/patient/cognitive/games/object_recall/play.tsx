@@ -192,7 +192,7 @@ export default function ObjectRecallGame() {
             {config.objects.map((obj, index) => (
               <Animated.View
                 key={obj.id}
-                entering={ZoomIn.delay(index * 100).duration(400).springify().damping(12)}
+                entering={ZoomIn.delay(index * 100).duration(400)}
                 style={{
                   width: 126,
                   height: 132,

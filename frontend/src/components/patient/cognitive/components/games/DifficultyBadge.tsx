@@ -45,7 +45,7 @@ export function DifficultyBadge({ difficulty, size = 'md' }: Props) {
   return (
     <Animated.View
       key={difficulty}
-      entering={ZoomIn.duration(300).springify().damping(12)}
+      entering={ZoomIn.duration(300)}
       className={`flex-row items-center gap-1.5 rounded-full ${s.bg} ${small ? 'px-2 py-0.5' : 'px-3 py-1'}`}
     >
       <Animated.View className={`rounded-full ${s.dot} ${small ? 'w-1.5 h-1.5' : 'w-2 h-2'}`} style={dotStyle} />

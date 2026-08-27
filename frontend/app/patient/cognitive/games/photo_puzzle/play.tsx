@@ -34,11 +34,12 @@ import {
   GestureHandlerRootView,
 } from 'react-native-gesture-handler';
 import Animated, {
+  Easing,
   FadeIn,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 
 // CONSTANTS
@@ -49,6 +50,9 @@ const SNAP_THRESHOLD = 60;
 const TRAY_PADDING = 10;
 const PIECE_GAP = 1;
 const TRAY_PIECE_SCALE = 0.9; // or any value less than 1 for smaller tray pieces
+// Smooth, non-bouncy glide for snapping pieces into place — a plain timing
+// curve so there is no spring overshoot/bounce at all.
+const SNAP_TIMING = { duration: 180, easing: Easing.out(Easing.cubic) };
 
 type Phase = 'instruction' | 'playing' | 'result';
 
@@ -152,22 +156,22 @@ function DraggablePiece({
   // Spring back to tray when displaced by another piece
   useEffect(() => {
     if (snappedSlot === null) {
-      tx.value = withSpring(initX, { damping: 18 });
-      ty.value = withSpring(initY, { damping: 18 });
+      tx.value = withTiming(initX, SNAP_TIMING);
+      ty.value = withTiming(initY, SNAP_TIMING);
     }
   }, [snappedSlot]);
 
   // Keep snapped position in sync if slot positions change (re-measure)
   useEffect(() => {
     if (snappedSlot !== null && slotPositions[snappedSlot]) {
-      tx.value = withSpring(slotPositions[snappedSlot].x, { damping: 18 });
-      ty.value = withSpring(slotPositions[snappedSlot].y, { damping: 18 });
+      tx.value = withTiming(slotPositions[snappedSlot].x, SNAP_TIMING);
+      ty.value = withTiming(slotPositions[snappedSlot].y, SNAP_TIMING);
     }
   }, [slotPositions]);
 
   const pan = Gesture.Pan()
     .onBegin(() => {
-      sc.value = withSpring(1.1);
+      sc.value = withTiming(1.08, { duration: 120 });
       zi.value = 999;
       if (snappedSlot !== null) {
         runOnJS(onUnsnapped)(piece.id);
@@ -181,7 +185,7 @@ function DraggablePiece({
       ty.value = e.absoluteY - cellSize / 2;
     })
     .onEnd((e) => {
-      sc.value = withSpring(1);
+      sc.value = withTiming(1, { duration: 120 });
       zi.value = 10;
 
       const fingerX = e.absoluteX;
@@ -201,12 +205,12 @@ function DraggablePiece({
       });
 
       if (bestSlot !== -1) {
-        tx.value = withSpring(slotPositions[bestSlot].x, { damping: 18 });
-        ty.value = withSpring(slotPositions[bestSlot].y, { damping: 18 });
+        tx.value = withTiming(slotPositions[bestSlot].x, SNAP_TIMING);
+        ty.value = withTiming(slotPositions[bestSlot].y, SNAP_TIMING);
         runOnJS(onSnapped)(piece.id, bestSlot);
       } else {
-        tx.value = withSpring(initX, { damping: 18 });
-        ty.value = withSpring(initY, { damping: 18 });
+        tx.value = withTiming(initX, SNAP_TIMING);
+        ty.value = withTiming(initY, SNAP_TIMING);
       }
     });
 
@@ -563,6 +567,14 @@ export default function PhotoPuzzleGame() {
     }, 5000);
   };
 
+  const dismissReferencePhoto = () => {
+    if (referencePhotoTimerRef.current) {
+      clearTimeout(referencePhotoTimerRef.current);
+      referencePhotoTimerRef.current = null;
+    }
+    setShowReferencePhoto(false);
+  };
+
   // RENDER
   if (phase === 'instruction') {
     return (
@@ -869,7 +881,11 @@ export default function PhotoPuzzleGame() {
       )}
 
       {showReferencePhoto && puzzleImage && (
-        <View
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={dismissReferencePhoto}
+          accessibilityRole="button"
+          accessibilityLabel="Close full photo preview"
           style={{
             position: 'absolute',
             top: 0,
@@ -916,10 +932,10 @@ export default function PhotoPuzzleGame() {
                 textAlign: 'center',
               }}
             >
-              Full photo preview
+              Tap anywhere to close
             </Text>
           </View>
-        </View>
+        </TouchableOpacity>
       )}
     </GestureHandlerRootView>
   );

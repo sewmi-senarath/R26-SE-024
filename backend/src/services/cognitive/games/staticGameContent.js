@@ -2,7 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const vm = require("vm");
 const { pickDistractors, shuffle } = require("./gameContentUtils");
-const { buildTimeOrientationQuestions } = require("./orientationFacts");
+const { buildTimeOrientationQuestions, buildMemoryAnchor } = require("./orientationFacts");
 
 const CONTENT_DIR = path.resolve(
   __dirname,
@@ -183,14 +183,81 @@ const GAME_CONTENT = {
     },
   },
   orientation_game: {
-    easy: { questionCount: 4, optionsCount: 3, timeLimitSeconds: null },
-    medium: { questionCount: 5, optionsCount: 3, timeLimitSeconds: 30 },
-    hard: { questionCount: 6, optionsCount: 4, timeLimitSeconds: 20 },
+    // Each level differs by more than count/time: the `tiers` it draws from
+    // (1=recognition, 2=current-state orientation, 3=reasoning), how close the
+    // wrong options sit (`distractorSpread`), how much on-screen support the
+    // patient gets (`showHints`/`showCategory`/`autoReadAloud`), whether hard
+    // recall input replaces the buttons (`answerMode`), and whether a
+    // delayed-recall word is woven in (`delayedRecall`).
+    easy: {
+      questionCount: 4,
+      optionsCount: 3,
+      timeLimitSeconds: null,
+      tiers: [1, 2],
+      distractorSpread: "far",
+      showHints: true,
+      showCategory: true,
+      autoReadAloud: true,
+      answerMode: "choice",
+      delayedRecall: false,
+    },
+    medium: {
+      questionCount: 5,
+      optionsCount: 4,
+      timeLimitSeconds: 30,
+      tiers: [2],
+      distractorSpread: "near",
+      showHints: false,
+      showCategory: true,
+      autoReadAloud: false,
+      answerMode: "choice",
+      delayedRecall: false,
+    },
+    hard: {
+      questionCount: 6,
+      optionsCount: 5,
+      timeLimitSeconds: 20,
+      tiers: [2, 3],
+      distractorSpread: "near",
+      showHints: false,
+      showCategory: false,
+      autoReadAloud: false,
+      answerMode: "recall",
+      delayedRecall: true,
+    },
   },
   face_name_match: {
-    easy: { questionCount: 3, optionsCount: 3, timeLimitSeconds: null },
-    medium: { questionCount: 4, optionsCount: 3, timeLimitSeconds: 20 },
-    hard: { questionCount: 5, optionsCount: 4, timeLimitSeconds: 15 },
+    // Difficulty scales by retrieval depth, not just count/time: easy is pure
+    // recognition with unrelated distractors and an errorless first-letter cue;
+    // medium studies the album first then recognises against confusable family
+    // names; hard studies then does free recall (reveal + self-check).
+    easy: {
+      questionCount: 3,
+      optionsCount: 3,
+      timeLimitSeconds: null,
+      answerMode: "choice",
+      studyPhase: false,
+      firstLetterCue: true,
+      distractorStyle: "mixed",
+    },
+    medium: {
+      questionCount: 4,
+      optionsCount: 4,
+      timeLimitSeconds: 20,
+      answerMode: "choice",
+      studyPhase: true,
+      firstLetterCue: false,
+      distractorStyle: "sameGender",
+    },
+    hard: {
+      questionCount: 5,
+      optionsCount: 4,
+      timeLimitSeconds: 15,
+      answerMode: "recall",
+      studyPhase: true,
+      firstLetterCue: false,
+      distractorStyle: "sameGender",
+    },
   },
 };
 
@@ -228,11 +295,21 @@ function buildStaticConfig(gameId, difficulty) {
   if (gameId === "orientation_game") {
     // No profile data available yet — only the deterministic, real-clock
     // time questions are available (no festival/place to personalize with).
-    const timeQuestions = buildTimeOrientationQuestions(config.optionsCount);
-    const questionCount = Math.min(config.questionCount, timeQuestions.length);
+    const timeQuestions = buildTimeOrientationQuestions(config.optionsCount, {
+      tiers: config.tiers,
+      spread: config.distractorSpread,
+    });
+
+    // On hard the last slot is reserved for a delayed-recall word shown up front.
+    const recall = config.delayedRecall ? buildMemoryAnchor(config.optionsCount) : null;
+    const slotsForTime = recall ? config.questionCount - 1 : config.questionCount;
+    const chosen = timeQuestions.slice(0, Math.max(1, Math.min(slotsForTime, timeQuestions.length)));
+    const questions = recall ? [...chosen, recall.question] : chosen;
+
     return {
       ...config,
-      questions: timeQuestions.slice(0, questionCount),
+      questions,
+      ...(recall ? { memoryAnchor: recall.anchor } : {}),
     };
   }
 

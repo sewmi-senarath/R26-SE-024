@@ -18,6 +18,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { AdaptiveDifficultySection } from "./AdaptiveDifficultySection";
 import { AssessmentTrendChart } from "./AssessmentTrendChart";
 import { BrainAreaRadar, RadarDatum } from "./BrainAreaRadar";
 import { GamePerformanceBreakdown } from "./GamePerformanceBreakdown";
@@ -103,15 +104,13 @@ export const PatientReportView: React.FC<PatientReportViewProps> = ({
   const {
     loading,
     error,
+    patientId: resolvedPatientId,
     assessments,
     severityHistory,
-    riskHistory,
     assessmentStats,
     gameStats,
-    riskFactorFrequency,
     progress,
     latestSeverityPrediction,
-    latestRiskScreening,
     reload,
   } = usePatientReport(patientId);
   const [refreshing, setRefreshing] = useState(false);
@@ -133,11 +132,8 @@ export const PatientReportView: React.FC<PatientReportViewProps> = ({
         assessmentStats,
         gameStats,
         severityHistory,
-        riskHistory,
-        riskFactorFrequency,
         progress,
         latestSeverityPrediction,
-        latestRiskScreening,
       });
       const { uri } = await Print.printToFileAsync({ html, base64: false });
 
@@ -288,12 +284,6 @@ export const PatientReportView: React.FC<PatientReportViewProps> = ({
           icon="game-controller-outline"
           color="#8B5CF6"
         />
-        <StatCard
-          label="Screenings"
-          value={String(riskHistory.length)}
-          icon="pulse-outline"
-          color="#F59E0B"
-        />
       </View>
 
       {/* ── Current status banner ───────────────────────────────────── */}
@@ -400,6 +390,9 @@ export const PatientReportView: React.FC<PatientReportViewProps> = ({
         />
         <GamePerformanceBreakdown perGame={gameStats.perGame} />
       </View>
+
+      {/* ── Adaptive difficulty ─────────────────────────────────────── */}
+      <AdaptiveDifficultySection patientId={resolvedPatientId} />
 
       {/* ── Methodology footnote ────────────────────────────────────── */}
       <Text className="text-[10px] text-gray-300 text-center px-6 leading-4">
