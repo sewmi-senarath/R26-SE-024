@@ -317,6 +317,29 @@ export const getMe = async () => {
   return await authFetch("/auth/me", { method: "GET" });
 };
 
+// ✅ Update the logged-in patient's own registration details.
+export const updateMe = async (update: Record<string, any>) => {
+  const result = await authFetch("/auth/me", {
+    method: "PUT",
+    body: JSON.stringify(update),
+  });
+
+  // Keep the locally cached user in sync so the profile reflects edits.
+  if (result?.success) {
+    try {
+      const stored = await getStoredUser();
+      await storage.setItem(
+        "userData",
+        JSON.stringify({ ...(stored || {}), ...update }),
+      );
+    } catch {
+      // Non-fatal — the server remains the source of truth.
+    }
+  }
+
+  return result;
+};
+
 export const getMePhotos = async () => {
   return await authFetch("/auth/me/photos", { method: "GET" });
 };

@@ -1,7 +1,8 @@
 import { getPatientGameProgress } from "@/src/api/gameSessionApi";
-import { GAME_CONFIGS } from "@/src/constants/games";
+import { DOMAIN_GAME_POOLS, DOMAIN_ORDER, GAME_CONFIGS } from "@/src/constants/games";
 import { useAssessment } from "@/src/context/AssessmentContext";
-import { GameDifficultyAssignment, PatientGameProgress } from "@/src/types/games.types";
+import { GameDifficultyAssignment, PatientGameProgress, SectionName } from "@/src/types/games.types";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { generateGamePlan } from "@/src/utils/difficultyEngine";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
@@ -21,6 +22,18 @@ import {
 } from "react-native";
 import Animated, { FadeInDown, FadeInUp } from "react-native-reanimated";
 import { DifficultyBadge } from "./DifficultyBadge";
+
+// Per-domain active-game index (which game in each brain area's pool is shown).
+type DomainSlots = Record<SectionName, number>;
+
+const buildDefaultSlots = (): DomainSlots =>
+  DOMAIN_ORDER.reduce((slots, domain) => {
+    slots[domain] = 0;
+    return slots;
+  }, {} as DomainSlots);
+
+const slotsStorageKey = (patientId: string) =>
+  `@memocare/game_slots/${patientId}`;
 
 export default function BrainGamesScreen() {
   const router = useRouter();
@@ -72,6 +85,60 @@ export default function BrainGamesScreen() {
     });
   }, [gamePlan, adaptiveProgress]);
 
+  // ── One active game per brain area (5 visible at once) ──────────────────
+  const [slots, setSlots] = useState<DomainSlots>(buildDefaultSlots);
+
+  // Load the patient's saved selection so refreshes persist across visits.
+  React.useEffect(() => {
+    if (!patientId) return;
+    let cancelled = false;
+    AsyncStorage.getItem(slotsStorageKey(patientId))
+      .then((raw) => {
+        if (cancelled || !raw) return;
+        const saved = JSON.parse(raw) as Partial<DomainSlots>;
+        setSlots({ ...buildDefaultSlots(), ...saved });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [patientId]);
+
+  const assignmentByGame = useMemo(
+    () => new Map(assignments.map((assignment) => [assignment.gameId, assignment])),
+    [assignments],
+  );
+
+  // Exactly one assignment per brain area, chosen by that area's slot index.
+  const activeAssignments: GameDifficultyAssignment[] = useMemo(() => {
+    return DOMAIN_ORDER.map((domain) => {
+      const pool = DOMAIN_GAME_POOLS[domain];
+      if (pool.length === 0) return null;
+      const gameId = pool[(slots[domain] ?? 0) % pool.length];
+      return assignmentByGame.get(gameId) ?? null;
+    }).filter((a): a is GameDifficultyAssignment => a !== null);
+  }, [slots, assignmentByGame]);
+
+  // Rotate to the next game within the same brain area, then persist.
+  const handleRefreshDomain = useCallback(
+    (domain: SectionName) => {
+      const pool = DOMAIN_GAME_POOLS[domain];
+      if (pool.length <= 1) return; // no alternative to swap to
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      setSlots((prev) => {
+        const next = { ...prev, [domain]: ((prev[domain] ?? 0) + 1) % pool.length };
+        if (patientId) {
+          AsyncStorage.setItem(
+            slotsStorageKey(patientId),
+            JSON.stringify(next),
+          ).catch(() => {});
+        }
+        return next;
+      });
+    },
+    [patientId],
+  );
+
   // --- Sound effect setup ---
   const soundRef = useRef<Audio.Sound | null>(null);
 
@@ -110,13 +177,13 @@ export default function BrainGamesScreen() {
   };
   // --- end sound effect setup ---
 
-  const easyCount = assignments.filter(
+  const easyCount = activeAssignments.filter(
     (assignment) => assignment.difficulty === "easy",
   ).length;
-  const mediumCount = assignments.filter(
+  const mediumCount = activeAssignments.filter(
     (assignment) => assignment.difficulty === "medium",
   ).length;
-  const hardCount = assignments.filter(
+  const hardCount = activeAssignments.filter(
     (assignment) => assignment.difficulty === "hard",
   ).length;
 
@@ -236,8 +303,10 @@ export default function BrainGamesScreen() {
           </View>
 
           <View className="flex-row flex-wrap justify-between px-5">
-            {assignments.map((assignment, index) => {
+            {activeAssignments.map((assignment, index) => {
               const config = GAME_CONFIGS[assignment.gameId];
+              const domain = assignment.sectionName as SectionName;
+              const canRefresh = (DOMAIN_GAME_POOLS[domain]?.length ?? 0) > 1;
 
               return (
                 <Animated.View
@@ -297,6 +366,31 @@ export default function BrainGamesScreen() {
                         opacity: 0.08,
                       }}
                     />
+
+                    {/* Refresh: swap this brain area for another game in it */}
+                    {canRefresh ? (
+                      <TouchableOpacity
+                        onPress={() => handleRefreshDomain(domain)}
+                        activeOpacity={0.7}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Change this ${domain} game`}
+                        style={{
+                          position: "absolute",
+                          bottom: 14,
+                          right: 14,
+                          width: 38,
+                          height: 38,
+                          borderRadius: 19,
+                          backgroundColor: "rgba(255,255,255,0.25)",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          zIndex: 10,
+                        }}
+                      >
+                        <Ionicons name="refresh" size={20} color="#ffffff" />
+                      </TouchableOpacity>
+                    ) : null}
 
                     <View className="flex-1 justify-between">
                       <View className="flex-row items-start justify-between">

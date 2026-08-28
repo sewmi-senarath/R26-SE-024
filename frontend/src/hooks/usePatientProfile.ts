@@ -9,7 +9,8 @@ import { getMe, getStoredUser } from "@/src/api/authApi";
 import { MMSESession, Severity } from "@/src/types/assessment.types";
 import { GameId } from "@/src/types/games.types";
 import { loadActiveSession } from "@/src/utils/sessionStorage";
-import { useEffect, useMemo, useState } from "react";
+import { useFocusEffect } from "expo-router";
+import { useCallback, useMemo, useState } from "react";
 
 export type UserProfile = {
   id?: string;
@@ -94,7 +95,10 @@ export function usePatientProfile() {
   const [gameSessions, setGameSessions] = useState<GameSessionHistoryItem[]>([]);
   const [loadingScreening, setLoadingScreening] = useState(true);
 
-  useEffect(() => {
+  // Reload on every focus so edits made on the profile-edit screen show
+  // immediately when the user navigates back to this tab.
+  useFocusEffect(
+    useCallback(() => {
     let mounted = true;
 
     const loadProfile = async () => {
@@ -139,7 +143,8 @@ export function usePatientProfile() {
     return () => {
       mounted = false;
     };
-  }, []);
+    }, []),
+  );
 
   const screeningRows = useMemo<ScreeningRow[]>(() => {
     if (!latestSession?.sectionScores) return [];

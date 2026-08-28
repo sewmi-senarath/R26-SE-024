@@ -1,4 +1,4 @@
-import { Difficulty, GameId } from "../types/games.types";
+import { Difficulty, GameId, SectionName } from "../types/games.types";
 
 export interface GameColorConfig {
   bg: string;
@@ -303,3 +303,26 @@ export const GAME_ORDER: GameId[] = [
   "memory_match",
   "story_recall",
 ];
+
+// ── Brain areas (MMSE domains) shown in the game plan, in display order.
+export const DOMAIN_ORDER: SectionName[] = [
+  "Orientation",
+  "Registration",
+  "Attention",
+  "Recall",
+  "Language",
+];
+
+// Games grouped by brain area, derived from each game's `targetSection` so it
+// always stays in sync with GAME_CONFIGS. Exactly one game per brain area is
+// shown at a time; "refresh" rotates to the next game in the same pool.
+export const DOMAIN_GAME_POOLS: Record<SectionName, GameId[]> =
+  DOMAIN_ORDER.reduce(
+    (pools, domain) => {
+      pools[domain] = GAME_ORDER.filter(
+        (id) => GAME_CONFIGS[id].targetSection === domain,
+      );
+      return pools;
+    },
+    {} as Record<SectionName, GameId[]>,
+  );
