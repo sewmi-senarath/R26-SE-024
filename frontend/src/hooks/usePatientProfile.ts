@@ -26,13 +26,6 @@ export type ScreeningRow = {
   percent: number;
 };
 
-export type ProfileStat = {
-  label: string;
-  value: string;
-  icon: string;
-  tone: string;
-};
-
 const SECTION_MAX: Record<keyof MMSESession["sectionScores"], number> = {
   Orientation: 10,
   Registration: 3,
@@ -78,12 +71,6 @@ function formatRelativeDate(value?: string) {
   if (daysAgo === 1) return "Yesterday";
   if (daysAgo < 7) return `${daysAgo} days ago`;
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
-
-function formatAverageSession(seconds: number) {
-  if (!seconds) return "0m";
-  if (seconds < 60) return `${Math.round(seconds)}s`;
-  return `${Math.round(seconds / 60)}m`;
 }
 
 function getGameReview(averageScore: number, sessions: number) {
@@ -170,52 +157,6 @@ export function usePatientProfile() {
     );
   }, [latestSession]);
 
-  const appStats = useMemo<ProfileStat[]>(() => {
-    const now = new Date();
-    const weekStart = new Date(now);
-    weekStart.setDate(now.getDate() - 7);
-
-    const thisWeek = gameSessions.filter(
-      (session) => new Date(session.completedAt) >= weekStart,
-    ).length;
-    const bestScore = gameSessions.reduce(
-      (best, session) => Math.max(best, getScorePercent(session)),
-      0,
-    );
-    const averageSeconds =
-      gameSessions.length === 0
-        ? 0
-        : gameSessions.reduce((total, session) => total + session.timeTaken, 0) /
-          gameSessions.length;
-
-    return [
-      {
-        label: "Total Plays",
-        value: String(gameSessions.length),
-        icon: "game-controller-outline",
-        tone: "#2563EB",
-      },
-      {
-        label: "This Week",
-        value: String(thisWeek),
-        icon: "calendar-outline",
-        tone: "#16A34A",
-      },
-      {
-        label: "Best Score",
-        value: `${bestScore}%`,
-        icon: "trophy-outline",
-        tone: "#F97316",
-      },
-      {
-        label: "Avg. Session",
-        value: formatAverageSession(averageSeconds),
-        icon: "time-outline",
-        tone: "#8B5CF6",
-      },
-    ];
-  }, [gameSessions]);
-
   const gameReviews = useMemo<Review[]>(() => {
     return GAME_ORDER.map((gameId) => {
       const sessions = gameSessions.filter((session) => session.gameId === gameId);
@@ -244,7 +185,6 @@ export function usePatientProfile() {
     latestSession,
     loadingScreening,
     screeningRows,
-    appStats,
     gameReviews,
   };
 }

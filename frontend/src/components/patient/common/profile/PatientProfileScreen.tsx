@@ -16,21 +16,12 @@ import { PatientReportView } from "../../cognitive/components/report/PatientRepo
 import { GameReviewsSection } from "./sections/GameReviewsSection";
 import { PatientDetailsSection } from "./sections/PatientDetailsSection";
 import { PatientHero } from "./sections/PatientHero";
-import { ScreeningSection } from "./sections/ScreeningSection";
 import { SettingsSection } from "./sections/SettingsSection";
-import { StatisticsSection } from "./sections/StatisticsSection";
 
 type ProfileTab = "overview" | "reporting";
 
 export default function PatientProfileScreen() {
-  const {
-    user,
-    latestSession,
-    loadingScreening,
-    screeningRows,
-    appStats,
-    gameReviews,
-  } = usePatientProfile();
+  const { user, gameReviews } = usePatientProfile();
   const { settings, toggleSetting } = useSettings();
   const [tab, setTab] = useState<ProfileTab>("overview");
 
@@ -62,12 +53,6 @@ export default function PatientProfileScreen() {
         >
           <PatientHero user={user} />
           <PatientDetailsSection user={user} />
-          <ScreeningSection
-            latestSession={latestSession}
-            loadingScreening={loadingScreening}
-            screeningRows={screeningRows}
-          />
-          <StatisticsSection stats={appStats} />
           <GameReviewsSection reviews={gameReviews} />
           <SettingsSection settings={settings} onToggleSetting={toggleSetting} />
         </ScrollView>

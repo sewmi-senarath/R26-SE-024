@@ -17,6 +17,12 @@ export interface MemoryRecallConfig {
   timeLimitSeconds: number;
   showHints: boolean;
   items: SequenceItem[];
+  /**
+   * Decoy options shown in the recall grid alongside `items`. Drawn from the
+   * same pool and de-duplicated against `items`, and carry generated images
+   * just like the correct items so the answer isn't given away by styling.
+   */
+  distractors?: SequenceItem[];
 }
 export interface SequenceItem {
   id: string;

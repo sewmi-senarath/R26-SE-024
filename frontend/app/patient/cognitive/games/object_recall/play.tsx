@@ -85,9 +85,25 @@ export default function ObjectRecallGame() {
   }, [phase, timer.isWarning]);
 
   const finishGame = useCallback(() => {
-    const correct = inputs.filter((input, i) =>
-      input.trim().toLowerCase() === config.objects[i]?.label.toLowerCase()
-    ).length;
+    // Free recall: the patient types objects in any order, so match each answer
+    // against the set of remembered objects rather than by field position. Each
+    // target can only be credited once, so repeating an answer doesn't inflate
+    // the score.
+    const remaining = new Map<string, number>();
+    config.objects.forEach((obj) => {
+      const key = obj.label.trim().toLowerCase();
+      remaining.set(key, (remaining.get(key) ?? 0) + 1);
+    });
+    let correct = 0;
+    inputs.forEach((input) => {
+      const key = input.trim().toLowerCase();
+      if (!key) return;
+      const left = remaining.get(key);
+      if (left && left > 0) {
+        remaining.set(key, left - 1);
+        correct += 1;
+      }
+    });
     const nextResult: GameSessionResult = {
       gameId: 'object_recall',
       difficulty,
