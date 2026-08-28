@@ -5,7 +5,14 @@ const { shuffle } = require("./gameContentUtils");
 // "don't repeat for a few sessions" rotation. Personalized items (a patient's
 // own family / foods / places) are always kept regardless - rotation only ever
 // gates the generic pool that pads a round out, so personalization is preserved.
-const ROTATION_GAMES = new Set(["memory_recall", "object_recall", "word_puzzle"]);
+const ROTATION_GAMES = new Set([
+  "memory_recall",
+  "object_recall",
+  "word_puzzle",
+  "grid_flash",
+  "listen_repeat",
+  "memory_match",
+]);
 
 function normalizeKey(value) {
   return String(value || "").trim().toLowerCase();
