@@ -30,6 +30,25 @@ function matchesWordLength(word: string, wordLength: number): boolean {
   return wordLength === 8 ? word.length >= 8 : word.length === wordLength;
 }
 
+// How many decoy options pad the Memory Recall grid beyond the correct items.
+const MEMORY_RECALL_DISTRACTOR_COUNT = 3;
+
+// Pick decoys from the shared pool, excluding anything already chosen as a
+// correct item, so the recall grid never shows the same object twice.
+function sampleMemoryDistractors(
+  chosen: { label: string }[],
+  count: number,
+): (typeof SEQUENCE_ITEMS)[number][] {
+  const used = new Set(chosen.map((i) => i.label.trim().toLowerCase()));
+  const pool = SEQUENCE_ITEMS.filter(
+    (i) => !used.has(i.label.trim().toLowerCase()),
+  );
+  return sampleItems(pool, count).map((item, idx) => ({
+    ...item,
+    id: `distractor_${idx}_${item.id}`,
+  }));
+}
+
 function pickDistractors<T>(pool: T[], exclude: T[], count: number): T[] {
   const seen = new Set(exclude.map((v) => String(v).trim().toLowerCase()));
   const candidates: T[] = [];
@@ -439,9 +458,11 @@ export const GAME_CONTENT: Record<Exclude<GameId, "orientation_game" | "face_nam
 export function getGameContent<T>(gameId: GameId, difficulty: Difficulty): T {
   if (gameId === "memory_recall") {
     const config = GAME_CONTENT[gameId][difficulty] as MemoryRecallConfig;
+    const items = sampleItems(SEQUENCE_ITEMS, config.sequenceLength);
     return {
       ...config,
-      items: sampleItems(SEQUENCE_ITEMS, config.sequenceLength),
+      items,
+      distractors: sampleMemoryDistractors(items, MEMORY_RECALL_DISTRACTOR_COUNT),
     } as T;
   }
 

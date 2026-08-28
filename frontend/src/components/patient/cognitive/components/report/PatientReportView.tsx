@@ -164,13 +164,6 @@ export const PatientReportView: React.FC<PatientReportViewProps> = ({
     }
   };
 
-  const handleSend = () => {
-    Alert.alert(
-      "Send Report",
-      "Sending reports directly to family members is coming soon.",
-    );
-  };
-
   if (loading) {
     return (
       <View className="flex-1 items-center justify-center py-20">
@@ -242,12 +235,12 @@ export const PatientReportView: React.FC<PatientReportViewProps> = ({
       )}
 
       {/* ── Report actions ──────────────────────────────────────────── */}
-      <View className="flex-row gap-2.5 mb-4">
+      <View className="mb-4">
         <TouchableOpacity
           onPress={handleDownload}
           disabled={downloading}
           activeOpacity={0.8}
-          className="flex-1 flex-row items-center justify-center gap-2 py-3 rounded-2xl"
+          className="flex-row items-center justify-center gap-2 py-3 rounded-2xl"
           style={{ backgroundColor: "#3B82F6", opacity: downloading ? 0.7 : 1 }}
         >
           {downloading ? (
@@ -258,15 +251,6 @@ export const PatientReportView: React.FC<PatientReportViewProps> = ({
           <Text className="text-xs font-bold text-white">
             {downloading ? "Preparing…" : "Download Report"}
           </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={handleSend}
-          activeOpacity={0.8}
-          className="flex-1 flex-row items-center justify-center gap-2 py-3 rounded-2xl bg-white border border-gray-200"
-        >
-          <Ionicons name="paper-plane-outline" size={16} color="#475569" />
-          <Text className="text-xs font-bold text-gray-600">Send Report</Text>
         </TouchableOpacity>
       </View>
 

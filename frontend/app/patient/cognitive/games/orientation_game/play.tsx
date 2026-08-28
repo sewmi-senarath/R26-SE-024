@@ -7,7 +7,9 @@ import { usePersonalizedGameContent } from '@/src/hooks/usePersonalizedGameConte
 import { useQuestionTimer } from '@/src/hooks/useQuestionTimer';
 import { useSaveGameSession } from '@/src/hooks/useSaveGameSession';
 import { useSoundEffects } from '@/src/hooks/useSoundEffects';
+import { CATEGORY_ICON_COLOR, getOrientationIcon } from '@/src/constants/orientationIcons';
 import { Difficulty, DifficultyProgressUpdate, GameSessionResult, OrientationGameConfig } from '@/src/types/games.types';
+import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Speech from 'expo-speech';
 import React, { useCallback, useState } from 'react';
@@ -290,7 +292,7 @@ export default function OrientationGame() {
         <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 24 }}>
           <Animated.View entering={ZoomIn.duration(400)} style={{ alignItems: 'center', gap: 16 }}>
             <View className="w-24 h-24 rounded-full bg-purple-100 items-center justify-center">
-              <Text style={{ fontSize: 48 }}>{memoryAnchor.icon}</Text>
+              <Ionicons name="bulb-outline" size={44} color="#7C3AED" />
             </View>
             <Text className="text-base font-semibold text-purple-600 uppercase tracking-widest">
               Remember this word
@@ -373,7 +375,11 @@ export default function OrientationGame() {
             <View
               className={`w-28 h-28 rounded-full items-center justify-center ${categoryStyle?.bg ?? 'bg-sky-50'}`}
             >
-              <Text style={{ fontSize: 56 }}>{currentQuestion?.icon}</Text>
+              <Ionicons
+                name={getOrientationIcon(currentQuestion)}
+                size={52}
+                color={CATEGORY_ICON_COLOR[currentQuestion?.category ?? 'Time'] ?? '#0284C7'}
+              />
             </View>
             {showCategory && currentQuestion?.category ? (
               <Text className={`text-sm font-semibold ${categoryStyle?.text ?? 'text-sky-600'}`}>
@@ -387,9 +393,12 @@ export default function OrientationGame() {
               {currentQuestion?.question}
             </Text>
             {showHints && currentQuestion?.hint ? (
-              <Text className="text-sm text-gray-400 text-center mt-2 italic">
-                💡 {currentQuestion.hint}
-              </Text>
+              <View className="flex-row items-center justify-center gap-1.5 mt-2 px-4">
+                <Ionicons name="bulb-outline" size={14} color="#9CA3AF" />
+                <Text className="text-sm text-gray-400 italic">
+                  {currentQuestion.hint}
+                </Text>
+              </View>
             ) : null}
           </Animated.View>
 
@@ -466,10 +475,15 @@ export default function OrientationGame() {
           {feedback && (
             <Animated.View
               entering={FadeInUp.duration(300)}
-              className={`p-3 rounded-xl items-center ${feedback === 'correct' ? 'bg-green-50' : 'bg-red-50'}`}
+              className={`p-3 rounded-xl flex-row items-center justify-center gap-1.5 ${feedback === 'correct' ? 'bg-green-50' : 'bg-red-50'}`}
             >
+              <Ionicons
+                name={feedback === 'correct' ? 'checkmark-circle' : 'close-circle'}
+                size={18}
+                color={feedback === 'correct' ? '#15803D' : '#B91C1C'}
+              />
               <Text className={`font-semibold ${feedback === 'correct' ? 'text-green-700' : 'text-red-700'}`}>
-                {feedback === 'correct' ? '✓ Correct!' : `✗ The answer is ${currentQuestion?.correctAnswer}`}
+                {feedback === 'correct' ? 'Correct!' : `The answer is ${currentQuestion?.correctAnswer}`}
               </Text>
             </Animated.View>
           )}
