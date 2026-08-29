@@ -259,7 +259,99 @@ const GAME_CONTENT = {
       distractorStyle: "sameGender",
     },
   },
+  grid_flash: {
+    easy: { gridSize: 3, sequenceLength: 3, flashTimeMs: 750, showLabels: true },
+    medium: { gridSize: 4, sequenceLength: 5, flashTimeMs: 750, showLabels: false },
+    hard: { gridSize: 5, sequenceLength: 7, flashTimeMs: 750, showLabels: false },
+  },
+  listen_repeat: {
+    easy: { wordCount: 3, allowReplay: true, answerMode: "choice" },
+    medium: { wordCount: 5, allowReplay: false, answerMode: "choice" },
+    hard: { wordCount: 7, allowReplay: false, answerMode: "input" },
+  },
+  memory_match: {
+    easy: { pairCount: 3, columns: 3, peekMs: 3500, moveLimit: null },
+    medium: { pairCount: 6, columns: 4, peekMs: 1800, moveLimit: null },
+    hard: { pairCount: 8, columns: 4, peekMs: 1200, moveLimit: 24 },
+  },
+  story_recall: {
+    easy: { questionCount: 2, answerMode: "choice", delayMs: 0 },
+    medium: { questionCount: 4, answerMode: "choice", delayMs: 0 },
+    hard: { questionCount: 6, answerMode: "choice", delayMs: 4000 },
+  },
 };
+
+// Generic fallback stories for Story Recall when there is no profile to
+// personalize from and/or the LLM is unavailable. Every answer is stated in
+// the text, so grading is always verifiable.
+const STORY_POOL = [
+  {
+    id: "market-day",
+    text:
+      "On Saturday morning, Mr. Perera walked to the market near the temple. " +
+      "He bought three red apples, a loaf of bread, and a bunch of yellow bananas. " +
+      "On the way home he met his old friend Nihal, and they sat on a bench to talk about their grandchildren. " +
+      "The sun was warm, and a small brown dog followed them along the road.",
+    questions: [
+      { question: "What day did Mr. Perera go to the market?", correctAnswer: "Saturday", options: ["Saturday", "Sunday", "Monday", "Friday"] },
+      { question: "What was the market near?", correctAnswer: "The temple", options: ["The temple", "The river", "The school", "The hospital"] },
+      { question: "How many apples did he buy?", correctAnswer: "Three", options: ["Three", "Two", "Four", "Five"] },
+      { question: "Who did he meet on the way home?", correctAnswer: "Nihal", options: ["Nihal", "His brother", "The doctor", "A stranger"] },
+      { question: "What colour were the bananas?", correctAnswer: "Yellow", options: ["Yellow", "Green", "Red", "Brown"] },
+      { question: "What animal followed them?", correctAnswer: "A dog", options: ["A dog", "A cat", "A bird", "A cow"] },
+    ],
+  },
+  {
+    id: "garden-evening",
+    text:
+      "Mrs. Fernando loved her garden. Every evening she watered the roses and the little lime tree by the gate. " +
+      "Her granddaughter Maya often came to help, carrying a small blue watering can. " +
+      "One evening they saw a bright butterfly land on a white flower, and Maya laughed with delight. " +
+      "Afterwards they had a warm cup of tea on the porch.",
+    questions: [
+      { question: "What did Mrs. Fernando love?", correctAnswer: "Her garden", options: ["Her garden", "Her car", "Cooking", "Painting"] },
+      { question: "What tree was by the gate?", correctAnswer: "A lime tree", options: ["A lime tree", "A mango tree", "An apple tree", "A palm tree"] },
+      { question: "Who helped her in the garden?", correctAnswer: "Maya", options: ["Maya", "Nihal", "Her son", "The neighbour"] },
+      { question: "What colour was the watering can?", correctAnswer: "Blue", options: ["Blue", "Red", "Green", "Yellow"] },
+      { question: "What landed on the flower?", correctAnswer: "A butterfly", options: ["A butterfly", "A bee", "A bird", "A leaf"] },
+      { question: "What did they drink afterwards?", correctAnswer: "Tea", options: ["Tea", "Coffee", "Milk", "Water"] },
+    ],
+  },
+  {
+    id: "train-trip",
+    text:
+      "Last month, Mr. and Mrs. Silva took the morning train to Kandy to visit their son. " +
+      "They packed sandwiches and a flask of tea for the journey. " +
+      "Through the window they watched green hills and a sparkling waterfall pass by. " +
+      "When they arrived, their son met them at the station with a big smile and a bunch of flowers.",
+    questions: [
+      { question: "Where did the Silvas travel to?", correctAnswer: "Kandy", options: ["Kandy", "Galle", "Colombo", "Jaffna"] },
+      { question: "Who were they visiting?", correctAnswer: "Their son", options: ["Their son", "Their daughter", "A friend", "The doctor"] },
+      { question: "What did they pack to eat?", correctAnswer: "Sandwiches", options: ["Sandwiches", "Rice", "Cake", "Fruit"] },
+      { question: "What did they see through the window?", correctAnswer: "A waterfall", options: ["A waterfall", "The sea", "A city", "A desert"] },
+      { question: "What time did the train leave?", correctAnswer: "Morning", options: ["Morning", "Evening", "Night", "Noon"] },
+      { question: "What did their son bring?", correctAnswer: "Flowers", options: ["Flowers", "A cake", "A book", "An umbrella"] },
+    ],
+  },
+];
+
+// Build a Story Recall round from the generic pool: pick a story, take the
+// level's number of questions, and shuffle each question's options.
+function buildStaticStoryConfig(config) {
+  const story = STORY_POOL[Math.floor(Math.random() * STORY_POOL.length)];
+  const picked = sampleItems(story.questions, Math.min(config.questionCount, story.questions.length));
+  return {
+    ...config,
+    questionCount: picked.length,
+    story: story.text,
+    questions: picked.map((q, i) => ({
+      id: `sq${i}`,
+      question: q.question,
+      correctAnswer: q.correctAnswer,
+      options: sampleItems(q.options, q.options.length),
+    })),
+  };
+}
 
 function buildStaticConfig(gameId, difficulty) {
   const config = GAME_CONTENT[gameId]?.[difficulty];
@@ -270,6 +362,31 @@ function buildStaticConfig(gameId, difficulty) {
       ...config,
       items: sampleItems(SEQUENCE_ITEMS, config.sequenceLength),
     };
+  }
+
+  if (gameId === "grid_flash") {
+    return {
+      ...config,
+      items: sampleItems(SEQUENCE_ITEMS, config.sequenceLength),
+    };
+  }
+
+  if (gameId === "listen_repeat") {
+    return {
+      ...config,
+      items: sampleItems(SEQUENCE_ITEMS, config.wordCount),
+    };
+  }
+
+  if (gameId === "memory_match") {
+    return {
+      ...config,
+      items: sampleItems(SEQUENCE_ITEMS, config.pairCount),
+    };
+  }
+
+  if (gameId === "story_recall") {
+    return buildStaticStoryConfig(config);
   }
 
   if (gameId === "object_recall") {

@@ -4,7 +4,11 @@ import {
   FaceNameMatchConfig,
   FaceNameQuestion,
   GameId,
+  GridFlashConfig,
+  ListenRepeatConfig,
+  MemoryMatchConfig,
   MemoryRecallConfig,
+  StoryRecallConfig,
   ObjectRecallConfig,
   OrientationGameConfig,
   OrientationQuestion,
@@ -14,6 +18,7 @@ import {
 import { SEQUENCE_ITEMS } from "./game-content/sequence_items";
 import { PUZZLE_WORDS } from "./game-content/puzzle_words";
 import { RECALL_OBJECTS } from "./game-content/recall_objects";
+import { STORY_POOL } from "./game-content/story_content";
 
 function sampleItems<T>(items: T[], count: number): T[] {
   const shuffled = [...items];
@@ -405,6 +410,101 @@ const WORD_PUZZLE: Record<Difficulty, WordPuzzleConfig> = {
   hard: buildWordPuzzleConfig(8, false, 45, true),
 };
 
+// Grid Flash: a spatial sequence over an N×N grid. Flash speed is deliberately
+// constant across levels - only the grid size and sequence length grow.
+function buildGridFlashConfig(
+  gridSize: number,
+  sequenceLength: number,
+  showLabels: boolean,
+): GridFlashConfig {
+  return {
+    gridSize,
+    sequenceLength,
+    flashTimeMs: 750,
+    showLabels,
+    items: sampleItems(SEQUENCE_ITEMS, sequenceLength),
+  };
+}
+
+const GRID_FLASH: Record<Difficulty, GridFlashConfig> = {
+  easy: buildGridFlashConfig(3, 3, true),
+  medium: buildGridFlashConfig(4, 5, false),
+  hard: buildGridFlashConfig(5, 7, false),
+};
+
+// Listen & Repeat: words are spoken, then recognised (choice) or typed (input).
+function buildListenRepeatConfig(
+  wordCount: number,
+  allowReplay: boolean,
+  answerMode: "choice" | "input",
+): ListenRepeatConfig {
+  const items = sampleItems(SEQUENCE_ITEMS, wordCount);
+  return {
+    wordCount,
+    allowReplay,
+    answerMode,
+    items,
+    distractors: sampleMemoryDistractors(items, wordCount),
+  };
+}
+
+const LISTEN_REPEAT: Record<Difficulty, ListenRepeatConfig> = {
+  easy: buildListenRepeatConfig(3, true, "choice"),
+  medium: buildListenRepeatConfig(5, false, "choice"),
+  hard: buildListenRepeatConfig(7, false, "input"),
+};
+
+// Memory Match: pairs of personalized items over a flip-card grid.
+function buildMemoryMatchConfig(
+  pairCount: number,
+  columns: number,
+  peekMs: number,
+  moveLimit: number | null,
+): MemoryMatchConfig {
+  return {
+    pairCount,
+    columns,
+    peekMs,
+    moveLimit,
+    items: sampleItems(SEQUENCE_ITEMS, pairCount),
+  };
+}
+
+const MEMORY_MATCH: Record<Difficulty, MemoryMatchConfig> = {
+  easy: buildMemoryMatchConfig(3, 3, 3500, null),
+  medium: buildMemoryMatchConfig(6, 4, 1800, null),
+  hard: buildMemoryMatchConfig(8, 4, 1200, 24),
+};
+
+// Story Recall: pick a generic story and slice it to the level's question count.
+// (Personalized stories come from the backend LLM; this is the offline fallback.)
+function buildStoryRecallConfig(
+  questionCount: number,
+  answerMode: "choice" | "mixed",
+  delayMs: number,
+): StoryRecallConfig {
+  const story = STORY_POOL[Math.floor(Math.random() * STORY_POOL.length)];
+  const chosen = sampleItems(story.questions, Math.min(questionCount, story.questions.length));
+  return {
+    questionCount: chosen.length,
+    answerMode,
+    delayMs,
+    story: story.text,
+    questions: chosen.map((q, i) => ({
+      id: `sq${i}`,
+      question: q.question,
+      correctAnswer: q.correctAnswer,
+      options: sampleItems(q.options, q.options.length),
+    })),
+  };
+}
+
+const STORY_RECALL: Record<Difficulty, StoryRecallConfig> = {
+  easy: buildStoryRecallConfig(2, "choice", 0),
+  medium: buildStoryRecallConfig(4, "choice", 0),
+  hard: buildStoryRecallConfig(6, "choice", 4000),
+};
+
 // orientation_game and face_name_match are always regenerated fresh in
 // getGameContent() below (they depend on the real clock / need reshuffling
 // each play), so there is no eagerly-built module-level config for them -
@@ -453,6 +553,10 @@ export const GAME_CONTENT: Record<Exclude<GameId, "orientation_game" | "face_nam
   attention_game: ATTENTION_GAME,
   photo_puzzle: PHOTO_PUZZLE,
   word_puzzle: WORD_PUZZLE,
+  grid_flash: GRID_FLASH,
+  listen_repeat: LISTEN_REPEAT,
+  memory_match: MEMORY_MATCH,
+  story_recall: STORY_RECALL,
 };
 
 export function getGameContent<T>(gameId: GameId, difficulty: Difficulty): T {
@@ -483,6 +587,41 @@ export function getGameContent<T>(gameId: GameId, difficulty: Difficulty): T {
       ...config,
       words: sampleItems(matchingWords, config.words.length),
     } as T;
+  }
+
+  if (gameId === "grid_flash") {
+    const config = GAME_CONTENT[gameId][difficulty] as GridFlashConfig;
+    return {
+      ...config,
+      items: sampleItems(SEQUENCE_ITEMS, config.sequenceLength),
+    } as T;
+  }
+
+  if (gameId === "listen_repeat") {
+    const config = GAME_CONTENT[gameId][difficulty] as ListenRepeatConfig;
+    const items = sampleItems(SEQUENCE_ITEMS, config.wordCount);
+    return {
+      ...config,
+      items,
+      distractors: sampleMemoryDistractors(items, config.wordCount),
+    } as T;
+  }
+
+  if (gameId === "memory_match") {
+    const config = GAME_CONTENT[gameId][difficulty] as MemoryMatchConfig;
+    return {
+      ...config,
+      items: sampleItems(SEQUENCE_ITEMS, config.pairCount),
+    } as T;
+  }
+
+  if (gameId === "story_recall") {
+    const config = GAME_CONTENT[gameId][difficulty] as StoryRecallConfig;
+    return buildStoryRecallConfig(
+      config.questionCount,
+      config.answerMode,
+      config.delayMs,
+    ) as T;
   }
 
   if (gameId === "orientation_game") {

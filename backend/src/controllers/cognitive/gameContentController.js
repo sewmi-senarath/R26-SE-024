@@ -54,13 +54,19 @@ async function getContent(req, res, next) {
         requestUser: req.user,
       });
 
-    // Memory Recall needs decoy tiles; generate them here so they pass through
-    // the same image pipeline as the correct items (uniform look, no repeats).
-    if (gameId === "memory_recall" && config && Array.isArray(config.items)) {
-      config.distractors = buildMemoryDistractors(
-        config.items,
-        MEMORY_RECALL_DISTRACTOR_COUNT
-      );
+    // Memory Recall and Listen & Repeat both show a choice grid of correct
+    // items + decoys; generate the decoys here so they pass through the same
+    // image pipeline as the correct items (uniform look, no repeats).
+    if (
+      (gameId === "memory_recall" || gameId === "listen_repeat") &&
+      config &&
+      Array.isArray(config.items)
+    ) {
+      const decoyCount =
+        gameId === "listen_repeat"
+          ? config.items.length // one decoy per spoken word
+          : MEMORY_RECALL_DISTRACTOR_COUNT;
+      config.distractors = buildMemoryDistractors(config.items, decoyCount);
     }
 
     await withGeneratedImages(config, `${req.protocol}://${req.get("host")}`);

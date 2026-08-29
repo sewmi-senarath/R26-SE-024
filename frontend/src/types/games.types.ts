@@ -5,7 +5,11 @@ export type GameId =
   | "photo_puzzle"
   | "word_puzzle"
   | "orientation_game"
-  | "face_name_match";
+  | "face_name_match"
+  | "grid_flash"
+  | "listen_repeat"
+  | "memory_match"
+  | "story_recall";
 
 export type Difficulty = "easy" | "medium" | "hard";
 export type GamePhase = "instruction" | "playing" | "result";
@@ -31,6 +35,68 @@ export interface SequenceItem {
   category: string;
   /** Real personal photo (e.g. a family member's photo) - shown instead of the emoji when present. */
   image?: string;
+}
+
+// ── Grid Flash config (Registration / visuo-spatial working memory)
+export interface GridFlashConfig {
+  /** Grid is gridSize x gridSize cells. 3 | 4 | 5 */
+  gridSize: number;
+  /** How many cells light up in the sequence. 3 | 5 | 7 */
+  sequenceLength: number;
+  /** How long each cell stays lit - held constant across difficulties. */
+  flashTimeMs: number;
+  /** Show the item label under a flashed cell (easy support). */
+  showLabels: boolean;
+  /** Tokens shown on the flashed cells - one per sequence step, personalized. */
+  items: SequenceItem[];
+}
+
+// ── Memory Match config (Recall / delayed visual pairing)
+export interface MemoryMatchConfig {
+  /** Number of distinct pairs. 3 | 6 | 8 (cards = pairCount * 2). */
+  pairCount: number;
+  /** Columns in the card grid - drives the layout. */
+  columns: number;
+  /** How long all cards are shown face-up before play begins. */
+  peekMs: number;
+  /** Optional cap on flip attempts (hard); null = unlimited. */
+  moveLimit: number | null;
+  /** One item per pair - each appears on exactly two cards. Personalized. */
+  items: SequenceItem[];
+}
+
+// ── Story Recall config (Recall / delayed narrative memory)
+export interface StoryQuestion {
+  id: string;
+  question: string;
+  correctAnswer: string;
+  /** Multiple-choice options; when omitted the patient types the answer. */
+  options?: string[];
+}
+export interface StoryRecallConfig {
+  /** How many questions are asked. 2 | 4 | 6 */
+  questionCount: number;
+  /** "choice" = all multiple-choice; "mixed" = some typed (hard). */
+  answerMode: "choice" | "mixed";
+  /** A light distraction gap before the questions appear (ms). */
+  delayMs: number;
+  /** The narrative, ideally built from the patient's own life events. */
+  story: string;
+  questions: StoryQuestion[];
+}
+
+// ── Listen & Repeat config (Registration / auditory verbal span)
+export interface ListenRepeatConfig {
+  /** How many words are spoken. 3 | 5 | 7 */
+  wordCount: number;
+  /** Whether the patient may replay the spoken words (easy). */
+  allowReplay: boolean;
+  /** "choice" shows a selectable grid; "input" asks the patient to type. */
+  answerMode: "choice" | "input";
+  /** The spoken target words (label is read aloud and scored). */
+  items: SequenceItem[];
+  /** Decoy options for the choice grid, de-duplicated against items. */
+  distractors?: SequenceItem[];
 }
 
 //  Object Recall config
@@ -164,7 +230,11 @@ export type GameConfig =
   | PhotoPuzzleConfig
   | WordPuzzleConfig
   | OrientationGameConfig
-  | FaceNameMatchConfig;
+  | FaceNameMatchConfig
+  | GridFlashConfig
+  | ListenRepeatConfig
+  | MemoryMatchConfig
+  | StoryRecallConfig;
 
 // Result tracked after each game session
 export interface GameSessionResult {
