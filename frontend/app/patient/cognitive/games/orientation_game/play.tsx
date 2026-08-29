@@ -203,6 +203,13 @@ export default function OrientationGame() {
     }
   };
 
+  const handleSkip = () => {
+    if (selectedOption || feedback) return;
+    playSound('click');
+    Speech.stop();
+    goToNext(scoreRef.current);
+  };
+
   const startPlaying = () => {
     setPhase('playing');
     setStartTime(Date.now());
@@ -470,6 +477,19 @@ export default function OrientationGame() {
                 );
               })}
             </View>
+          )}
+
+          {!selectedOption && !feedback && (
+            <TouchableOpacity
+              onPress={handleSkip}
+              activeOpacity={0.7}
+              className="flex-row items-center justify-center gap-1.5 py-3"
+              accessibilityRole="button"
+              accessibilityLabel="Skip this question"
+            >
+              <Text className="text-base font-semibold text-gray-400">Skip</Text>
+              <Ionicons name="play-skip-forward-outline" size={16} color="#9CA3AF" />
+            </TouchableOpacity>
           )}
 
           {feedback && (

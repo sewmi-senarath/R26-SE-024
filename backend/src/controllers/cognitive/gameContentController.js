@@ -58,14 +58,17 @@ async function getContent(req, res, next) {
     // items + decoys; generate the decoys here so they pass through the same
     // image pipeline as the correct items (uniform look, no repeats).
     if (
-      (gameId === "memory_recall" || gameId === "listen_repeat") &&
+      (gameId === "memory_recall" ||
+        gameId === "listen_repeat" ||
+        gameId === "spot_difference" ||
+        gameId === "name_picture") &&
       config &&
       Array.isArray(config.items)
     ) {
-      const decoyCount =
-        gameId === "listen_repeat"
-          ? config.items.length // one decoy per spoken word
-          : MEMORY_RECALL_DISTRACTOR_COUNT;
+      let decoyCount = MEMORY_RECALL_DISTRACTOR_COUNT;
+      if (gameId === "listen_repeat") decoyCount = config.items.length;
+      else if (gameId === "spot_difference") decoyCount = config.differenceCount;
+      else if (gameId === "name_picture") decoyCount = config.items.length + 4;
       config.distractors = buildMemoryDistractors(config.items, decoyCount);
     }
 

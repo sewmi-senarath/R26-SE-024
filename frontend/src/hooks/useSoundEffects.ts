@@ -1,6 +1,6 @@
 import { Audio } from "expo-av";
 import * as Haptics from "expo-haptics";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 type SoundType = "back" | "success" | "error" | "click";
 
@@ -44,7 +44,9 @@ export const useSoundEffects = () => {
     };
   }, []);
 
-  const playSound = async (type: SoundType) => {
+  // Stable identity so callers can safely list `playSound` in effect/callback
+  // deps without causing re-render loops (it only ever touches refs).
+  const playSound = useCallback(async (type: SoundType) => {
     void fireHaptic(type);
 
     try {
@@ -64,7 +66,7 @@ export const useSoundEffects = () => {
     } catch (error) {
       console.log("Sound playback error:", error);
     }
-  };
+  }, []);
 
   return { playSound };
 };

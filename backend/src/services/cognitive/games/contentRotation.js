@@ -12,6 +12,9 @@ const ROTATION_GAMES = new Set([
   "grid_flash",
   "listen_repeat",
   "memory_match",
+  "spot_difference",
+  "go_no_go",
+  "name_picture",
 ]);
 
 function normalizeKey(value) {

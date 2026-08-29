@@ -288,6 +288,126 @@ export const GAME_CONFIGS: Record<GameId, GameConfigEntry> = {
       hard: "Long story, 6 questions, delay before asking",
     },
   },
+
+  spot_difference: {
+    id: "spot_difference",
+    title: "Spot the Difference",
+    description: "Find the tiles that changed between the two pictures",
+    icon: "🔎",
+    color: {
+      bg: "bg-orange-50",
+      icon: "bg-orange-100",
+      badge: "bg-orange-100",
+      badgeText: "text-orange-700",
+      border: "border-orange-200",
+      tile: "#F97316",
+      tileDark: "#EA580C",
+    },
+    targetSection: "Attention",
+    sectionMax: 5,
+    difficultyThresholds: { hard: 80, medium: 50 },
+    difficultyDescriptions: {
+      easy: "8 tiles, 3 changes, no timer",
+      medium: "12 tiles, 5 changes, timed",
+      hard: "16 tiles, 7 changes, tight timer",
+    },
+  },
+
+  go_no_go: {
+    id: "go_no_go",
+    title: "Tap the Target",
+    description: "Tap only when the target appears, hold back for the rest",
+    icon: "🚦",
+    color: {
+      bg: "bg-emerald-50",
+      icon: "bg-emerald-100",
+      badge: "bg-emerald-100",
+      badgeText: "text-emerald-700",
+      border: "border-emerald-200",
+      tile: "#10B981",
+      tileDark: "#059669",
+    },
+    targetSection: "Attention",
+    sectionMax: 5,
+    difficultyThresholds: { hard: 80, medium: 50 },
+    difficultyDescriptions: {
+      easy: "Slow pace, easy to tell apart",
+      medium: "Faster, mixed items",
+      hard: "Rapid, similar items",
+    },
+  },
+
+  name_picture: {
+    id: "name_picture",
+    title: "Name the Picture",
+    description: "Look at each picture and choose or type its name",
+    icon: "🏷️",
+    color: {
+      bg: "bg-violet-50",
+      icon: "bg-violet-100",
+      badge: "bg-violet-100",
+      badgeText: "text-violet-700",
+      border: "border-violet-200",
+      tile: "#7C3AED",
+      tileDark: "#6D28D9",
+    },
+    targetSection: "Language",
+    sectionMax: 9,
+    difficultyThresholds: { hard: 80, medium: 50 },
+    difficultyDescriptions: {
+      easy: "5 pictures, pick from 3 names",
+      medium: "5 pictures, pick from 4 names",
+      hard: "5 pictures, type the name",
+    },
+  },
+
+  sentence_completion: {
+    id: "sentence_completion",
+    title: "Finish the Sentence",
+    description: "Fill in the missing word in each sentence",
+    icon: "✏️",
+    color: {
+      bg: "bg-lime-50",
+      icon: "bg-lime-100",
+      badge: "bg-lime-100",
+      badgeText: "text-lime-700",
+      border: "border-lime-200",
+      tile: "#65A30D",
+      tileDark: "#4D7C0F",
+    },
+    targetSection: "Language",
+    sectionMax: 9,
+    difficultyThresholds: { hard: 80, medium: 50 },
+    difficultyDescriptions: {
+      easy: "3 sentences, pick the word",
+      medium: "4 sentences, pick the word",
+      hard: "5 sentences, type the word",
+    },
+  },
+
+  calendar_find: {
+    id: "calendar_find",
+    title: "Calendar Find",
+    description: "Find the right day on the calendar",
+    icon: "📅",
+    color: {
+      bg: "bg-yellow-50",
+      icon: "bg-yellow-100",
+      badge: "bg-yellow-100",
+      badgeText: "text-yellow-700",
+      border: "border-yellow-200",
+      tile: "#EAB308",
+      tileDark: "#CA8A04",
+    },
+    targetSection: "Orientation",
+    sectionMax: 10,
+    difficultyThresholds: { hard: 80, medium: 50 },
+    difficultyDescriptions: {
+      easy: "Find today and simple dates",
+      medium: "Find named dates and days",
+      hard: "Work out relative dates, no hints",
+    },
+  },
 };
 
 export const GAME_ORDER: GameId[] = [
@@ -302,6 +422,11 @@ export const GAME_ORDER: GameId[] = [
   "listen_repeat",
   "memory_match",
   "story_recall",
+  "spot_difference",
+  "go_no_go",
+  "name_picture",
+  "sentence_completion",
+  "calendar_find",
 ];
 
 // ── Brain areas (MMSE domains) shown in the game plan, in display order.

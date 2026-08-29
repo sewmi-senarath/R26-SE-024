@@ -12,6 +12,11 @@ const GAME_IDS = [
   "listen_repeat",
   "memory_match",
   "story_recall",
+  "spot_difference",
+  "go_no_go",
+  "name_picture",
+  "sentence_completion",
+  "calendar_find",
 ];
 
 const DIFFICULTIES = ["easy", "medium", "hard"];
