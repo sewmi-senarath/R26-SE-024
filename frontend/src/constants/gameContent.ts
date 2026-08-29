@@ -7,6 +7,7 @@ import {
   GoNoGoConfig,
   GridFlashConfig,
   ListenRepeatConfig,
+  CalendarFindConfig,
   MemoryMatchConfig,
   MemoryRecallConfig,
   NamePictureConfig,
@@ -595,6 +596,12 @@ function buildSentenceCompletionConfig(
   };
 }
 
+const CALENDAR_FIND: Record<Difficulty, CalendarFindConfig> = {
+  easy: { promptCount: 3, showTodayHint: true, relativeReasoning: false },
+  medium: { promptCount: 4, showTodayHint: false, relativeReasoning: false },
+  hard: { promptCount: 5, showTodayHint: false, relativeReasoning: true },
+};
+
 const SENTENCE_COMPLETION: Record<Difficulty, SentenceCompletionConfig> = {
   easy: buildSentenceCompletionConfig(3, "choice"),
   medium: buildSentenceCompletionConfig(4, "choice"),
@@ -657,6 +664,7 @@ export const GAME_CONTENT: Record<Exclude<GameId, "orientation_game" | "face_nam
   go_no_go: GO_NO_GO,
   name_picture: NAME_PICTURE,
   sentence_completion: SENTENCE_COMPLETION,
+  calendar_find: CALENDAR_FIND,
 };
 
 export function getGameContent<T>(gameId: GameId, difficulty: Difficulty): T {

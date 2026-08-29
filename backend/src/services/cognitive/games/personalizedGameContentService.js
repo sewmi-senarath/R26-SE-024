@@ -38,6 +38,7 @@ const VALID_GAMES = new Set([
   "go_no_go",
   "name_picture",
   "sentence_completion",
+  "calendar_find",
 ]);
 // Games whose entire content the LLM is trusted to generate directly.
 const LLM_FULL_CONTENT_GAMES = new Set(["memory_recall", "object_recall", "word_puzzle"]);
@@ -845,6 +846,13 @@ async function getPersonalizedGameContent({ gameId, patientId, difficulty, reque
       console.warn("[game-content] Sentence Completion generation failed:", error.message);
     }
     logTier("static (sentence-completion)", { gameId, difficulty, patientId, personalized: false });
+    return { config: staticConfig, personalized: false };
+  }
+
+  if (gameId === "calendar_find") {
+    // Deterministic date-logic game - prompts and the calendar are computed on
+    // the client from the real current date, so the config is just the knobs.
+    logTier("static (calendar-find)", { gameId, difficulty, patientId, personalized: false });
     return { config: staticConfig, personalized: false };
   }
 

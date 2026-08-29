@@ -30,6 +30,7 @@ export default function GamesLayout() {
         <Stack.Screen name="go_no_go/play" options={{ headerShown: false }} />
         <Stack.Screen name="name_picture/play" options={{ headerShown: false }} />
         <Stack.Screen name="sentence_completion/play" options={{ headerShown: false }} />
+        <Stack.Screen name="calendar_find/play" options={{ headerShown: false }} />
       </Stack>
     </AssessmentProvider>
   );

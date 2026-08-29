@@ -13,7 +13,8 @@ export type GameId =
   | "spot_difference"
   | "go_no_go"
   | "name_picture"
-  | "sentence_completion";
+  | "sentence_completion"
+  | "calendar_find";
 
 export type Difficulty = "easy" | "medium" | "hard";
 export type GamePhase = "instruction" | "playing" | "result";
@@ -117,6 +118,16 @@ export interface SentenceCompletionConfig {
   blankCount: number;
   answerMode: "choice" | "type";
   items: SentenceItem[];
+}
+
+// ── Calendar Find config (Orientation / temporal orientation)
+export interface CalendarFindConfig {
+  /** How many find-the-date prompts (also the max score). */
+  promptCount: number;
+  /** Highlight today's cell as a support cue (easy). */
+  showTodayHint: boolean;
+  /** Include relative-date reasoning prompts, e.g. "3 days after the 12th" (hard). */
+  relativeReasoning: boolean;
 }
 
 // ── Spot the Difference config (Attention / visual comparison)
@@ -297,7 +308,8 @@ export type GameConfig =
   | SpotDifferenceConfig
   | GoNoGoConfig
   | NamePictureConfig
-  | SentenceCompletionConfig;
+  | SentenceCompletionConfig
+  | CalendarFindConfig;
 
 // Result tracked after each game session
 export interface GameSessionResult {

@@ -384,6 +384,30 @@ export const GAME_CONFIGS: Record<GameId, GameConfigEntry> = {
       hard: "5 sentences, type the word",
     },
   },
+
+  calendar_find: {
+    id: "calendar_find",
+    title: "Calendar Find",
+    description: "Find the right day on the calendar",
+    icon: "📅",
+    color: {
+      bg: "bg-yellow-50",
+      icon: "bg-yellow-100",
+      badge: "bg-yellow-100",
+      badgeText: "text-yellow-700",
+      border: "border-yellow-200",
+      tile: "#EAB308",
+      tileDark: "#CA8A04",
+    },
+    targetSection: "Orientation",
+    sectionMax: 10,
+    difficultyThresholds: { hard: 80, medium: 50 },
+    difficultyDescriptions: {
+      easy: "Find today and simple dates",
+      medium: "Find named dates and days",
+      hard: "Work out relative dates, no hints",
+    },
+  },
 };
 
 export const GAME_ORDER: GameId[] = [
@@ -402,6 +426,7 @@ export const GAME_ORDER: GameId[] = [
   "go_no_go",
   "name_picture",
   "sentence_completion",
+  "calendar_find",
 ];
 
 // ── Brain areas (MMSE domains) shown in the game plan, in display order.

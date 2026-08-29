@@ -16,6 +16,7 @@ const GAME_IDS = [
   "go_no_go",
   "name_picture",
   "sentence_completion",
+  "calendar_find",
 ];
 
 const DIFFICULTIES = ["easy", "medium", "hard"];

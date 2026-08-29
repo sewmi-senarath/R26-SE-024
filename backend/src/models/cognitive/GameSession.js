@@ -20,6 +20,7 @@ const GameSessionSchema = new mongoose.Schema(
         "go_no_go",
         "name_picture",
         "sentence_completion",
+        "calendar_find",
       ],
       required: true,
       index: true,

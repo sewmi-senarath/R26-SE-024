@@ -299,6 +299,11 @@ const GAME_CONTENT = {
     medium: { blankCount: 4, answerMode: "choice" },
     hard: { blankCount: 5, answerMode: "type" },
   },
+  calendar_find: {
+    easy: { promptCount: 3, showTodayHint: true, relativeReasoning: false },
+    medium: { promptCount: 4, showTodayHint: false, relativeReasoning: false },
+    hard: { promptCount: 5, showTodayHint: false, relativeReasoning: true },
+  },
 };
 
 const GO_NO_GO_ITEM_COUNT = 6; // one target + five lures
