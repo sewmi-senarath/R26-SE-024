@@ -3,13 +3,22 @@
   "compilerOptions": {
     "strict": true,
     "paths": {
-      "@/*": [ "./*"],
-      "@/src/*": ["./src/*"],
-      "@/app/*": ["./app/*"],
-      "@/components/*": ["./src/components/*"]
+      "@/*": [
+        "./*"
+      ],
+      "@/src/*": [
+        "./src/*"
+      ],
+      "@/app/*": [
+        "./app/*"
+      ],
+      "@/components/*": [
+        "./src/components/*"
+      ]
     },
     "types": [
-      "nativewind/types"
+      "nativewind/types",
+      "jest"
     ]
   },
   "include": [
