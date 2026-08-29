@@ -9,7 +9,11 @@ export type GameId =
   | "grid_flash"
   | "listen_repeat"
   | "memory_match"
-  | "story_recall";
+  | "story_recall"
+  | "spot_difference"
+  | "go_no_go"
+  | "name_picture"
+  | "sentence_completion";
 
 export type Difficulty = "easy" | "medium" | "hard";
 export type GamePhase = "instruction" | "playing" | "result";
@@ -83,6 +87,61 @@ export interface StoryRecallConfig {
   /** The narrative, ideally built from the patient's own life events. */
   story: string;
   questions: StoryQuestion[];
+}
+
+// ── Name the Picture config (Language / confrontation naming)
+export interface NamePictureConfig {
+  /** How many pictures the patient names (also the max score). */
+  itemCount: number;
+  /** Number of answer choices in choice mode. 3 | 4 */
+  optionsCount: number;
+  /** "choice" = pick the name; "type" = type it (fuzzy-matched). */
+  answerMode: "choice" | "type";
+  /** The pictures to name. */
+  items: SequenceItem[];
+  /** Pool of wrong-name options, de-duplicated against items. */
+  distractors?: SequenceItem[];
+}
+
+// ── Sentence Completion config (Language / semantic cloze)
+export interface SentenceItem {
+  id: string;
+  /** Sentence text with a "___" placeholder marking the blank. */
+  text: string;
+  answer: string;
+  /** Multiple-choice options; omitted when the patient types. */
+  options?: string[];
+}
+export interface SentenceCompletionConfig {
+  /** Number of sentences/blanks (also the max score). */
+  blankCount: number;
+  answerMode: "choice" | "type";
+  items: SentenceItem[];
+}
+
+// ── Spot the Difference config (Attention / visual comparison)
+export interface SpotDifferenceConfig {
+  rows: number;
+  columns: number;
+  /** How many tiles differ between the two grids. */
+  differenceCount: number;
+  timeLimitSeconds: number | null;
+  /** Items filling the grid (rows * columns), shared by both copies. */
+  items: SequenceItem[];
+  /** Replacement items for the changed tiles (>= differenceCount). */
+  distractors?: SequenceItem[];
+}
+
+// ── Go / No-Go config (Attention / sustained attention + inhibition)
+export interface GoNoGoConfig {
+  /** How many target presentations appear (also the max score). */
+  targetCount: number;
+  /** How many non-target (lure) presentations appear. */
+  lureCount: number;
+  /** How long each item is shown / the pace of the stream. */
+  intervalMs: number;
+  /** items[0] is the target to tap for; items[1..] are the lures. */
+  items: SequenceItem[];
 }
 
 // ── Listen & Repeat config (Registration / auditory verbal span)
@@ -234,7 +293,11 @@ export type GameConfig =
   | GridFlashConfig
   | ListenRepeatConfig
   | MemoryMatchConfig
-  | StoryRecallConfig;
+  | StoryRecallConfig
+  | SpotDifferenceConfig
+  | GoNoGoConfig
+  | NamePictureConfig
+  | SentenceCompletionConfig;
 
 // Result tracked after each game session
 export interface GameSessionResult {

@@ -279,7 +279,57 @@ const GAME_CONTENT = {
     medium: { questionCount: 4, answerMode: "choice", delayMs: 0 },
     hard: { questionCount: 6, answerMode: "choice", delayMs: 4000 },
   },
+  spot_difference: {
+    easy: { rows: 2, columns: 4, differenceCount: 3, timeLimitSeconds: null },
+    medium: { rows: 3, columns: 4, differenceCount: 5, timeLimitSeconds: 60 },
+    hard: { rows: 4, columns: 4, differenceCount: 7, timeLimitSeconds: 45 },
+  },
+  go_no_go: {
+    easy: { targetCount: 5, lureCount: 5, intervalMs: 1600 },
+    medium: { targetCount: 6, lureCount: 8, intervalMs: 1100 },
+    hard: { targetCount: 7, lureCount: 11, intervalMs: 800 },
+  },
+  name_picture: {
+    easy: { itemCount: 5, optionsCount: 3, answerMode: "choice" },
+    medium: { itemCount: 5, optionsCount: 4, answerMode: "choice" },
+    hard: { itemCount: 5, optionsCount: 4, answerMode: "type" },
+  },
+  sentence_completion: {
+    easy: { blankCount: 3, answerMode: "choice" },
+    medium: { blankCount: 4, answerMode: "choice" },
+    hard: { blankCount: 5, answerMode: "type" },
+  },
 };
+
+const GO_NO_GO_ITEM_COUNT = 6; // one target + five lures
+
+// Generic single-blank cloze sentences for Sentence Completion when there is no
+// profile to personalize from and/or the LLM is unavailable. "___" marks the
+// blank; each option list includes the correct answer.
+const SENTENCE_POOL = [
+  { text: "In the morning, many people enjoy a warm cup of ___.", answer: "Tea", options: ["Tea", "Shoes", "Grass", "Paper"] },
+  { text: "You wear shoes on your ___.", answer: "Feet", options: ["Feet", "Hands", "Head", "Ears"] },
+  { text: "The sun rises in the ___.", answer: "East", options: ["East", "West", "Kitchen", "Garden"] },
+  { text: "We use an umbrella when it starts to ___.", answer: "Rain", options: ["Rain", "Sing", "Sleep", "Cook"] },
+  { text: "A cat likes to drink ___.", answer: "Milk", options: ["Milk", "Sand", "Petrol", "Ink"] },
+  { text: "At night, the sky is full of ___.", answer: "Stars", options: ["Stars", "Fish", "Cars", "Bread"] },
+  { text: "We keep food cold inside the ___.", answer: "Fridge", options: ["Fridge", "Oven", "Cupboard", "Mirror"] },
+  { text: "Before you sleep, it is good to brush your ___.", answer: "Teeth", options: ["Teeth", "Shoes", "Curtains", "Windows"] },
+];
+
+function buildStaticSentenceConfig(config) {
+  const picked = sampleItems(SENTENCE_POOL, Math.min(config.blankCount, SENTENCE_POOL.length));
+  return {
+    ...config,
+    blankCount: picked.length,
+    items: picked.map((s, i) => ({
+      id: `sc${i}`,
+      text: s.text,
+      answer: s.answer,
+      options: sampleItems(s.options, s.options.length),
+    })),
+  };
+}
 
 // Generic fallback stories for Story Recall when there is no profile to
 // personalize from and/or the LLM is unavailable. Every answer is stated in
@@ -387,6 +437,31 @@ function buildStaticConfig(gameId, difficulty) {
 
   if (gameId === "story_recall") {
     return buildStaticStoryConfig(config);
+  }
+
+  if (gameId === "spot_difference") {
+    return {
+      ...config,
+      items: sampleItems(SEQUENCE_ITEMS, config.rows * config.columns),
+    };
+  }
+
+  if (gameId === "go_no_go") {
+    return {
+      ...config,
+      items: sampleItems(SEQUENCE_ITEMS, GO_NO_GO_ITEM_COUNT),
+    };
+  }
+
+  if (gameId === "name_picture") {
+    return {
+      ...config,
+      items: sampleItems(SEQUENCE_ITEMS, config.itemCount),
+    };
+  }
+
+  if (gameId === "sentence_completion") {
+    return buildStaticSentenceConfig(config);
   }
 
   if (gameId === "object_recall") {

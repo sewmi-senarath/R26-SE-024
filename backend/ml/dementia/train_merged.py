@@ -70,6 +70,7 @@ SOURCES = [
     ("oasis_longitudinal.csv",    "OASIS-2", "O2"),
     ("oasis_cross-sectional.csv", "OASIS-1", "O1"),
     ("oasis3.csv",                "OASIS-3", "O3"),
+    ("nacc.csv",                  "NACC",    "N3"),  # from prep_nacc.py — real severe cases
 ]
 
 # Case-insensitive column resolution + a few real-world aliases so OASIS-1's
@@ -337,15 +338,17 @@ if len(found) == 1 and not USE_SMOTE:
     print("  Only OASIS-2 found, so 'before' and 'after' are identical.")
     print("  Add oasis_cross-sectional.csv (Step 1) / oasis3.csv (Step 2) and re-run.")
 else:
+    merged_label = "+ " + " + ".join(l for l, _ in found if l != "OASIS-2")
     print(f"  {'':<22}{'Accuracy':>10}{'Macro-F1':>11}{'CV Macro-F1':>14}")
     print(f"  {'OASIS-2 only':<22}{before['acc']*100:9.1f}%{before['mf1']*100:10.1f}%{before['cv']*100:13.1f}%")
-    print(f"  {'+ OASIS-1 (merged)':<22}{after['acc']*100:9.1f}%{after['mf1']*100:10.1f}%{after['cv']*100:13.1f}%")
+    print(f"  {merged_label:<22}{after['acc']*100:9.1f}%{after['mf1']*100:10.1f}%{after['cv']*100:13.1f}%")
     if smote is not None:
         print(f"  {'+ SMOTE':<22}{smote['acc']*100:9.1f}%{smote['mf1']*100:10.1f}%{smote['cv']*100:13.1f}%")
     if merged3 is not None:
         print(f"  {'+ merge severe (3-cls)':<22}{merged3['acc']*100:9.1f}%{merged3['mf1']*100:10.1f}%{merged3['cv']*100:13.1f}%")
-    print("  (CV macro-F1 is the number to trust. In the 3-class run every class is")
-    print("   now populated, so macro-F1 is finally measured on all of them.)")
+    print("  (CV macro-F1 is the number to trust. Check the per-class report above —")
+    print("   a class only counts as 'learned' if it has real held-out support AND")
+    print("   decent recall, not just a non-zero row in this table.)")
 
 # ── Save the chosen deploy model (this is what app.py loads) ────────────────
 joblib.dump({

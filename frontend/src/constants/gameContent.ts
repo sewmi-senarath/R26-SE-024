@@ -4,10 +4,14 @@ import {
   FaceNameMatchConfig,
   FaceNameQuestion,
   GameId,
+  GoNoGoConfig,
   GridFlashConfig,
   ListenRepeatConfig,
   MemoryMatchConfig,
   MemoryRecallConfig,
+  NamePictureConfig,
+  SentenceCompletionConfig,
+  SpotDifferenceConfig,
   StoryRecallConfig,
   ObjectRecallConfig,
   OrientationGameConfig,
@@ -19,6 +23,7 @@ import { SEQUENCE_ITEMS } from "./game-content/sequence_items";
 import { PUZZLE_WORDS } from "./game-content/puzzle_words";
 import { RECALL_OBJECTS } from "./game-content/recall_objects";
 import { STORY_POOL } from "./game-content/story_content";
+import { SENTENCE_POOL } from "./game-content/sentence_content";
 
 function sampleItems<T>(items: T[], count: number): T[] {
   const shuffled = [...items];
@@ -505,6 +510,97 @@ const STORY_RECALL: Record<Difficulty, StoryRecallConfig> = {
   hard: buildStoryRecallConfig(6, "choice", 4000),
 };
 
+// Spot the Difference: two grids of the same items where some tiles change.
+function buildSpotDifferenceConfig(
+  rows: number,
+  columns: number,
+  differenceCount: number,
+  timeLimitSeconds: number | null,
+): SpotDifferenceConfig {
+  const items = sampleItems(SEQUENCE_ITEMS, rows * columns);
+  return {
+    rows,
+    columns,
+    differenceCount,
+    timeLimitSeconds,
+    items,
+    distractors: sampleMemoryDistractors(items, differenceCount),
+  };
+}
+
+const SPOT_DIFFERENCE: Record<Difficulty, SpotDifferenceConfig> = {
+  easy: buildSpotDifferenceConfig(2, 4, 3, null),
+  medium: buildSpotDifferenceConfig(3, 4, 5, 60),
+  hard: buildSpotDifferenceConfig(4, 4, 7, 45),
+};
+
+// Go / No-Go: items[0] is the target; the rest are lures.
+function buildGoNoGoConfig(
+  targetCount: number,
+  lureCount: number,
+  intervalMs: number,
+): GoNoGoConfig {
+  return {
+    targetCount,
+    lureCount,
+    intervalMs,
+    items: sampleItems(SEQUENCE_ITEMS, 6),
+  };
+}
+
+const GO_NO_GO: Record<Difficulty, GoNoGoConfig> = {
+  easy: buildGoNoGoConfig(5, 5, 1600),
+  medium: buildGoNoGoConfig(6, 8, 1100),
+  hard: buildGoNoGoConfig(7, 11, 800),
+};
+
+// Name the Picture: pictures to name + a decoy-name pool.
+function buildNamePictureConfig(
+  itemCount: number,
+  optionsCount: number,
+  answerMode: "choice" | "type",
+): NamePictureConfig {
+  const items = sampleItems(SEQUENCE_ITEMS, itemCount);
+  return {
+    itemCount,
+    optionsCount,
+    answerMode,
+    items,
+    distractors: sampleMemoryDistractors(items, itemCount + 4),
+  };
+}
+
+const NAME_PICTURE: Record<Difficulty, NamePictureConfig> = {
+  easy: buildNamePictureConfig(5, 3, "choice"),
+  medium: buildNamePictureConfig(5, 4, "choice"),
+  hard: buildNamePictureConfig(5, 4, "type"),
+};
+
+// Sentence Completion: pick sentences from the generic pool (personalized
+// sentences come from the backend LLM; this is the offline fallback).
+function buildSentenceCompletionConfig(
+  blankCount: number,
+  answerMode: "choice" | "type",
+): SentenceCompletionConfig {
+  const picked = sampleItems(SENTENCE_POOL, Math.min(blankCount, SENTENCE_POOL.length));
+  return {
+    blankCount: picked.length,
+    answerMode,
+    items: picked.map((s, i) => ({
+      id: `sc${i}`,
+      text: s.text,
+      answer: s.answer,
+      options: sampleItems(s.options, s.options.length),
+    })),
+  };
+}
+
+const SENTENCE_COMPLETION: Record<Difficulty, SentenceCompletionConfig> = {
+  easy: buildSentenceCompletionConfig(3, "choice"),
+  medium: buildSentenceCompletionConfig(4, "choice"),
+  hard: buildSentenceCompletionConfig(5, "type"),
+};
+
 // orientation_game and face_name_match are always regenerated fresh in
 // getGameContent() below (they depend on the real clock / need reshuffling
 // each play), so there is no eagerly-built module-level config for them -
@@ -557,6 +653,10 @@ export const GAME_CONTENT: Record<Exclude<GameId, "orientation_game" | "face_nam
   listen_repeat: LISTEN_REPEAT,
   memory_match: MEMORY_MATCH,
   story_recall: STORY_RECALL,
+  spot_difference: SPOT_DIFFERENCE,
+  go_no_go: GO_NO_GO,
+  name_picture: NAME_PICTURE,
+  sentence_completion: SENTENCE_COMPLETION,
 };
 
 export function getGameContent<T>(gameId: GameId, difficulty: Difficulty): T {
@@ -622,6 +722,39 @@ export function getGameContent<T>(gameId: GameId, difficulty: Difficulty): T {
       config.answerMode,
       config.delayMs,
     ) as T;
+  }
+
+  if (gameId === "spot_difference") {
+    const config = GAME_CONTENT[gameId][difficulty] as SpotDifferenceConfig;
+    const items = sampleItems(SEQUENCE_ITEMS, config.rows * config.columns);
+    return {
+      ...config,
+      items,
+      distractors: sampleMemoryDistractors(items, config.differenceCount),
+    } as T;
+  }
+
+  if (gameId === "go_no_go") {
+    const config = GAME_CONTENT[gameId][difficulty] as GoNoGoConfig;
+    return {
+      ...config,
+      items: sampleItems(SEQUENCE_ITEMS, 6),
+    } as T;
+  }
+
+  if (gameId === "name_picture") {
+    const config = GAME_CONTENT[gameId][difficulty] as NamePictureConfig;
+    const items = sampleItems(SEQUENCE_ITEMS, config.itemCount);
+    return {
+      ...config,
+      items,
+      distractors: sampleMemoryDistractors(items, config.itemCount + 4),
+    } as T;
+  }
+
+  if (gameId === "sentence_completion") {
+    const config = GAME_CONTENT[gameId][difficulty] as SentenceCompletionConfig;
+    return buildSentenceCompletionConfig(config.blankCount, config.answerMode) as T;
   }
 
   if (gameId === "orientation_game") {

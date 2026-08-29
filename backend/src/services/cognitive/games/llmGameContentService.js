@@ -521,9 +521,104 @@ async function generateStoryRecall({ patient, staticConfig }) {
   return { story, questions: questions.slice(0, questionCount) };
 }
 
+// Build personalized single-blank cloze sentences about the patient's own life
+// and preferences, each with the blank being a concrete personal fact plus 3
+// plausible wrong options. Returns { items } or null (caller falls back to the
+// generic sentence pool).
+async function generateSentenceCompletion({ patient, staticConfig }) {
+  const groq = getClient();
+  if (!groq) return null;
+
+  const blankCount = staticConfig?.blankCount || 3;
+
+  const facts = {
+    family: (patient?.familyMembers || [])
+      .filter((m) => m?.name)
+      .map((m) => ({ name: cleanText(m.name, 40), relation: cleanText(m.relation, 30) }))
+      .slice(0, 6),
+    hometown: cleanText(patient?.hometown, MAX_LABEL_LENGTH),
+    hobbies: compactStrings(patient?.hobbies).slice(0, 5),
+    interests: compactStrings(patient?.interests).slice(0, 5),
+    occupations: compactStrings(patient?.occupations).slice(0, 3),
+    favoritePlaces: compactStrings(patient?.favoritePlaces).slice(0, 5),
+    festivals: compactStrings(patient?.festivalsCelebrated).slice(0, 5),
+    foods: (patient?.foodsPreferred || [])
+      .map((f) => cleanText(f?.name || f, 40))
+      .filter(Boolean)
+      .slice(0, 5),
+    lifeEvents: (patient?.lifeEvents || [])
+      .map((e) => cleanText(e?.title, 80))
+      .filter(Boolean)
+      .slice(0, 5),
+  };
+
+  const anchorCount =
+    facts.family.length + facts.hobbies.length + facts.favoritePlaces.length +
+    facts.foods.length + (facts.hometown ? 1 : 0);
+  if (anchorCount < 2) return null;
+
+  const system = [
+    "You write simple, warm fill-in-the-blank sentences to help an elderly dementia patient practise language, using facts about THEIR OWN life.",
+    'Each sentence has exactly one blank written as "___". The blank must be a single concrete word or short name that is a real fact about the patient.',
+    "Keep sentences short, positive, and clear - nothing sad, medical, or distressing.",
+    `Write EXACTLY ${blankCount} sentences. For each, give the correct answer and 3 plausible but clearly wrong options.`,
+    'Respond with JSON only: {"items": [{"text": "<sentence with ___>", "answer": "<word>", "options": ["<answer>", "<wrong1>", "<wrong2>", "<wrong3>"]}]}',
+  ].join("\n");
+
+  const user = `Patient facts:\n${JSON.stringify(facts, null, 2)}`;
+
+  const response = await groq.chat.completions.create({
+    model: config.groqModel,
+    messages: [
+      { role: "system", content: system },
+      { role: "user", content: user },
+    ],
+    response_format: { type: "json_object" },
+    temperature: 0.7,
+  });
+
+  const parsed = extractResponseJson(response);
+  const shuffle = (arr) => {
+    const out = [...arr];
+    for (let i = out.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [out[i], out[j]] = [out[j], out[i]];
+    }
+    return out;
+  };
+
+  const items = [];
+  (Array.isArray(parsed?.items) ? parsed.items : []).forEach((it, i) => {
+    const text = cleanText(it?.text, 160);
+    const answer = cleanText(it?.answer, 50);
+    if (!text || !answer || !text.includes("___")) return;
+    if ([text, answer].some(containsBlockedTerm)) return;
+
+    const rawOptions = (Array.isArray(it?.options) ? it.options : [])
+      .map((o) => cleanText(o, 50))
+      .filter((o) => o && !containsBlockedTerm(o));
+    const seen = new Set();
+    const options = [];
+    [answer, ...rawOptions].forEach((opt) => {
+      const key = opt.toLowerCase();
+      if (!seen.has(key) && options.length < 4) {
+        seen.add(key);
+        options.push(opt);
+      }
+    });
+    if (options.length < 2) return;
+
+    items.push({ id: `sc${i}`, text, answer, options: shuffle(options) });
+  });
+
+  if (items.length < blankCount) return null;
+  return { items: items.slice(0, blankCount) };
+}
+
 module.exports = {
   generateLlmGameContent,
   generateStoryRecall,
+  generateSentenceCompletion,
   generateOrientationDistractors,
   generateFaceNameDecoys,
   generateImagePrompts,

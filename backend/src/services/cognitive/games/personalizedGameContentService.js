@@ -21,6 +21,7 @@ const {
   generateLlmGameContent,
   generateOrientationDistractors,
   generateStoryRecall,
+  generateSentenceCompletion,
 } = require("./llmGameContentService");
 
 const VALID_GAMES = new Set([
@@ -33,6 +34,10 @@ const VALID_GAMES = new Set([
   "listen_repeat",
   "memory_match",
   "story_recall",
+  "spot_difference",
+  "go_no_go",
+  "name_picture",
+  "sentence_completion",
 ]);
 // Games whose entire content the LLM is trusted to generate directly.
 const LLM_FULL_CONTENT_GAMES = new Set(["memory_recall", "object_recall", "word_puzzle"]);
@@ -626,6 +631,9 @@ function roundSize(gameId, staticConfig) {
   if (gameId === "memory_recall" || gameId === "grid_flash") return staticConfig.sequenceLength;
   if (gameId === "listen_repeat") return staticConfig.wordCount;
   if (gameId === "memory_match") return staticConfig.pairCount;
+  if (gameId === "spot_difference") return staticConfig.rows * staticConfig.columns;
+  if (gameId === "go_no_go") return (staticConfig.items || []).length || 6;
+  if (gameId === "name_picture") return staticConfig.itemCount;
   if (gameId === "object_recall") return staticConfig.objectCount;
   return (staticConfig.words || []).length; // word_puzzle
 }
@@ -821,6 +829,25 @@ async function getPersonalizedGameContent({ gameId, patientId, difficulty, reque
     return { config: staticConfig, personalized: false };
   }
 
+  if (gameId === "sentence_completion") {
+    // LLM writes cloze sentences about the patient's own life/preferences, with
+    // the blank being a personal fact. Falls back to the generic sentence pool.
+    try {
+      const generated = await generateSentenceCompletion({ patient, staticConfig });
+      if (generated) {
+        logTier("llm (sentence-completion)", { gameId, difficulty, patientId, personalized: true });
+        return {
+          config: { ...staticConfig, ...generated, blankCount: generated.items.length },
+          personalized: true,
+        };
+      }
+    } catch (error) {
+      console.warn("[game-content] Sentence Completion generation failed:", error.message);
+    }
+    logTier("static (sentence-completion)", { gameId, difficulty, patientId, personalized: false });
+    return { config: staticConfig, personalized: false };
+  }
+
   try {
     const llmContent = await generateLlmGameContent({
       gameId,
@@ -868,7 +895,10 @@ async function getPersonalizedGameContent({ gameId, patientId, difficulty, reque
     gameId === "memory_recall" ||
     gameId === "grid_flash" ||
     gameId === "listen_repeat" ||
-    gameId === "memory_match"
+    gameId === "memory_match" ||
+    gameId === "spot_difference" ||
+    gameId === "go_no_go" ||
+    gameId === "name_picture"
   ) {
     const requiredCount = roundSize(gameId, staticConfig);
     // Personal items are kept first and never rotated away; the generic filler

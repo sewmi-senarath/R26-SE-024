@@ -151,6 +151,13 @@ export default function StoryRecallGame() {
     setTimeout(() => advance(nextScore), 1200);
   };
 
+  const handleSkip = () => {
+    if (feedback) return;
+    playSound('click');
+    Speech.stop();
+    advance(score);
+  };
+
   const startReading = () => {
     playSound('click');
     const frozen = liveConfig;
@@ -334,6 +341,19 @@ export default function StoryRecallGame() {
                   </Text>
                 </TouchableOpacity>
               </View>
+            )}
+
+            {!feedback && (
+              <TouchableOpacity
+                onPress={handleSkip}
+                activeOpacity={0.7}
+                className="mt-5 flex-row items-center justify-center gap-1.5 py-3"
+                accessibilityRole="button"
+                accessibilityLabel="Skip this question"
+              >
+                <Text className="text-base font-semibold text-gray-400">Skip</Text>
+                <Ionicons name="play-skip-forward-outline" size={16} color="#9CA3AF" />
+              </TouchableOpacity>
             )}
 
             {feedback && (
