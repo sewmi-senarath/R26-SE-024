@@ -99,7 +99,7 @@ export function computeTotalScore(sectionScores: SectionScores): number {
 
 export function computeSeverity(score: number): Severity {
   if (score >= 24) return "none";
-  if (score >= 18) return "mild";
+  if (score >= 19) return "mild";
   if (score >= 10) return "moderate";
   return "severe";
 }

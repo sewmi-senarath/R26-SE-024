@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "nodemon index.js",
     "start": "node index.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --test",
+    "test:integration": "node --test tests/integration/cognitive-assessment-api.integration.test.js",
     "seed:questions": "node src/seeder/seedQuestions.js",
     "seed:images": "node src/seeder/seedGameImages.js"
   },
