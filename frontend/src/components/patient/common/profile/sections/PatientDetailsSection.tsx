@@ -9,23 +9,28 @@ import { SectionHeader } from "../components/SectionHeader";
 
 interface PatientDetailsSectionProps {
   user: UserProfile;
+  // True when a caregiver is viewing another patient's profile - hides the
+  // edit button (editing that account isn't the caregiver's to do here).
+  readOnly?: boolean;
 }
 
-export function PatientDetailsSection({ user }: PatientDetailsSectionProps) {
+export function PatientDetailsSection({ user, readOnly = false }: PatientDetailsSectionProps) {
   const router = useRouter();
 
   return (
     <View style={styles.section}>
       <View style={styles.headerRow}>
         <SectionHeader title="Patient Details" icon="person-outline" />
-        <TouchableOpacity
-          style={styles.updateButton}
-          onPress={() => router.push("/patient/profile-edit")}
-          activeOpacity={0.85}
-        >
-          <Ionicons name="create-outline" size={16} color={Colors.white} />
-          <Text style={styles.updateButtonText}>Update</Text>
-        </TouchableOpacity>
+        {!readOnly && (
+          <TouchableOpacity
+            style={styles.updateButton}
+            onPress={() => router.push("/patient/profile-edit")}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="create-outline" size={16} color={Colors.white} />
+            <Text style={styles.updateButtonText}>Update</Text>
+          </TouchableOpacity>
+        )}
       </View>
       <View style={styles.cardGrid}>
         <InfoCard label="Age" value={String(user.age ?? "Not set")} icon="calendar-outline" />

@@ -3,6 +3,7 @@ const router = express.Router();
 const { protect, authorize } = require('../../middleware/auth');
 const Assessment = require('../../models/cognitive/Assessment');
 const User = require('../../models/auth/User');
+const Patient = require('../../models/caregiver/Patient');
 const SeverityPrediction = require('../../models/cognitive/SeverityPrediction');
 const svc = require('../../services/cognitive/dementiaPrediction/dementiaPredictionService');
 
@@ -13,10 +14,37 @@ const svc = require('../../services/cognitive/dementiaPrediction/dementiaPredict
 
 const ROLES = ['patient', 'caregiver', 'family'];
 
+// Confirms the caller is actually allowed to act on :patientId, not just that
+// their ROLE is on the allow-list above. A patient may only act on their own
+// id; a caregiver only on a patient they've linked (Patient.registeredPatientId).
+// 'family' is left unrestricted for now - its patient-linking model wasn't
+// available to check here, so this deliberately doesn't guess at it.
+async function verifyOwnsPatient(req, res, next) {
+  const { patientId } = req.params;
+  const { userId, role } = req.user;
+
+  if (role === 'patient') {
+    if (patientId !== userId) {
+      return res.status(403).json({ success: false, message: 'Not authorized for this patient' });
+    }
+    return next();
+  }
+
+  if (role === 'caregiver') {
+    const link = await Patient.findOne({ caregiverId: userId, registeredPatientId: patientId });
+    if (!link) {
+      return res.status(403).json({ success: false, message: 'Not authorized for this patient' });
+    }
+    return next();
+  }
+
+  return next();
+}
+
 // POST /api/cognitive/dementia/faq/:patientId
 // Save one FAQ submission (10 items, each 0-3). `sessionId` (optional) ties it
 // to the screening-test session it followed.
-router.post('/faq/:patientId', protect, authorize(...ROLES), async (req, res) => {
+router.post('/faq/:patientId', protect, authorize(...ROLES), verifyOwnsPatient, async (req, res) => {
   try {
     const { patientId } = req.params;
     const { answers, sessionId } = req.body || {};
@@ -32,7 +60,7 @@ router.post('/faq/:patientId', protect, authorize(...ROLES), async (req, res) =>
 // GET /api/cognitive/dementia/faq/:patientId/latest
 // Most recent FAQ for the patient, or null. The results screen uses this to
 // decide whether to show the "complete the questionnaire" button.
-router.get('/faq/:patientId/latest', protect, authorize(...ROLES), async (req, res) => {
+router.get('/faq/:patientId/latest', protect, authorize(...ROLES), verifyOwnsPatient, async (req, res) => {
   try {
     const doc = await svc.getLatestFaq(req.params.patientId);
     return res.status(200).json({ success: true, result: doc || null });
@@ -45,7 +73,7 @@ router.get('/faq/:patientId/latest', protect, authorize(...ROLES), async (req, r
 // Pulls the patient's latest completed assessment + latest FAQ, calls the ML
 // model, returns the triage, and persists a SeverityPrediction row for the
 // Reporting tab.
-router.post('/predict/:patientId', protect, authorize(...ROLES), async (req, res) => {
+router.post('/predict/:patientId', protect, authorize(...ROLES), verifyOwnsPatient, async (req, res) => {
   try {
     const { patientId } = req.params;
 
@@ -112,7 +140,7 @@ router.post('/predict/:patientId', protect, authorize(...ROLES), async (req, res
 // GET /api/cognitive/dementia/predict/:patientId/history
 // All past predictions for this patient, most recent first - used by the
 // Reporting tab to chart triage trends over time.
-router.get('/predict/:patientId/history', protect, authorize(...ROLES), async (req, res) => {
+router.get('/predict/:patientId/history', protect, authorize(...ROLES), verifyOwnsPatient, async (req, res) => {
   try {
     const { patientId } = req.params;
     const limit = Math.min(Number(req.query.limit) || 50, 200);
