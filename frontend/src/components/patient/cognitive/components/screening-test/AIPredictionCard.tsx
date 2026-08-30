@@ -27,8 +27,14 @@ const TRIAGE_STYLES: Record<
 };
 
 const LABELS: Record<TriageLevel, string> = {
-  monitor: "Keep Monitoring",
-  escalate: "Clinical Review Recommended",
+  monitor: "Keep an eye at home",
+  escalate: "See a doctor",
+};
+
+// Short version for the probability breakdown rows.
+const SHORT_LABELS: Record<TriageLevel, string> = {
+  monitor: "At home",
+  escalate: "See a doctor",
 };
 
 const ORDER: TriageLevel[] = ["monitor", "escalate"];
@@ -113,7 +119,7 @@ export const AIPredictionCard: React.FC<AIPredictionCardProps> = ({ patientId })
           const pct = Math.round((result.probabilities[level] ?? 0) * 100);
           return (
             <View key={level} className="flex-row items-center mb-1.5">
-              <Text className="w-16 text-xs text-gray-500 capitalize">{level}</Text>
+              <Text className="w-24 text-xs text-gray-500">{SHORT_LABELS[level]}</Text>
               <View className="flex-1 h-2 bg-white rounded-full overflow-hidden mr-2">
                 <View
                   className={`h-full rounded-full ${TRIAGE_STYLES[level].bar}`}
@@ -127,7 +133,7 @@ export const AIPredictionCard: React.FC<AIPredictionCardProps> = ({ patientId })
       </View>
 
       <Text className="text-[10px] text-gray-400 mt-2">
-        Screening triage only — not a diagnosis.
+        Screening triage only - not a diagnosis.
       </Text>
     </View>
   );

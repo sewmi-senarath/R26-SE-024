@@ -73,12 +73,14 @@ export default function FunctionalActivitiesScreen() {
   const column = "w-full max-w-[640px] self-center";
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView style={{ flex: 1 }} className="bg-gray-50">
       {/* Header + progress (full-bleed bar, centred inner column) */}
       <View className="bg-white border-b border-gray-100">
-        <View className={`${column} px-6 pt-4 pb-3`}>
-          <Text className="text-lg font-extrabold text-gray-900">Daily-Living Questionnaire</Text>
-          <Text className="text-sm text-gray-500 mt-0.5">
+        <View className={`${column} px-5 pt-4 pb-3`}>
+          <Text className="text-xl font-extrabold text-gray-900">
+            Daily-Living Questionnaire
+          </Text>
+          <Text className="text-sm text-gray-500 mt-1">
             Compared with a few years ago, how does the patient manage each of these
             on their own now?
           </Text>
@@ -95,61 +97,58 @@ export default function FunctionalActivitiesScreen() {
       </View>
 
       <ScrollView
-        className="flex-1"
-        contentContainerStyle={{
-          padding: 16,
-          paddingBottom: 32,
-          width: "100%",
-          maxWidth: 640,
-          alignSelf: "center",
-        }}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
+        showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {FAQ_QUESTIONS.map((q, idx) => (
-          <View
-            key={q.key}
-            className="bg-white rounded-2xl border border-gray-100 p-4 mb-3"
-          >
-            <Text className="text-sm font-semibold text-gray-900 mb-0.5">
-              {idx + 1}. {q.prompt}
-            </Text>
-            <Text className="text-xs text-gray-400 mb-3">{q.checks}</Text>
-            <View className="gap-2">
-              {FAQ_CHOICES.map((choice) => {
-                const isSelected = answers[q.key] === choice.value;
-                return (
-                  <TouchableOpacity
-                    key={choice.value}
-                    activeOpacity={0.7}
-                    onPress={() => select(q.key, choice.value)}
-                    className={`p-3 rounded-xl border ${
-                      isSelected
-                        ? "bg-blue-500 border-blue-500"
-                        : "bg-white border-gray-200"
-                    }`}
-                  >
-                    <Text
-                      className={`text-sm font-medium ${
-                        isSelected ? "text-white" : "text-gray-800"
+        <View className={column}>
+          {FAQ_QUESTIONS.map((q, idx) => (
+            <View
+              key={q.key}
+              className="bg-white rounded-2xl border border-gray-100 p-4 mb-3"
+            >
+              <Text className="text-base font-semibold text-gray-900 mb-1 leading-snug">
+                {idx + 1}. {q.prompt}
+              </Text>
+              <Text className="text-xs text-gray-400 mb-3">{q.checks}</Text>
+              <View className="gap-2">
+                {FAQ_CHOICES.map((choice) => {
+                  const isSelected = answers[q.key] === choice.value;
+                  return (
+                    <TouchableOpacity
+                      key={choice.value}
+                      activeOpacity={0.7}
+                      onPress={() => select(q.key, choice.value)}
+                      className={`px-4 py-3 rounded-xl border ${
+                        isSelected
+                          ? "bg-blue-500 border-blue-500"
+                          : "bg-white border-gray-200"
                       }`}
                     >
-                      {choice.value} · {choice.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
+                      <Text
+                        className={`text-sm font-medium leading-snug ${
+                          isSelected ? "text-white" : "text-gray-800"
+                        }`}
+                      >
+                        {choice.value} · {choice.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             </View>
-          </View>
-        ))}
+          ))}
 
-        {error && (
-          <Text className="text-sm text-red-600 text-center mb-2">{error}</Text>
-        )}
+          {error && (
+            <Text className="text-sm text-red-600 text-center mb-2">{error}</Text>
+          )}
+        </View>
       </ScrollView>
 
       {/* Submit bar (full-bleed bar, centred inner column) */}
       <View className="bg-white border-t border-gray-100">
-        <View className={`${column} px-6 py-4`}>
+        <View className={`${column} px-5 py-4`}>
           <TouchableOpacity
             activeOpacity={0.8}
             disabled={!allAnswered || submitting}

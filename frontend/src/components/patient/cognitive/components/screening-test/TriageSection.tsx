@@ -51,7 +51,7 @@ export const TriageSection: React.FC<TriageSectionProps> = ({ patientId, session
       </Text>
       <Text className="text-sm text-gray-600 mb-4">
         Answer 10 quick questions about day-to-day activities to get an AI triage
-        result (keep monitoring at home vs. see a clinician).
+        result (keep an eye at home vs. see a doctor).
       </Text>
       <TouchableOpacity
         activeOpacity={0.8}

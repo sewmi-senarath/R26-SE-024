@@ -214,8 +214,8 @@ export const PatientReportView: React.FC<PatientReportViewProps> = ({
   const severityMeta = latestSeverity ? SEVERITY_META[latestSeverity] : null;
   const triageMeta = latestTriagePrediction
     ? latestTriagePrediction.triage === "escalate"
-      ? { label: "Clinical review recommended", color: "#DC2626", bg: "#FEF2F2" }
-      : { label: "Keep monitoring", color: "#16A34A", bg: "#F0FDF4" }
+      ? { label: "See a doctor", color: "#DC2626", bg: "#FEF2F2" }
+      : { label: "Keep an eye at home", color: "#16A34A", bg: "#F0FDF4" }
     : null;
 
   return (

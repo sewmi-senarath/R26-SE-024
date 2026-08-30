@@ -6,8 +6,8 @@ import { SectionName } from "@/src/types/games.types";
 import { BrainAreaStat, PatientProgress, PerGameStat, Trend } from "@/src/hooks/usePatientReport";
 
 const TRIAGE_META: Record<TriageLevel, { label: string; color: string }> = {
-  monitor: { label: "Keep Monitoring", color: "#16A34A" },
-  escalate: { label: "Clinical Review Recommended", color: "#DC2626" },
+  monitor: { label: "Keep an eye at home", color: "#16A34A" },
+  escalate: { label: "See a doctor", color: "#DC2626" },
 };
 
 const TREND_LABEL: Record<Trend, string> = {
