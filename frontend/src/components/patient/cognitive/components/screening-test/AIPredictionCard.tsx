@@ -1,6 +1,11 @@
 import { predictTriage } from "@/src/services/patient/cognitive/dementiaService";
 import { TriageLevel, TriagePrediction } from "@/src/types/dementia.types";
-import React, { useEffect, useState } from "react";
+import React, {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useState,
+} from "react";
 import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 
 // The dementia model returns a 2-class triage: keep monitoring at home
@@ -41,29 +46,58 @@ const ORDER: TriageLevel[] = ["monitor", "escalate"];
 
 interface AIPredictionCardProps {
   patientId: string;
+  // Default true: fetch immediately on mount, matching the original results-
+  // screen behavior exactly. Pass false for an on-demand "Run Check" button
+  // instead (profile screen, caregiver view) - nothing fetches until pressed.
+  autoRun?: boolean;
+  // Called instead of the generic error message when the backend responds
+  // 409 FAQ_REQUIRED, if provided. Falls back to the generic message otherwise.
+  onFaqRequired?: () => void;
 }
 
-export const AIPredictionCard: React.FC<AIPredictionCardProps> = ({ patientId }) => {
-  const [loading, setLoading] = useState(true);
+// Imperative handle so a parent (e.g. after the caller closes an FAQ modal
+// opened via onFaqRequired) can trigger a re-run without disturbing the
+// `autoRun`/idle-vs-result UI state - just calls the same `load()` again.
+export interface AIPredictionCardHandle {
+  run: () => void;
+}
+
+export const AIPredictionCard = forwardRef<AIPredictionCardHandle, AIPredictionCardProps>(({
+  patientId,
+  autoRun = true,
+  onFaqRequired,
+}, ref) => {
+  const [loading, setLoading] = useState(autoRun);
   const [error, setError] = useState<string | null>(null);
+  const [faqRequired, setFaqRequired] = useState(false);
   const [result, setResult] = useState<TriagePrediction | null>(null);
+  const [hasRun, setHasRun] = useState(false);
 
   const load = async () => {
     setLoading(true);
     setError(null);
+    setFaqRequired(false);
     try {
       const prediction = await predictTriage(patientId);
       setResult(prediction);
     } catch (e: any) {
-      setError(e?.message || "Could not reach the prediction service.");
+      if (e?.code === "FAQ_REQUIRED") {
+        setFaqRequired(true);
+        if (onFaqRequired) onFaqRequired();
+      } else {
+        setError(e?.message || "Could not reach the prediction service.");
+      }
     } finally {
       setLoading(false);
+      setHasRun(true);
     }
   };
 
+  useImperativeHandle(ref, () => ({ run: load }));
+
   useEffect(() => {
-    if (patientId) load();
-  }, [patientId]);
+    if (patientId && autoRun) load();
+  }, [patientId, autoRun]);
 
   if (loading) {
     return (
@@ -74,7 +108,51 @@ export const AIPredictionCard: React.FC<AIPredictionCardProps> = ({ patientId })
     );
   }
 
+  // Not auto-run and nothing has happened yet - show the idle "Run" state.
+  if (!autoRun && !hasRun) {
+    return (
+      <View className="mb-4 w-full max-w-[640px] self-center rounded-3xl border border-gray-100 bg-white p-5 items-start">
+        <Text className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">
+          AI Triage Check
+        </Text>
+        <Text className="text-sm text-gray-500 mb-3">
+          Run the AI triage check using the latest completed assessment.
+        </Text>
+        <TouchableOpacity
+          onPress={load}
+          className="self-start px-4 py-2 rounded-xl bg-blue-500"
+        >
+          <Text className="text-xs font-semibold text-white">Run Check</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (faqRequired && !onFaqRequired) {
+    return (
+      <View className="mb-4 w-full max-w-[640px] self-center rounded-3xl border border-gray-100 bg-white p-5">
+        <Text className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">
+          AI Prediction
+        </Text>
+        <Text className="text-sm text-gray-500 mb-3">
+          Complete the daily-living questionnaire to get a triage result.
+        </Text>
+        <TouchableOpacity
+          onPress={load}
+          className="self-start px-4 py-2 rounded-xl bg-gray-100"
+        >
+          <Text className="text-xs font-semibold text-gray-600">Retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   if (error || !result) {
+    if (faqRequired) {
+      // onFaqRequired already fired above; render nothing while the caller
+      // (e.g. a modal) handles it, to avoid flashing a generic error first.
+      return null;
+    }
     return (
       <View className="mb-4 w-full max-w-[640px] self-center rounded-3xl border border-gray-100 bg-white p-5">
         <Text className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">
@@ -135,6 +213,17 @@ export const AIPredictionCard: React.FC<AIPredictionCardProps> = ({ patientId })
       <Text className="text-[10px] text-gray-400 mt-2">
         Screening triage only - not a diagnosis.
       </Text>
+
+      {!autoRun && (
+        <TouchableOpacity
+          onPress={load}
+          className="self-start mt-3 px-4 py-2 rounded-xl bg-white/70"
+        >
+          <Text className="text-xs font-semibold text-gray-700">Re-run Check</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
-};
+});
+
+AIPredictionCard.displayName = "AIPredictionCard";

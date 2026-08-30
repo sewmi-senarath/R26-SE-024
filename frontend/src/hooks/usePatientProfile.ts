@@ -89,8 +89,27 @@ function getGameReview(averageScore: number, sessions: number) {
     : "A few more plays are needed before a clear pattern appears.";
 }
 
-export function usePatientProfile() {
-  const [user, setUser] = useState<UserProfile>(fallbackUser);
+/**
+ * @param explicitPatientId When given (e.g. a caregiver viewing a linked
+ *   patient's profile), loads that patient's data instead of the logged-in
+ *   user's own - `getMe()`/`getStoredUser()` only ever return the CALLER's
+ *   account, so they're skipped entirely in this mode, and so is the
+ *   local-device "active session" check (that's only ever this device's own
+ *   in-progress session, never another patient's).
+ * @param seedUser Basic display fields (name/age/gender) the caller already
+ *   has on hand (e.g. from the caregiver's own patient list) - used to seed
+ *   the profile header immediately, since there's no "fetch any patient's
+ *   account" endpoint to call in explicit mode.
+ */
+export function usePatientProfile(
+  explicitPatientId?: string,
+  seedUser?: Partial<UserProfile>,
+) {
+  const [user, setUser] = useState<UserProfile>(
+    explicitPatientId
+      ? { ...fallbackUser, ...seedUser, id: explicitPatientId }
+      : fallbackUser,
+  );
   const [latestSession, setLatestSession] = useState<MMSESession | null>(null);
   const [gameSessions, setGameSessions] = useState<GameSessionHistoryItem[]>([]);
   const [loadingScreening, setLoadingScreening] = useState(true);
@@ -103,30 +122,39 @@ export function usePatientProfile() {
 
     const loadProfile = async () => {
       try {
-        const stored = await getStoredUser();
-        if (stored && mounted) setUser({ ...fallbackUser, ...stored });
+        let patientId = explicitPatientId;
 
-        const meRes = await getMe();
-        const authUser = meRes?.success ? meRes.data?.user : stored;
-        if (authUser && mounted) setUser({ ...fallbackUser, ...authUser });
+        if (explicitPatientId) {
+          setUser({ ...fallbackUser, ...seedUser, id: explicitPatientId });
+        } else {
+          const stored = await getStoredUser();
+          if (stored && mounted) setUser({ ...fallbackUser, ...stored });
 
-        if (authUser?.id) {
+          const meRes = await getMe();
+          const authUser = meRes?.success ? meRes.data?.user : stored;
+          if (authUser && mounted) setUser({ ...fallbackUser, ...authUser });
+          patientId = authUser?.id;
+        }
+
+        if (patientId) {
           try {
-            const gameHistory = await getPatientGameSessions(authUser.id);
+            const gameHistory = await getPatientGameSessions(patientId);
             if (mounted) setGameSessions(gameHistory);
           } catch {
             if (mounted) setGameSessions([]);
           }
         }
 
-        const activeSession = await loadActiveSession();
-        if (activeSession?.status === "done" && mounted) {
-          setLatestSession(activeSession);
-          return;
+        if (!explicitPatientId) {
+          const activeSession = await loadActiveSession();
+          if (activeSession?.status === "done" && mounted) {
+            setLatestSession(activeSession);
+            return;
+          }
         }
 
-        if (authUser?.id) {
-          const assessmentHistory = await getPatientAssessmentHistory(authUser.id);
+        if (patientId) {
+          const assessmentHistory = await getPatientAssessmentHistory(patientId);
           const latestDone = assessmentHistory.find(
             (session) => session.status === "done",
           );
@@ -143,7 +171,7 @@ export function usePatientProfile() {
     return () => {
       mounted = false;
     };
-    }, []),
+    }, [explicitPatientId]),
   );
 
   const screeningRows = useMemo<ScreeningRow[]>(() => {

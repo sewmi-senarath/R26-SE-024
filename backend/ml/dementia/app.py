@@ -45,7 +45,13 @@ try:
     cv_acc       = saved.get("cv_acc", 0)
     macro_f1     = saved.get("macro_f1", 0)
     trained_on   = saved.get("trained_on", [])
+    train_acc    = saved.get("train_acc", 0)
+    test_acc     = saved.get("test_acc", 0)
+    train_test_gap = abs(train_acc - test_acc)
     print(f"Model loaded — CV accuracy {cv_acc*100:.1f}% (macro-F1 {macro_f1*100:.1f}%)")
+    print(f"  Train acc {train_acc*100:.1f}%  |  Held-out test acc {test_acc*100:.1f}%  "
+          f"|  Train-test gap {train_test_gap*100:.1f} pts "
+          f"{'(healthy, no overfitting)' if train_test_gap < 0.05 else '(check for overfitting)'}")
 except Exception as e:
     print(f"Run train.py first! Error: {e}")
     model = None
@@ -138,6 +144,11 @@ if __name__ == "__main__":
         print(f"  CV accuracy : {cv_acc*100:.1f}%")
         print(f"  Macro-F1    : {macro_f1*100:.1f}%")
         print(f"  Trained on  : {', '.join(trained_on)}")
+        print("-" * 50)
+        print(f"  Train acc        : {train_acc*100:.1f}%   (seen rows)")
+        print(f"  Held-out test acc: {test_acc*100:.1f}%   (touched once, final)")
+        print(f"  Train-test gap   : {train_test_gap*100:.1f} pts  "
+              f"{'-> healthy, no overfitting' if train_test_gap < 0.05 else '-> check for overfitting'}")
     else:
         print("  Model : NOT LOADED (run train.py first)")
     print("=" * 50)
