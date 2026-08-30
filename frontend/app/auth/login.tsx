@@ -34,18 +34,30 @@ export default function Login() {
         // Tokens, user data and caregiverId are already persisted by
         // loginUser() in authApi. Nothing else to store here.
 
+        // Drop every pre-login screen from the stack so a swipe-back / hardware
+        // back from the dashboard can't return to the login/landing screens.
+        const goHome = (path: string) => {
+          if (Platform.OS === 'web') {
+            window.location.href = path;
+            return;
+          }
+          try {
+            if (router.canDismiss()) router.dismissAll();
+          } catch {
+            // no dismissable screens - replace() below is enough
+          }
+          router.replace(path as never);
+        };
+
         if (role === 'patient') {
           // One-shot flag: the landing screen shows the screening-test prompt
           // once per login, then clears this.
           await storage.setItem('pendingScreeningPrompt', '1');
-          if (Platform.OS === 'web') window.location.href = '/patient/activity-selector';
-          else router.replace('/patient/activity-selector');
+          goHome('/patient/activity-selector');
         } else if (role === 'caregiver') {
-          if (Platform.OS === 'web') window.location.href = '/caregiver';
-          else router.replace('/caregiver');
+          goHome('/caregiver');
         } else if (role === 'family') {
-          if (Platform.OS === 'web') window.location.href = '/family';
-          else router.replace('/family');
+          goHome('/family');
         }
       } else {
         Alert.alert('Login Failed', result.message);

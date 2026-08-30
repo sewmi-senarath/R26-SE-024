@@ -35,8 +35,6 @@ export function PatientDetailsSection({ user, readOnly = false }: PatientDetails
       <View style={styles.cardGrid}>
         <InfoCard label="Age" value={String(user.age ?? "Not set")} icon="calendar-outline" />
         <InfoCard label="Gender" value={String(user.gender ?? "Not set")} icon="male-female-outline" />
-        <InfoCard label="Caregiver" value="Not assigned yet" icon="heart-outline" />
-        <InfoCard label="Emergency Contact" value="Add contact details" icon="call-outline" />
       </View>
     </View>
   );

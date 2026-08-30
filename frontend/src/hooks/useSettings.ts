@@ -1,17 +1,32 @@
-import { useState } from "react";
-
-export type SettingKey = "sound" | "largeLetters" | "passwordAlerts";
+import { getSoundEffectsEnabled, setSoundEffectsEnabled } from "@/src/utils/soundEffectsPreference";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export function useSettings() {
-  const [settings, setSettings] = useState<Record<SettingKey, boolean>>({
-    sound: true,
-    largeLetters: false,
-    passwordAlerts: true,
-  });
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const changedByUser = useRef(false);
 
-  const toggleSetting = (key: SettingKey) => {
-    setSettings((current) => ({ ...current, [key]: !current[key] }));
-  };
+  useEffect(() => {
+    let active = true;
 
-  return { settings, toggleSetting };
+    void getSoundEffectsEnabled().then((enabled) => {
+      if (active && !changedByUser.current) {
+        setSoundEnabled(enabled);
+      }
+    });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const toggleSound = useCallback(() => {
+    changedByUser.current = true;
+    setSoundEnabled((current) => {
+      const next = !current;
+      void setSoundEffectsEnabled(next);
+      return next;
+    });
+  }, []);
+
+  return { soundEnabled, toggleSound };
 }

@@ -41,7 +41,7 @@ export default function PatientProfileScreen({
     patientId,
     patientName ? { fullName: patientName } : undefined,
   );
-  const { settings, toggleSetting } = useSettings();
+  const { soundEnabled, toggleSound } = useSettings();
   const [tab, setTab] = useState<ProfileTab>("overview");
 
   return (
@@ -79,7 +79,7 @@ export default function PatientProfileScreen({
           />
           <GameReviewsSection reviews={gameReviews} />
           {!isCaregiverView && (
-            <SettingsSection settings={settings} onToggleSetting={toggleSetting} />
+            <SettingsSection soundEnabled={soundEnabled} onToggleSound={toggleSound} />
           )}
         </ScrollView>
       ) : (
