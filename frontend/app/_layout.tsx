@@ -13,7 +13,22 @@ export default function RootLayout() {
             headerTitle: "MemoCare",
           }}
         >
-          <Stack.Screen name="patient" options={{ headerShown: false }} />
+          {/* Authenticated areas: once you're in, the swipe-back / hardware-back
+              gesture must NOT pop back out to the pre-login screens. Logout is
+              the only way out. Navigation *inside* each area still works because
+              that's handled by each area's own nested navigator. */}
+          <Stack.Screen
+            name="patient"
+            options={{ headerShown: false, gestureEnabled: false }}
+          />
+          <Stack.Screen
+            name="caregiver"
+            options={{ headerShown: false, gestureEnabled: false }}
+          />
+          <Stack.Screen
+            name="family"
+            options={{ headerShown: false, gestureEnabled: false }}
+          />
         </Stack>
         <NotificationToastHost />
       </NotificationToastProvider>
