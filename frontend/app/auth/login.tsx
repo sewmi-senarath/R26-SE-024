@@ -1,4 +1,4 @@
-import { loginUser } from '@/src/api/authApi';
+import { loginUser, storage } from '@/src/api/authApi';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -35,6 +35,9 @@ export default function Login() {
         // loginUser() in authApi. Nothing else to store here.
 
         if (role === 'patient') {
+          // One-shot flag: the landing screen shows the screening-test prompt
+          // once per login, then clears this.
+          await storage.setItem('pendingScreeningPrompt', '1');
           if (Platform.OS === 'web') window.location.href = '/patient/activity-selector';
           else router.replace('/patient/activity-selector');
         } else if (role === 'caregiver') {
