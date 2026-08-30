@@ -1,6 +1,6 @@
 import { BRAIN_AREA_BY_SECTION } from "@/src/constants/brainAreas";
 import { usePatientReport } from "@/src/hooks/usePatientReport";
-import { SeverityLevel } from "@/src/types/dementia.types";
+import { Severity } from "@/src/types/assessment.types";
 import { SectionName } from "@/src/types/games.types";
 import { generatePatientReportHtml } from "@/src/utils/generatePatientReportHtml";
 import { Ionicons } from "@expo/vector-icons";
@@ -26,8 +26,9 @@ import { ProgressOverTime } from "./ProgressOverTime";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
+// MMSE-derived status (Assessment.severity) - unrelated to the ML triage model.
 const SEVERITY_META: Record<
-  SeverityLevel,
+  Severity,
   { label: string; color: string; bg: string }
 > = {
   none: { label: "No Impairment", color: "#16A34A", bg: "#F0FDF4" },
@@ -106,11 +107,11 @@ export const PatientReportView: React.FC<PatientReportViewProps> = ({
     error,
     patientId: resolvedPatientId,
     assessments,
-    severityHistory,
+    triageHistory,
     assessmentStats,
     gameStats,
     progress,
-    latestSeverityPrediction,
+    latestTriagePrediction,
     reload,
   } = usePatientReport(patientId);
   const [refreshing, setRefreshing] = useState(false);
@@ -131,9 +132,9 @@ export const PatientReportView: React.FC<PatientReportViewProps> = ({
         assessments,
         assessmentStats,
         gameStats,
-        severityHistory,
+        triageHistory,
         progress,
-        latestSeverityPrediction,
+        latestTriagePrediction,
       });
       const { uri } = await Print.printToFileAsync({ html, base64: false });
 
@@ -209,11 +210,13 @@ export const PatientReportView: React.FC<PatientReportViewProps> = ({
     return { section, percent };
   });
 
-  const latestSeverity =
-    latestSeverityPrediction?.severity ??
-    assessmentStats.latestSeverity ??
-    null;
+  const latestSeverity = assessmentStats.latestSeverity ?? null;
   const severityMeta = latestSeverity ? SEVERITY_META[latestSeverity] : null;
+  const triageMeta = latestTriagePrediction
+    ? latestTriagePrediction.triage === "escalate"
+      ? { label: "Clinical review recommended", color: "#DC2626", bg: "#FEF2F2" }
+      : { label: "Keep monitoring", color: "#16A34A", bg: "#F0FDF4" }
+    : null;
 
   return (
     <ScrollView
@@ -299,6 +302,34 @@ export const PatientReportView: React.FC<PatientReportViewProps> = ({
               style={{ color: trend.color }}
             >
               {trend.label}
+            </Text>
+          </View>
+        </View>
+      )}
+
+      {/* ── AI triage (ML model) ────────────────────────────────────── */}
+      {triageMeta && latestTriagePrediction && (
+        <View
+          className="rounded-2xl p-4 mb-2 flex-row items-center gap-3"
+          style={{ backgroundColor: triageMeta.bg }}
+        >
+          <View className="flex-1">
+            <Text
+              className="text-[10px] font-bold uppercase tracking-widest"
+              style={{ color: triageMeta.color }}
+            >
+              AI Triage
+            </Text>
+            <Text className="text-base font-extrabold text-gray-900">
+              {triageMeta.label}
+            </Text>
+          </View>
+          <View className="px-2.5 py-1.5 rounded-xl bg-white/70">
+            <Text
+              className="text-[11px] font-semibold"
+              style={{ color: triageMeta.color }}
+            >
+              {Math.round(latestTriagePrediction.confidence * 100)}% confidence
             </Text>
           </View>
         </View>
