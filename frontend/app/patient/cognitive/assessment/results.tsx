@@ -1,4 +1,4 @@
-import { AIPredictionCard } from "@/src/components/patient/cognitive/components/screening-test/AIPredictionCard";
+import { TriageSection } from "@/src/components/patient/cognitive/components/screening-test/TriageSection";
 import { useAssessmentSession } from "@/src/hooks/useAssessmentSession";
 import { Question } from "@/src/types/assessment.types";
 import { useRouter } from "expo-router";
@@ -245,9 +245,12 @@ export default function ResultsScreen() {
           </View>
         )}
 
-        {/* ── AI severity prediction (ML model) ── */}
+        {/* ── AI triage prediction (ML model) ── */}
         {session.patientId && (
-          <AIPredictionCard patientId={session.patientId} />
+          <TriageSection
+            patientId={session.patientId}
+            sessionId={session.sessionId}
+          />
         )}
 
         {/* ── Section breakdown ──────────────────────────────── */}

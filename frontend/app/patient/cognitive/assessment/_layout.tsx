@@ -6,6 +6,7 @@ export default function AssessmentLayout() {
       <Stack.Screen name="index" />
       <Stack.Screen name="[questionIndex]" />
       <Stack.Screen name="results" />
+      <Stack.Screen name="functional-activities" />
     </Stack>
   );
 }

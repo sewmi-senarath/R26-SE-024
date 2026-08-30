@@ -195,11 +195,16 @@ export const loginUser = async (email: string, password: string) => {
     const data = await response.json();
 
     if (data.success) {
-      await storage.setItem("accessToken", data.data.accessToken);
-      await storage.setItem("refreshToken", data.data.refreshToken);
-      await storage.setItem("userRole", data.data.user.role);
-      await storage.setItem("userData", JSON.stringify(data.data.user));
-      await storage.setItem("caregiverId", data.data.user._id);
+      const user = data.data.user ?? {};
+      const userId = user._id ?? user.id;
+
+      if (data.data.accessToken)
+        await storage.setItem("accessToken", data.data.accessToken);
+      if (data.data.refreshToken)
+        await storage.setItem("refreshToken", data.data.refreshToken);
+      if (user.role) await storage.setItem("userRole", user.role);
+      await storage.setItem("userData", JSON.stringify(user));
+      if (userId) await storage.setItem("caregiverId", String(userId));
     }
     return data;
   } catch (error) {
