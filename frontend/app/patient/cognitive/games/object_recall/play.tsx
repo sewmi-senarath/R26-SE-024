@@ -27,13 +27,13 @@ import Animated, { FadeInDown, FadeInUp, ZoomIn } from 'react-native-reanimated'
 type Phase = 'instruction' | 'study' | 'recall' | 'result';
 
 export default function ObjectRecallGame() {
-  const { difficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
+  const { difficulty: routeDifficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
   const { playSound } = useSoundEffects();
   const saveGameSession = useSaveGameSession();
   const { patientId } = useAssessment();
-  const { config: liveConfig, loading } = usePersonalizedGameContent<ObjectRecallConfig>(
+  const { config: liveConfig, loading, refresh: refreshContent, difficulty } = usePersonalizedGameContent<ObjectRecallConfig>(
     'object_recall',
-    difficulty,
+    routeDifficulty,
     patientId,
   );
 
@@ -135,6 +135,7 @@ export default function ObjectRecallGame() {
 
   const handleReset = () => {
     playSound('click');
+    refreshContent(progress?.difficulty);
     setFrozenConfig(null);
     setPhase('instruction');
     setInputs(Array(config.objectCount).fill(''));
@@ -156,6 +157,7 @@ export default function ObjectRecallGame() {
         onStart={() => {
           playSound('click');
           setFrozenConfig(liveConfig);
+          setInputs(Array(liveConfig.objectCount).fill(''));
           setPhase('study');
           setStartTime(Date.now());
           Speech.speak(`Study ${config.objectCount} objects carefully. They will disappear soon.`);

@@ -36,14 +36,14 @@ function shuffle<T>(items: T[]): T[] {
 }
 
 export default function ListenRepeatGame() {
-  const { difficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
+  const { difficulty: routeDifficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
   const router = useRouter();
   const { playSound } = useSoundEffects();
   const saveGameSession = useSaveGameSession();
   const { patientId } = useAssessment();
-  const { config: liveConfig, loading } = usePersonalizedGameContent<ListenRepeatConfig>(
+  const { config: liveConfig, loading, refresh: refreshContent, difficulty } = usePersonalizedGameContent<ListenRepeatConfig>(
     'listen_repeat',
-    difficulty,
+    routeDifficulty,
     patientId,
   );
 
@@ -157,6 +157,7 @@ export default function ListenRepeatGame() {
   const handleReset = () => {
     playSound('click');
     Speech.stop();
+    refreshContent(progress?.difficulty);
     setFrozenConfig(null);
     setPhase('instruction');
     setSelectedIds([]);

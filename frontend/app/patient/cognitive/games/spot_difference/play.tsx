@@ -28,14 +28,14 @@ function shuffleRange(count: number): number[] {
 }
 
 export default function SpotDifferenceGame() {
-  const { difficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
+  const { difficulty: routeDifficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
   const router = useRouter();
   const { playSound } = useSoundEffects();
   const saveGameSession = useSaveGameSession();
   const { patientId } = useAssessment();
-  const { config: liveConfig, loading } = usePersonalizedGameContent<SpotDifferenceConfig>(
+  const { config: liveConfig, loading, refresh: refreshContent, difficulty } = usePersonalizedGameContent<SpotDifferenceConfig>(
     'spot_difference',
-    difficulty,
+    routeDifficulty,
     patientId,
   );
 
@@ -136,6 +136,7 @@ export default function SpotDifferenceGame() {
   const handleReset = () => {
     playSound('click');
     Speech.stop();
+    refreshContent(progress?.difficulty);
     setFrozenConfig(null);
     setPhase('instruction');
     setGridB([]);

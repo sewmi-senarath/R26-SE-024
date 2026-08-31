@@ -40,14 +40,14 @@ function splitBlank(text: string): [string, string] {
 }
 
 export default function SentenceCompletionGame() {
-  const { difficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
+  const { difficulty: routeDifficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
   const router = useRouter();
   const { playSound } = useSoundEffects();
   const saveGameSession = useSaveGameSession();
   const { patientId } = useAssessment();
-  const { config: liveConfig, loading } = usePersonalizedGameContent<SentenceCompletionConfig>(
+  const { config: liveConfig, loading, refresh: refreshContent, difficulty } = usePersonalizedGameContent<SentenceCompletionConfig>(
     'sentence_completion',
-    difficulty,
+    routeDifficulty,
     patientId,
   );
 
@@ -157,6 +157,7 @@ export default function SentenceCompletionGame() {
   const handleReset = () => {
     playSound('click');
     Speech.stop();
+    refreshContent(progress?.difficulty);
     setFrozenConfig(null);
     setPhase('instruction');
     setCurrentIndex(0);

@@ -6,13 +6,17 @@ export type PersonalizedGameContentResponse<T extends GameConfig> = {
   personalized: boolean;
 };
 
+let contentRequestSequence = 0;
+
 export async function getPersonalizedGameContent<T extends GameConfig>(
   gameId: GameId,
   patientId: string,
   difficulty: Difficulty,
 ): Promise<PersonalizedGameContentResponse<T>> {
+  contentRequestSequence += 1;
+  const requestId = `${Date.now()}-${contentRequestSequence}`;
   const body = await authFetch(
-    `/cognitive/games/content/${gameId}/${patientId}/${difficulty}`,
+    `/cognitive/games/content/${gameId}/${patientId}/${difficulty}?round=${requestId}`,
     { method: "GET" },
   );
 

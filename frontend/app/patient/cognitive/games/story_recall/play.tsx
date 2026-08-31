@@ -36,14 +36,14 @@ function answersMatch(typed: string, correct: string): boolean {
 }
 
 export default function StoryRecallGame() {
-  const { difficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
+  const { difficulty: routeDifficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
   const router = useRouter();
   const { playSound } = useSoundEffects();
   const saveGameSession = useSaveGameSession();
   const { patientId } = useAssessment();
-  const { config: liveConfig, loading } = usePersonalizedGameContent<StoryRecallConfig>(
+  const { config: liveConfig, loading, refresh: refreshContent, difficulty } = usePersonalizedGameContent<StoryRecallConfig>(
     'story_recall',
-    difficulty,
+    routeDifficulty,
     patientId,
   );
 
@@ -185,6 +185,7 @@ export default function StoryRecallGame() {
   const handleReset = () => {
     playSound('click');
     Speech.stop();
+    refreshContent(progress?.difficulty);
     setFrozenConfig(null);
     setPhase('instruction');
     setCurrentIndex(0);

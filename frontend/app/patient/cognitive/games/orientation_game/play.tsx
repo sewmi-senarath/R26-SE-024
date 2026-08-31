@@ -35,14 +35,14 @@ const CATEGORY_STYLE: Record<string, { bg: string; text: string }> = {
 };
 
 export default function OrientationGame() {
-  const { difficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
+  const { difficulty: routeDifficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
   const router = useRouter();
   const { playSound } = useSoundEffects();
   const saveGameSession = useSaveGameSession();
   const { patientId } = useAssessment();
-  const { config: liveConfig, loading } = usePersonalizedGameContent<OrientationGameConfig>(
+  const { config: liveConfig, loading, refresh: refreshContent, difficulty } = usePersonalizedGameContent<OrientationGameConfig>(
     'orientation_game',
-    difficulty,
+    routeDifficulty,
     patientId,
   );
 
@@ -235,6 +235,7 @@ export default function OrientationGame() {
 
   const handleReset = () => {
     playSound('click');
+    refreshContent(progress?.difficulty);
     setFrozenConfig(null);
     setPhase('instruction');
     setCurrentIndex(0);

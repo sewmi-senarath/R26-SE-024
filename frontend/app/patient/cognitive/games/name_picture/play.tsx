@@ -45,14 +45,14 @@ function answersMatch(typed: string, correct: string): boolean {
 }
 
 export default function NamePictureGame() {
-  const { difficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
+  const { difficulty: routeDifficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
   const router = useRouter();
   const { playSound } = useSoundEffects();
   const saveGameSession = useSaveGameSession();
   const { patientId } = useAssessment();
-  const { config: liveConfig, loading } = usePersonalizedGameContent<NamePictureConfig>(
+  const { config: liveConfig, loading, refresh: refreshContent, difficulty } = usePersonalizedGameContent<NamePictureConfig>(
     'name_picture',
-    difficulty,
+    routeDifficulty,
     patientId,
   );
 
@@ -198,6 +198,7 @@ export default function NamePictureGame() {
   const handleReset = () => {
     playSound('click');
     Speech.stop();
+    refreshContent(progress?.difficulty);
     setFrozenConfig(null);
     setPhase('instruction');
     setQuestions([]);
