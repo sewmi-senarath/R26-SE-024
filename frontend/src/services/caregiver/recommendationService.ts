@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { SmartRecommendation } from '../../utils/recommendationEngine';
 
-const BASE_URL = 'http://192.168.1.10:5000/api/caregiver/recommendations';
+const BASE_URL = `${process.env.EXPO_PUBLIC_API_URL}/api/caregiver/recommendations`;
 
 // Storage helper 
 const storage = {

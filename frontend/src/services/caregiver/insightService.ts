@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { CheckInResult, DailyCheckIn } from '../../types/caregiver.types';
 
-const BASE_URL = 'http://192.168.1.10:5000/api/caregiver/insights';
+const BASE_URL = `${process.env.EXPO_PUBLIC_API_URL}/api/caregiver/insights`;
 
 // Same storage helper as authApi.ts 
 const storage = {
