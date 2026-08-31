@@ -152,4 +152,4 @@ if __name__ == "__main__":
     else:
         print("  Model : NOT LOADED (run train.py first)")
     print("=" * 50)
-    app.run(host="0.0.0.0", port=5002, debug=True)
+    app.run(host="0.0.0.0", port=5002)
