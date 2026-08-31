@@ -57,14 +57,14 @@ function SelectableOption({
 }
 
 export default function MemoryRecallGame() {
-  const { difficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
+  const { difficulty: routeDifficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
   const router = useRouter();
   const { playSound } = useSoundEffects();
   const saveGameSession = useSaveGameSession();
   const { patientId } = useAssessment();
-  const { config: liveConfig, loading } = usePersonalizedGameContent<MemoryRecallConfig>(
+  const { config: liveConfig, loading, refresh: refreshContent, difficulty } = usePersonalizedGameContent<MemoryRecallConfig>(
     'memory_recall',
-    difficulty,
+    routeDifficulty,
     patientId,
   );
 
@@ -186,6 +186,7 @@ export default function MemoryRecallGame() {
 
   const handleReset = () => {
     playSound('click');
+    refreshContent(progress?.difficulty);
     setFrozenConfig(null);
     setPhase('instruction');
     setCurrentShowIndex(0);

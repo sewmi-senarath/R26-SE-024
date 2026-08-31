@@ -109,14 +109,14 @@ function MatchCard({
 }
 
 export default function MemoryMatchGame() {
-  const { difficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
+  const { difficulty: routeDifficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
   const router = useRouter();
   const { playSound } = useSoundEffects();
   const saveGameSession = useSaveGameSession();
   const { patientId } = useAssessment();
-  const { config: liveConfig, loading } = usePersonalizedGameContent<MemoryMatchConfig>(
+  const { config: liveConfig, loading, refresh: refreshContent, difficulty } = usePersonalizedGameContent<MemoryMatchConfig>(
     'memory_match',
-    difficulty,
+    routeDifficulty,
     patientId,
   );
 
@@ -231,6 +231,7 @@ export default function MemoryMatchGame() {
   const handleReset = () => {
     playSound('click');
     Speech.stop();
+    refreshContent(progress?.difficulty);
     setFrozenConfig(null);
     setPhase('instruction');
     setDeck([]);

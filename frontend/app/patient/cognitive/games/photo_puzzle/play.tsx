@@ -268,7 +268,8 @@ function DraggablePiece({
 
 // MAIN SCREEN
 export default function PhotoPuzzleGame() {
-  const { difficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
+  const { difficulty: routeDifficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
+  const [difficulty, setDifficulty] = useState<Difficulty>(routeDifficulty);
   const config = getGameContent<PhotoPuzzleConfig>('photo_puzzle', difficulty);
   const saveGameSession = useSaveGameSession();
   const { patientId, isLoadingSession } = useAssessment();
@@ -493,7 +494,7 @@ export default function PhotoPuzzleGame() {
     setTimeLeft(config.timeLimitSeconds);
     setStartTime(startedAt);
     startTimeRef.current = startedAt;
-    setPuzzleImage(getRandomPuzzleImageFromPool(puzzleImagePool));
+    setPuzzleImage(getRandomPuzzleImageFromPool(puzzleImagePool, puzzleImage?.id));
     setLayoutReady(false);
     setBoardOrigin({ x: 0, y: 0 });
     setTrayOrigin({ x: 0, y: 0 });
@@ -531,6 +532,7 @@ export default function PhotoPuzzleGame() {
   }, []);
 
   const handleReset = () => {
+    setDifficulty(progress?.difficulty ?? difficulty);
     setPhase('instruction');
     piecesRef.current = [];
     snappedMapRef.current = {};

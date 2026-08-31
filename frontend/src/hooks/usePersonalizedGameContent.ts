@@ -1,20 +1,35 @@
 import { getPersonalizedGameContent } from "@/src/api/gameContentApi";
 import { getGameContent } from "@/src/constants/gameContent";
 import { Difficulty, GameConfig, GameId } from "@/src/types/games.types";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 export function usePersonalizedGameContent<T extends GameConfig>(
   gameId: GameId,
   difficulty: Difficulty,
   patientId?: string | null,
 ) {
+  const [contentDifficulty, setContentDifficulty] = useState(difficulty);
+  const [refreshKey, setRefreshKey] = useState(0);
   const fallbackConfig = useMemo(
-    () => getGameContent<T>(gameId, difficulty),
-    [gameId, difficulty],
+    () => getGameContent<T>(gameId, contentDifficulty),
+    [contentDifficulty, gameId],
   );
   const [config, setConfig] = useState<T>(fallbackConfig);
   const [loading, setLoading] = useState(Boolean(patientId));
   const [personalized, setPersonalized] = useState(false);
+
+  useEffect(() => {
+    setContentDifficulty(difficulty);
+  }, [difficulty]);
+
+  const refresh = useCallback(
+    (nextDifficulty?: Difficulty) => {
+      setLoading(Boolean(patientId));
+      setContentDifficulty((current) => nextDifficulty ?? current);
+      setRefreshKey((current) => current + 1);
+    },
+    [patientId],
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -31,7 +46,7 @@ export function usePersonalizedGameContent<T extends GameConfig>(
 
     setLoading(true);
 
-    getPersonalizedGameContent<T>(gameId, patientId, difficulty)
+    getPersonalizedGameContent<T>(gameId, patientId, contentDifficulty)
       .then((data) => {
         if (!mounted) return;
         setConfig(data.config || fallbackConfig);
@@ -49,7 +64,13 @@ export function usePersonalizedGameContent<T extends GameConfig>(
     return () => {
       mounted = false;
     };
-  }, [difficulty, fallbackConfig, gameId, patientId]);
+  }, [contentDifficulty, fallbackConfig, gameId, patientId, refreshKey]);
 
-  return { config, loading, personalized };
+  return {
+    config,
+    loading,
+    personalized,
+    refresh,
+    difficulty: contentDifficulty,
+  };
 }
