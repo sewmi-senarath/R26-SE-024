@@ -14,6 +14,7 @@ auth.authorize = () => (_req, _res, next) => next();
 
 const svc = require("../../src/services/cognitive/dementiaPrediction/dementiaPredictionService");
 const User = require("../../src/models/auth/User");
+const Patient = require("../../src/models/caregiver/Patient");
 const Assessment = require("../../src/models/cognitive/Assessment");
 const dementiaRoutes = require("../../src/routes/cognitive/dementiaPredictionRoutes");
 const { errorHandler } = require("../../src/middleware/errorHandler");
@@ -24,6 +25,7 @@ const originals = {
   requestPrediction: svc.requestPrediction,
   persistPrediction: svc.persistPrediction,
   userFindById: User.findById,
+  patientFindOne: Patient.findOne,
   assessmentFindOne: Assessment.findOne,
 };
 
@@ -54,6 +56,12 @@ async function request(path, init) {
 }
 
 before(async () => {
+  // The routes require caregivers to be linked to the patient. Keep this
+  // integration test independent of MongoDB while exercising that guard.
+  Patient.findOne = async () => ({
+    caregiverId: "caregiver-1",
+    registeredPatientId: "patient-1",
+  });
   User.findById = async () => ({ _id: "patient-1", age: 74, gender: "female" });
   Assessment.findOne = () => ({
     sort: async () => ({ sessionId: "session-1", totalScore: 21, adjustedScore: null }),
@@ -78,6 +86,7 @@ after(async () => {
     persistPrediction: originals.persistPrediction,
   });
   User.findById = originals.userFindById;
+  Patient.findOne = originals.patientFindOne;
   Assessment.findOne = originals.assessmentFindOne;
   await new Promise((resolve, reject) => {
     server.close((error) => (error ? reject(error) : resolve()));
