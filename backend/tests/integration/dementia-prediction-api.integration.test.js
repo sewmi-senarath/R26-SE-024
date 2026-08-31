@@ -115,6 +115,24 @@ test("POST /faq/:patientId stores the questionnaire and returns 201", async () =
   });
 });
 
+test("POST /faq/:patientId falls back to the latest completed assessment when no sessionId is sent", async () => {
+  let received;
+  svc.saveFaq = async (patientId, answers, sessionId) => {
+    received = { patientId, answers, sessionId };
+    return { _id: "faq-2", patientId, total: 7, ...answers };
+  };
+
+  const { response, body } = await request("/api/cognitive/dementia/faq/patient-1", {
+    method: "POST",
+    body: JSON.stringify({ answers: FAQ_ANSWERS }),
+  });
+
+  assert.equal(response.status, 201);
+  assert.equal(body.success, true);
+  // Assessment.findOne mock resolves to sessionId "session-1".
+  assert.equal(received.sessionId, "session-1");
+});
+
 test("POST /faq/:patientId surfaces a 400 from the service for bad answers", async () => {
   svc.saveFaq = async () => {
     const err = new Error("faq answers must be integers 0-3");

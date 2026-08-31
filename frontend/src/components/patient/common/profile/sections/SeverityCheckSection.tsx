@@ -75,6 +75,27 @@ export function SeverityCheckSection({
             autoRun={false}
             onFaqRequired={() => setFaqModalOpen(true)}
           />
+
+          {/* Re-open the questionnaire any time, not just on the first run.
+              Submitting again re-runs the triage, which picks up the latest
+              MMSE score and the new answers. */}
+          <TouchableOpacity
+            onPress={() => setFaqModalOpen(true)}
+            style={{
+              alignSelf: "flex-start",
+              borderColor: "#CBD5E1",
+              borderRadius: 12,
+              borderWidth: 1,
+              marginTop: 4,
+              paddingHorizontal: 14,
+              paddingVertical: 8,
+            }}
+          >
+            <Text style={{ color: "#475569", fontSize: 13, fontWeight: "700" }}>
+              Retake questionnaire
+            </Text>
+          </TouchableOpacity>
+
           <FaqFormModal
             visible={faqModalOpen}
             patientId={patientId}

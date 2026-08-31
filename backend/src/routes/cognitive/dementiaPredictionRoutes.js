@@ -24,7 +24,9 @@ async function verifyOwnsPatient(req, res, next) {
   const { userId, role } = req.user;
 
   if (role === 'patient') {
-    if (patientId !== userId) {
+    // req.user.userId is a Mongoose ObjectId, patientId is a string from the
+    // URL - compare as strings so a patient acting on their own id passes.
+    if (String(patientId) !== String(userId)) {
       return res.status(403).json({ success: false, message: 'Not authorized for this patient' });
     }
     return next();
@@ -43,12 +45,22 @@ async function verifyOwnsPatient(req, res, next) {
 
 // POST /api/cognitive/dementia/faq/:patientId
 // Save one FAQ submission (10 items, each 0-3). `sessionId` (optional) ties it
-// to the screening-test session it followed.
+// to the screening-test session it followed; the "retake" flows don't pass one,
+// so fall back to the patient's latest completed assessment so the Reporting
+// tab shows which MMSE score each questionnaire was paired with.
 router.post('/faq/:patientId', protect, authorize(...ROLES), verifyOwnsPatient, async (req, res) => {
   try {
     const { patientId } = req.params;
     const { answers, sessionId } = req.body || {};
-    const doc = await svc.saveFaq(patientId, answers, sessionId);
+
+    let basedOnAssessment = sessionId || null;
+    if (!basedOnAssessment) {
+      const latestAssessment = await Assessment.findOne({ patientId, status: 'done' })
+        .sort({ completedAt: -1 });
+      basedOnAssessment = latestAssessment?.sessionId || null;
+    }
+
+    const doc = await svc.saveFaq(patientId, answers, basedOnAssessment);
     return res.status(201).json({ success: true, result: doc });
   } catch (error) {
     return res

@@ -38,7 +38,27 @@ export const TriageSection: React.FC<TriageSectionProps> = ({ patientId, session
   }
 
   if (hasFaq) {
-    return <AIPredictionCard patientId={patientId} />;
+    return (
+      <View className="mb-4 w-full max-w-[640px] self-center">
+        <AIPredictionCard patientId={patientId} />
+        {/* Redo the questionnaire whenever; returning here re-runs the triage
+            against the latest MMSE score and the new answers. */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() =>
+            router.push({
+              pathname: "/patient/cognitive/assessment/functional-activities",
+              params: { patientId, sessionId: sessionId ?? "" },
+            })
+          }
+          className="self-start px-4 py-2 rounded-xl border border-gray-300"
+        >
+          <Text className="text-xs font-semibold text-gray-600">
+            Retake questionnaire
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
   }
 
   return (
