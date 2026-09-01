@@ -48,7 +48,7 @@ export interface PatientDetail extends Patient {
   /**
    * The linked registered patient's User account id, if this caregiver-side
    * patient has been connected to a real patient account. Cognitive data
-   * (assessments, games, severity) is keyed on this id — NOT on `id`, which is
+   * (assessments, games, severity) is keyed on this id - NOT on `id`, which is
    * the caregiver-side Patient document id. Null when no account is linked.
    */
   registeredPatientId?: string | null;
@@ -239,4 +239,71 @@ export interface BurnoutRisk {
   avgStressScore?:  number;
   avgSleep?:        number;
   consecutiveHigh?: number;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// PASTE THIS INTO: frontend/src/types/caregiver.types.ts
+// Add it anywhere near your existing ReportTimeframe / ReportType types.
+// Nothing existing needs to change.
+// ─────────────────────────────────────────────────────────────────────────
+
+export interface ReportSummary {
+  total: number;
+  completed: number;
+  pending: number;
+  overdue: number;
+  completionRate: number;   // 0–100
+}
+
+export interface CategoryBreakdown {
+  category: string;
+  total: number;
+  completed: number;
+  rate: number;
+}
+
+export interface PriorityBreakdown {
+  priority: string;
+  total: number;
+  completed: number;
+  rate: number;
+}
+
+export interface PatientBreakdown {
+  patientName: string;
+  total: number;
+  completed: number;
+  rate: number;
+}
+
+export interface DayBreakdown {
+  date: string;
+  total: number;
+  completed: number;
+  rate: number;
+}
+
+export interface ReportTaskRow {
+  date: string;
+  time: string;
+  title: string;
+  patientName: string;
+  category: string;
+  priority: string;
+  status: 'todo' | 'done';
+}
+
+export interface TaskCompletionReport {
+  type: string;
+  timeframe: ReportTimeframe;
+  startDate: string;
+  endDate: string;
+  patientFilter: string;
+  generatedAt: string;
+  summary: ReportSummary;
+  byCategory: CategoryBreakdown[];
+  byPriority: PriorityBreakdown[];
+  byPatient: PatientBreakdown[];
+  byDay: DayBreakdown[];
+  rows: ReportTaskRow[];
 }

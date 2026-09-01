@@ -7,9 +7,12 @@ import DropDownPicker from 'react-native-dropdown-picker';
 interface Step1Props {
     data:     Step1Data;
     onChange: (data: Partial<Step1Data>) => void;
+    /** When true, hides the account credential fields (email / password)
+     *  so the same step can be reused to edit an existing profile. */
+    editMode?: boolean;
 }
 
-export default function Step1BasicInfo({ data, onChange }: Step1Props) {
+export default function Step1BasicInfo({ data, onChange, editMode = false }: Step1Props) {
     const [open, setOpen] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [items, setItems] = useState([
@@ -47,47 +50,64 @@ export default function Step1BasicInfo({ data, onChange }: Step1Props) {
             </View>
 
             {/* ✅ Email */}
-            <View className="w-full">
-                <Text className="text-sm font-semibold text-gray-800 mb-2">
-                    Email <Text className="text-red-500">*</Text>
-                </Text>
-                <View className="w-full flex-row items-center bg-white rounded-lg px-4 py-3 shadow-sm border border-gray-200">
-                    <Ionicons name="mail" size={20} color="#9ca3af" />
-                    <TextInput
-                        className="flex-1 ml-2 text-gray-800"
-                        placeholder="Enter your email"
-                        placeholderTextColor="#d1d5db"
-                        value={data.email}
-                        onChangeText={(text) => onChange({ email: text })}
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                    />
+            {editMode ? (
+                data.email ? (
+                    <View className="w-full">
+                        <Text className="text-sm font-semibold text-gray-800 mb-2">
+                            Email
+                        </Text>
+                        <View className="w-full flex-row items-center bg-gray-100 rounded-lg px-4 py-3 border border-gray-200">
+                            <Ionicons name="mail" size={20} color="#9ca3af" />
+                            <Text className="flex-1 ml-2 text-gray-500">{data.email}</Text>
+                            <Ionicons name="lock-closed" size={16} color="#9ca3af" />
+                        </View>
+                    </View>
+                ) : null
+            ) : (
+                <View className="w-full">
+                    <Text className="text-sm font-semibold text-gray-800 mb-2">
+                        Email <Text className="text-red-500">*</Text>
+                    </Text>
+                    <View className="w-full flex-row items-center bg-white rounded-lg px-4 py-3 shadow-sm border border-gray-200">
+                        <Ionicons name="mail" size={20} color="#9ca3af" />
+                        <TextInput
+                            className="flex-1 ml-2 text-gray-800"
+                            placeholder="Enter your email"
+                            placeholderTextColor="#d1d5db"
+                            value={data.email}
+                            onChangeText={(text) => onChange({ email: text })}
+                            keyboardType="email-address"
+                            autoCapitalize="none"
+                        />
+                    </View>
                 </View>
-            </View>
+            )}
 
             {/* ✅ Password */}
-            <View className="w-full">
-                <Text className="text-sm font-semibold text-gray-800 mb-2">
-                    Password <Text className="text-red-500">*</Text>
-                </Text>
-                <View className="w-full flex-row items-center bg-white rounded-lg px-4 py-3 shadow-sm border border-gray-200">
-                    <Ionicons name="lock-closed" size={20} color="#9ca3af" />
-                    <TextInput
-                        className="flex-1 ml-2 text-gray-800"
-                        placeholder="Min 6 characters"
-                        placeholderTextColor="#d1d5db"
-                        value={data.password}
-                        onChangeText={(text) => onChange({ password: text })}
-                        secureTextEntry={!showPassword}
-                    />
-                    <Ionicons
-                        name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                        size={20}
-                        color="#9ca3af"
-                        onPress={() => setShowPassword(!showPassword)}
-                    />
+            {!editMode && (
+                <View className="w-full">
+                    <Text className="text-sm font-semibold text-gray-800 mb-2">
+                        Password <Text className="text-red-500">*</Text>
+                    </Text>
+                    <View className="w-full flex-row items-center bg-white rounded-lg px-4 py-3 shadow-sm border border-gray-200">
+                        <Ionicons name="lock-closed" size={20} color="#9ca3af" />
+                        <TextInput
+                            className="flex-1 ml-2 text-gray-800"
+                            placeholder="Min 6 characters"
+                            placeholderTextColor="#d1d5db"
+                            value={data.password}
+                            onChangeText={(text) => onChange({ password: text })}
+                            secureTextEntry={!showPassword}
+                        />
+                        <Ionicons
+                            name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                            size={20}
+                            color="#9ca3af"
+                            onPress={() => setShowPassword(!showPassword)}
+                        />
+                    </View>
                 </View>
-            </View>
+            )}
 
             {/* Age */}
             <View className="w-full">

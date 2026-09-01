@@ -13,16 +13,16 @@ import {
 } from '@/src/constants/puzzleImages';
 import { useSaveGameSession } from '@/src/hooks/useSaveGameSession';
 import { Difficulty, DifficultyProgressUpdate, GameSessionResult, PhotoPuzzleConfig } from '@/src/types/games.types';
+import { buildPuzzleSlotPositions, buildPuzzleTrayPositions } from '@/src/utils/photoPuzzleLayout';
 import { useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import * as Speech from 'expo-speech';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Dimensions,
   Image,
-  Platform,
+  LayoutChangeEvent,
   ScrollView,
-  StatusBar,
   Text,
   TouchableOpacity,
   View,
@@ -33,12 +33,14 @@ import {
   GestureDetector,
   GestureHandlerRootView,
 } from 'react-native-gesture-handler';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, {
+  Easing,
   FadeIn,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 
 // CONSTANTS
@@ -49,6 +51,9 @@ const SNAP_THRESHOLD = 60;
 const TRAY_PADDING = 10;
 const PIECE_GAP = 1;
 const TRAY_PIECE_SCALE = 0.9; // or any value less than 1 for smaller tray pieces
+// Smooth, non-bouncy glide for snapping pieces into place - a plain timing
+// curve so there is no spring overshoot/bounce at all.
+const SNAP_TIMING = { duration: 180, easing: Easing.out(Easing.cubic) };
 
 type Phase = 'instruction' | 'playing' | 'result';
 
@@ -118,13 +123,13 @@ interface DraggablePieceProps {
   cellSize: number;
   image: PuzzleImage;
   puzzleSize: number;
-  // All positions below are in the GestureHandlerRootView coordinate space
-  // obtained from onLayout (not measureInWindow)
+  // All positions below are local to the shared ScrollView content parent.
   initX: number;
   initY: number;
   slotPositions: { x: number; y: number }[];
   onSnapped: (pieceId: number, slotIndex: number) => void;
   onUnsnapped: (pieceId: number) => void;
+  onDragStateChange: (dragging: boolean) => void;
   snappedSlot: number | null;
   isCorrect: boolean;
   scale?: number; // optional, default to 1
@@ -140,6 +145,7 @@ function DraggablePiece({
   slotPositions,
   onSnapped,
   onUnsnapped,
+  onDragStateChange,
   snappedSlot,
   isCorrect,
   scale = 1,
@@ -148,44 +154,48 @@ function DraggablePiece({
   const ty = useSharedValue(initY);
   const sc = useSharedValue(1);
   const zi = useSharedValue(10);
+  const dragStartX = useSharedValue(initX);
+  const dragStartY = useSharedValue(initY);
 
   // Spring back to tray when displaced by another piece
   useEffect(() => {
     if (snappedSlot === null) {
-      tx.value = withSpring(initX, { damping: 18 });
-      ty.value = withSpring(initY, { damping: 18 });
+      tx.value = withTiming(initX, SNAP_TIMING);
+      ty.value = withTiming(initY, SNAP_TIMING);
     }
-  }, [snappedSlot]);
+  }, [initX, initY, snappedSlot, tx, ty]);
 
   // Keep snapped position in sync if slot positions change (re-measure)
   useEffect(() => {
     if (snappedSlot !== null && slotPositions[snappedSlot]) {
-      tx.value = withSpring(slotPositions[snappedSlot].x, { damping: 18 });
-      ty.value = withSpring(slotPositions[snappedSlot].y, { damping: 18 });
+      tx.value = withTiming(slotPositions[snappedSlot].x, SNAP_TIMING);
+      ty.value = withTiming(slotPositions[snappedSlot].y, SNAP_TIMING);
     }
-  }, [slotPositions]);
+  }, [slotPositions, snappedSlot, tx, ty]);
 
   const pan = Gesture.Pan()
     .onBegin(() => {
-      sc.value = withSpring(1.1);
+      dragStartX.value = tx.value;
+      dragStartY.value = ty.value;
+      sc.value = withTiming(1.08, { duration: 120 });
       zi.value = 999;
+      runOnJS(onDragStateChange)(true);
       if (snappedSlot !== null) {
         runOnJS(onUnsnapped)(piece.id);
       }
     })
     .onUpdate((e) => {
-      // e.absoluteX/Y = finger position in screen coords
-      // Subtract rootViewOrigin (passed via initX/initY calculation)
-      // and half cellSize to centre piece under finger
-      tx.value = e.absoluteX - cellSize / 2;
-      ty.value = e.absoluteY - cellSize / 2;
+      // The piece, board, and tray share the same scroll-content coordinate
+      // space, so gesture translation remains correct at every scroll offset.
+      tx.value = dragStartX.value + e.translationX;
+      ty.value = dragStartY.value + e.translationY;
     })
-    .onEnd((e) => {
-      sc.value = withSpring(1);
+    .onEnd(() => {
+      sc.value = withTiming(1, { duration: 120 });
       zi.value = 10;
 
-      const fingerX = e.absoluteX;
-      const fingerY = e.absoluteY;
+      const pieceCenterX = tx.value + (cellSize * scale) / 2;
+      const pieceCenterY = ty.value + (cellSize * scale) / 2;
 
       let bestSlot = -1;
       let bestDist = SNAP_THRESHOLD;
@@ -193,7 +203,7 @@ function DraggablePiece({
       slotPositions.forEach((slot, i) => {
         const cx = slot.x + cellSize / 2;
         const cy = slot.y + cellSize / 2;
-        const d = Math.sqrt((fingerX - cx) ** 2 + (fingerY - cy) ** 2);
+        const d = Math.sqrt((pieceCenterX - cx) ** 2 + (pieceCenterY - cy) ** 2);
         if (d < bestDist) {
           bestDist = d;
           bestSlot = i;
@@ -201,13 +211,16 @@ function DraggablePiece({
       });
 
       if (bestSlot !== -1) {
-        tx.value = withSpring(slotPositions[bestSlot].x, { damping: 18 });
-        ty.value = withSpring(slotPositions[bestSlot].y, { damping: 18 });
+        tx.value = withTiming(slotPositions[bestSlot].x, SNAP_TIMING);
+        ty.value = withTiming(slotPositions[bestSlot].y, SNAP_TIMING);
         runOnJS(onSnapped)(piece.id, bestSlot);
       } else {
-        tx.value = withSpring(initX, { damping: 18 });
-        ty.value = withSpring(initY, { damping: 18 });
+        tx.value = withTiming(initX, SNAP_TIMING);
+        ty.value = withTiming(initY, SNAP_TIMING);
       }
+    })
+    .onFinalize(() => {
+      runOnJS(onDragStateChange)(false);
     });
 
   const animStyle = useAnimatedStyle(() => ({
@@ -264,7 +277,8 @@ function DraggablePiece({
 
 // MAIN SCREEN
 export default function PhotoPuzzleGame() {
-  const { difficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
+  const { difficulty: routeDifficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
+  const [difficulty, setDifficulty] = useState<Difficulty>(routeDifficulty);
   const config = getGameContent<PhotoPuzzleConfig>('photo_puzzle', difficulty);
   const saveGameSession = useSaveGameSession();
   const { patientId, isLoadingSession } = useAssessment();
@@ -277,12 +291,9 @@ export default function PhotoPuzzleGame() {
   const [hasPersonalPuzzleImages, setHasPersonalPuzzleImages] = useState(false);
   const [snappedMap, setSnappedMap] = useState<Record<number, number | null>>({});
 
-  const [boardOrigin, setBoardOrigin] = useState({ x: 0, y: 0 });
-  const [trayOrigin, setTrayOrigin] = useState({ x: 0, y: 0 });
-  const [layoutReady, setLayoutReady] = useState(false);
-
-  const boardRef = useRef<View>(null);
-  const trayRef = useRef<View>(null);
+  const [boardOrigin, setBoardOrigin] = useState<{ x: number; y: number } | null>(null);
+  const [trayOrigin, setTrayOrigin] = useState<{ x: number; y: number } | null>(null);
+  const [isDraggingPiece, setIsDraggingPiece] = useState(false);
 
   const [timeLeft, setTimeLeft] = useState<number | null>(config.timeLimitSeconds);
   const [startTime, setStartTime] = useState(0);
@@ -358,49 +369,39 @@ export default function PhotoPuzzleGame() {
     };
   }, [isLoadingSession, patientId]);
 
-  // ── Build slot positions in screen space ──────────────────
-  const slotPositions = Array(pieceCount).fill(null).map((_, i) => ({
-    x: boardOrigin.x + (i % config.gridSize) * cellSize,
-    y: boardOrigin.y + Math.floor(i / config.gridSize) * cellSize,
-  }));
+  // ── Build slot positions in the shared content space ─────
+  const slotPositions = useMemo(
+    () => buildPuzzleSlotPositions(boardOrigin, pieceCount, config.gridSize, cellSize),
+    [boardOrigin, cellSize, config.gridSize, pieceCount],
+  );
 
-  // ── Build tray piece start positions in screen space ──────
-  const trayStartPositions = Array(pieceCount).fill(null).map((_, i) => {
-    const col = i % config.gridSize;
-    const row = Math.floor(i / config.gridSize);
-    return {
-      x: trayOrigin.x + TRAY_PADDING + col * (cellSize * TRAY_PIECE_SCALE + PIECE_GAP),
-      y: trayOrigin.y + TRAY_PADDING + 24 + row * (cellSize * TRAY_PIECE_SCALE + PIECE_GAP),
-    };
-  });
+  // ── Build tray piece starts in the shared content space ───
+  const trayStartPositions = useMemo(
+    () =>
+      buildPuzzleTrayPositions(
+        trayOrigin,
+        pieceCount,
+        config.gridSize,
+        cellSize,
+        TRAY_PIECE_SCALE,
+        TRAY_PADDING,
+        24,
+        PIECE_GAP,
+      ),
+    [cellSize, config.gridSize, pieceCount, trayOrigin],
+  );
 
-  const measurePuzzleLayout = useCallback(() => {
-    requestAnimationFrame(() => {
-      boardRef.current?.measureInWindow((x, y) => {
-        setBoardOrigin({ x, y });
-      });
-      trayRef.current?.measureInWindow((x, y) => {
-        setTrayOrigin({ x, y });
-      });
-    });
+  const handleBoardLayout = useCallback((event: LayoutChangeEvent) => {
+    const { x, y } = event.nativeEvent.layout;
+    setBoardOrigin({ x, y });
   }, []);
 
-  // ── Check all positions are ready ─────────────────────────
-  useEffect(() => {
-    if (
-      boardOrigin.x !== 0 &&
-      trayOrigin.x !== 0 &&
-      phase === 'playing'
-    ) {
-      setLayoutReady(true);
-    }
-  }, [boardOrigin, trayOrigin, phase]);
+  const handleTrayLayout = useCallback((event: LayoutChangeEvent) => {
+    const { x, y } = event.nativeEvent.layout;
+    setTrayOrigin({ x, y });
+  }, []);
 
-  useEffect(() => {
-    if (phase === 'playing') {
-      measurePuzzleLayout();
-    }
-  }, [phase, measurePuzzleLayout]);
+  const layoutReady = phase === 'playing' && boardOrigin !== null && trayOrigin !== null;
 
   // ── Finish ────────────────────────────────────────────────
   const finishGame = useCallback(() => {
@@ -489,10 +490,10 @@ export default function PhotoPuzzleGame() {
     setTimeLeft(config.timeLimitSeconds);
     setStartTime(startedAt);
     startTimeRef.current = startedAt;
-    setPuzzleImage(getRandomPuzzleImageFromPool(puzzleImagePool));
-    setLayoutReady(false);
-    setBoardOrigin({ x: 0, y: 0 });
-    setTrayOrigin({ x: 0, y: 0 });
+    setPuzzleImage(getRandomPuzzleImageFromPool(puzzleImagePool, puzzleImage?.id));
+    setBoardOrigin(null);
+    setTrayOrigin(null);
+    setIsDraggingPiece(false);
     setShowConfetti(false);
     setShowReferencePhoto(false);
     if (referencePhotoTimerRef.current) {
@@ -527,6 +528,7 @@ export default function PhotoPuzzleGame() {
   }, []);
 
   const handleReset = () => {
+    setDifficulty(progress?.difficulty ?? difficulty);
     setPhase('instruction');
     piecesRef.current = [];
     snappedMapRef.current = {};
@@ -535,7 +537,9 @@ export default function PhotoPuzzleGame() {
     setSnappedMap({});
     setResult(null);
     setProgress(null);
-    setLayoutReady(false);
+    setBoardOrigin(null);
+    setTrayOrigin(null);
+    setIsDraggingPiece(false);
     setShowConfetti(false);
     setShowReferencePhoto(false);
     celebratedRef.current = false;
@@ -561,6 +565,14 @@ export default function PhotoPuzzleGame() {
       setShowReferencePhoto(false);
       referencePhotoTimerRef.current = null;
     }, 5000);
+  };
+
+  const dismissReferencePhoto = () => {
+    if (referencePhotoTimerRef.current) {
+      clearTimeout(referencePhotoTimerRef.current);
+      referencePhotoTimerRef.current = null;
+    }
+    setShowReferencePhoto(false);
   };
 
   // RENDER
@@ -602,29 +614,34 @@ export default function PhotoPuzzleGame() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      {showConfetti && (
-        <ConfettiCannon
-          count={120}
-          origin={{ x: SCREEN_WIDTH / 2, y: 0 }}
-          fadeOut
-          fallSpeed={2600}
-        />
-      )}
-      <ScrollView
-        contentContainerStyle={{
-          flexGrow: 1,
-          backgroundColor: '#f9fafb',
-          paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) + 28 : 16,
-        }}
-        bounces={false}
-      >
-        <View style={{ paddingHorizontal: H_PADDING, flex: 1 }}>
-          <GameHeader
-            title="Photo Puzzle"
-            difficulty={difficulty}
-            timeLeft={timeLeft}
-            totalSeconds={config.timeLimitSeconds}
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#f9fafb' }} edges={['top', 'bottom']}>
+        {showConfetti && (
+          <ConfettiCannon
+            count={120}
+            origin={{ x: SCREEN_WIDTH / 2, y: 0 }}
+            fadeOut
+            fallSpeed={2600}
           />
+        )}
+
+        <GameHeader
+          title="Photo Puzzle"
+          difficulty={difficulty}
+          timeLeft={timeLeft}
+          totalSeconds={config.timeLimitSeconds}
+        />
+
+        <ScrollView
+          contentContainerStyle={{
+            flexGrow: 1,
+            backgroundColor: '#f9fafb',
+            paddingBottom: 16,
+          }}
+          bounces={false}
+          scrollEnabled={!isDraggingPiece}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={{ paddingHorizontal: H_PADDING, flex: 1, position: 'relative' }}>
 
           {/* Stats row */}
           <View style={{
@@ -665,8 +682,7 @@ export default function PhotoPuzzleGame() {
 
           {/* ── Board ──────────────────────────────────── */}
           <View
-            ref={boardRef}
-            onLayout={measurePuzzleLayout}
+            onLayout={handleBoardLayout}
             style={{
               width: PUZZLE_SIZE,
               height: PUZZLE_SIZE,
@@ -725,12 +741,11 @@ export default function PhotoPuzzleGame() {
 
           {/* ── Tray ───────────────────────────────────── */}
           <View
-            ref={trayRef}
-            onLayout={measurePuzzleLayout}
+            onLayout={handleTrayLayout}
             style={{
               width: PUZZLE_SIZE,
               alignSelf: 'center',
-              // Exact calculated height — no overflow, no clipping
+              // Exact calculated height - no overflow, no clipping
               height: TRAY_HEIGHT,
               backgroundColor: '#ffffff',
               borderRadius: 14,
@@ -753,7 +768,7 @@ export default function PhotoPuzzleGame() {
               Drag pieces onto the board ↑
             </Text>
 
-            {/* Tray slot outlines — visual placeholders */}
+            {/* Tray slot outlines - visual placeholders */}
             {Array(pieceCount).fill(null).map((_, i) => {
               const col = i % config.gridSize;
               const row = Math.floor(i / config.gridSize);
@@ -772,7 +787,7 @@ export default function PhotoPuzzleGame() {
             })}
           </View>
 
-          {/* Reshuffle — always visible below tray */}
+          {/* Reshuffle - always visible below tray */}
           <TouchableOpacity
             onPress={() => {
               setPieces(prev => shuffle([...prev]));
@@ -793,41 +808,40 @@ export default function PhotoPuzzleGame() {
             <Text style={{ color: '#9ca3af', fontSize: 13 }}>Reshuffle Tray</Text>
           </TouchableOpacity>
 
-        </View>
+          {layoutReady && puzzleImage && (
+            <View
+              pointerEvents="box-none"
+              style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100 }}
+            >
+              {pieces.map((piece, index) => {
+                const start = trayStartPositions[index] ?? { x: 0, y: 0 };
+                const snappedSlot = snappedMap[piece.id] ?? null;
+                const isCorrect =
+                  snappedSlot !== null && snappedSlot === piece.correctPosition;
 
+                return (
+                  <DraggablePiece
+                    key={piece.id}
+                    piece={piece}
+                    cellSize={cellSize}
+                    image={puzzleImage!}
+                    puzzleSize={PUZZLE_SIZE}
+                    initX={start.x}
+                    initY={start.y}
+                    slotPositions={slotPositions}
+                    onSnapped={handleSnapped}
+                    onUnsnapped={handleUnsnapped}
+                    onDragStateChange={setIsDraggingPiece}
+                    snappedSlot={snappedSlot}
+                    isCorrect={isCorrect}
+                    scale={snappedSlot === null ? TRAY_PIECE_SCALE : 1}
+                  />
+                );
+              })}
+            </View>
+          )}
+        </View>
       </ScrollView>
-
-      {layoutReady && puzzleImage && (
-        <View
-          pointerEvents="box-none"
-          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-        >
-          {pieces.map((piece, index) => {
-            const start = trayStartPositions[index] ?? { x: 0, y: 0 };
-            const snappedSlot = snappedMap[piece.id] ?? null;
-            const isCorrect =
-              snappedSlot !== null && snappedSlot === piece.correctPosition;
-
-            return (
-              <DraggablePiece
-                key={piece.id}
-                piece={piece}
-                cellSize={cellSize}
-                image={puzzleImage!}
-                puzzleSize={PUZZLE_SIZE}
-                initX={start.x}
-                initY={start.y}
-                slotPositions={slotPositions}
-                onSnapped={handleSnapped}
-                onUnsnapped={handleUnsnapped}
-                snappedSlot={snappedSlot}
-                isCorrect={isCorrect}
-                scale={snappedSlot === null ? TRAY_PIECE_SCALE : 1}
-              />
-            );
-          })}
-        </View>
-      )}
 
       {canShowReferencePhoto && puzzleImage && (
         <TouchableOpacity
@@ -869,7 +883,11 @@ export default function PhotoPuzzleGame() {
       )}
 
       {showReferencePhoto && puzzleImage && (
-        <View
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={dismissReferencePhoto}
+          accessibilityRole="button"
+          accessibilityLabel="Close full photo preview"
           style={{
             position: 'absolute',
             top: 0,
@@ -916,11 +934,12 @@ export default function PhotoPuzzleGame() {
                 textAlign: 'center',
               }}
             >
-              Full photo preview
+              Tap anywhere to close
             </Text>
           </View>
-        </View>
+        </TouchableOpacity>
       )}
+      </SafeAreaView>
     </GestureHandlerRootView>
   );
 }

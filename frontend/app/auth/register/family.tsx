@@ -1,9 +1,10 @@
-import { registerUser } from '@/src/api/authApi';
+import { registerUser, storage } from '@/src/api/authApi';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   ScrollView,
   Text,
   TextInput,
@@ -20,30 +21,51 @@ export default function FamilyRegister() {
   const [loading, setLoading] = useState(false);
 
 const handleRegister = async () => {
+  console.log('family.tsx: Starting handleRegister...');
+  console.log('family.tsx: State =', { fullName, email, passwordLength: password.length, confirmLength: confirmPassword.length });
+  
   if (!fullName || !email || !password || !confirmPassword) {
+    console.log('family.tsx: Validation FAILED - Missing fields');
     Alert.alert('Error', 'Please fill all fields'); return;
   }
   if (password !== confirmPassword) {
+    console.log('family.tsx: Validation FAILED - Passwords do not match');
     Alert.alert('Error', 'Passwords do not match'); return;
   }
   if (password.length < 6) {
+    console.log('family.tsx: Validation FAILED - Password too short');
     Alert.alert('Error', 'Password must be at least 6 characters'); return;
   }
 
+  console.log('family.tsx: All validations passed. Setting loading = true...');
   setLoading(true);
   try {
+    console.log('family.tsx: calling registerUser API...');
     const result = await registerUser(fullName, email, password, 'family');
+    console.log('family.tsx: registration result:', JSON.stringify(result));
+    
     if (result.success) {
-      // ✅ Show success then auto redirect
-      Alert.alert('Success ✅', 'Registration successful! Redirecting to login...');
-      setTimeout(() => {
-        router.replace('/auth/login');
-      }, 1500);
+      console.log('family.tsx: Success! Saving tokens...');
+      // ✅ Success - Save auth data
+      const { accessToken, refreshToken, user } = result.data;
+      
+      await storage.setItem('accessToken', accessToken);
+      await storage.setItem('refreshToken', refreshToken);
+      await storage.setItem('userRole', user.role);
+      await storage.setItem('userData', JSON.stringify(user));
+
+      console.log('family.tsx: Data saved. Navigating to /family...');
+      if (Platform.OS === 'web') {
+        window.location.href = '/family';
+      } else {
+        router.replace('/family');
+      }
     } else {
-      // ✅ Only shows error - no redirect
-      Alert.alert('Registration Failed', result.message);
+      console.log('family.tsx: Registration failed:', result.message);
+      Alert.alert('Registration Failed', result.message || 'Could not complete registration.');
     }
-  } catch {
+  } catch (error) {
+    console.error('Registration error:', error);
     Alert.alert('Error', 'Cannot connect to server.');
   } finally {
     setLoading(false);

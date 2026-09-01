@@ -47,7 +47,7 @@ export function DrawingRenderer({ question, onAnswer }: Props) {
         ...prev,
         {
           path: currentPath,
-          color: '#1e293b',   // dark slate — clear on white canvas
+          color: '#1e293b',   // dark slate - clear on white canvas
           strokeWidth: 2.5,
         },
       ]);
@@ -76,7 +76,7 @@ export function DrawingRenderer({ question, onAnswer }: Props) {
   return (
     <View className="px-6 gap-5">
 
-      {/* Reference image — the two overlapping pentagons */}
+      {/* Reference image - the two overlapping pentagons */}
       <View className="items-center">
         <Text className="text-xs text-gray-400 mb-2 uppercase tracking-wide">
           Hint - Copy this drawing
@@ -84,7 +84,7 @@ export function DrawingRenderer({ question, onAnswer }: Props) {
         <View className="border border-gray-200 rounded-2xl bg-white p-4">
           {/* 
             Use the pentagon SVG from your assets.
-            This must match the exact MMSE pentagon diagram —
+            This must match the exact MMSE pentagon diagram -
             two overlapping convex pentagons where the
             intersection creates a four-sided figure.
           */}
@@ -161,11 +161,11 @@ export function DrawingRenderer({ question, onAnswer }: Props) {
         MMSE scoring for this question requires human judgement.
         The Caregiver looks at what the patient drew and decides:
         
-        PASS (1 point) — both shapes are convex pentagons (5 sides each)
+        PASS (1 point) - both shapes are convex pentagons (5 sides each)
                           AND they overlap
                           AND the overlap region is a 4-sided figure
         
-        FAIL (0 points) — any of the above conditions are not met,
+        FAIL (0 points) - any of the above conditions are not met,
                            or the patient refused / was unable to draw
       */}
       {hasDrawn && (
@@ -175,7 +175,7 @@ export function DrawingRenderer({ question, onAnswer }: Props) {
             Caregiver: does the drawing meet all three criteria?
           </Text>
 
-          {/* Scoring criteria checklist — for Caregiver reference */}
+          {/* Scoring criteria checklist - for Caregiver reference */}
           <View className="bg-gray-50 rounded-xl p-3 gap-1.5">
             <Text className="text-xs text-gray-500">✓ Both figures have five sides</Text>
             <Text className="text-xs text-gray-500">✓ Both figures are convex</Text>
@@ -195,7 +195,7 @@ export function DrawingRenderer({ question, onAnswer }: Props) {
               <Text className={`font-semibold ${
                 CaregiverMarked === false ? 'text-white' : 'text-gray-500'
               }`}>
-                Incorrect — 0 pts
+                Incorrect - 0 pts
               </Text>
             </TouchableOpacity>
 
@@ -210,7 +210,7 @@ export function DrawingRenderer({ question, onAnswer }: Props) {
               <Text className={`font-semibold ${
                 CaregiverMarked === true ? 'text-white' : 'text-gray-500'
               }`}>
-                Correct — 1 pt
+                Correct - 1 pt
               </Text>
             </TouchableOpacity>
           </View>

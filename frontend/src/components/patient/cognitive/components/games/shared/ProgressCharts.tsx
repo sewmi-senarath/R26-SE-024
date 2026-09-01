@@ -22,6 +22,8 @@ interface TrendBarChartProps {
   passThreshold?: number;
 }
 
+const TREND_LABEL_SPACE = 20;
+
 function TrendBar({
   point,
   index,
@@ -40,14 +42,14 @@ function TrendBar({
       index * 70,
       withTiming(1, { duration: 500, easing: Easing.out(Easing.cubic) }),
     );
-  }, [index, point.percent]);
+  }, [grow, index, point.percent]);
 
   const style = useAnimatedStyle(() => ({
     height: `${Math.max(4, point.percent) * grow.value}%`,
   }));
 
   return (
-    <View style={{ flex: 1, alignItems: 'center', height, justifyContent: 'flex-end' }}>
+    <View style={{ flex: 1, alignItems: 'center', height: height + TREND_LABEL_SPACE }}>
       <View
         style={{
           width: '70%',
@@ -90,7 +92,7 @@ export function TrendBarChart({
   if (data.length === 0) return null;
 
   return (
-    <View style={{ flexDirection: 'row', gap: 8, height: height + 20 }}>
+    <View style={{ flexDirection: 'row', gap: 8, height: height + TREND_LABEL_SPACE }}>
       {data.map((point, i) => (
         <TrendBar
           key={`${point.label}-${i}`}

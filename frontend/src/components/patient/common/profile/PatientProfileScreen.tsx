@@ -13,27 +13,35 @@ import {
 import { usePatientProfile } from "../../../../hooks/usePatientProfile";
 import { useSettings } from "../../../../hooks/useSettings";
 import { PatientReportView } from "../../cognitive/components/report/PatientReportView";
-import { CurrentLevelSection } from "./sections/CurrentLevelSection";
 import { GameReviewsSection } from "./sections/GameReviewsSection";
 import { PatientDetailsSection } from "./sections/PatientDetailsSection";
 import { PatientHero } from "./sections/PatientHero";
-import { ScreeningSection } from "./sections/ScreeningSection";
 import { SettingsSection } from "./sections/SettingsSection";
-import { StatisticsSection } from "./sections/StatisticsSection";
+import { SeverityCheckSection } from "./sections/SeverityCheckSection";
 
 type ProfileTab = "overview" | "reporting";
 
-export default function PatientProfileScreen() {
-  const {
-    user,
-    latestSession,
-    loadingScreening,
-    patientLevel,
-    screeningRows,
-    appStats,
-    gameReviews,
-  } = usePatientProfile();
-  const { settings, toggleSetting } = useSettings();
+interface PatientProfileScreenProps {
+  // When provided (a caregiver viewing a linked patient), loads that
+  // patient's data instead of the logged-in user's own. Omit for the
+  // patient's own self-view (frontend/app/patient/(tabs)/profile/index.tsx).
+  patientId?: string;
+  patientName?: string;
+  // Hides controls that only make sense on the account's own device
+  // (Logout, Update details, personal app Settings).
+  isCaregiverView?: boolean;
+}
+
+export default function PatientProfileScreen({
+  patientId,
+  patientName,
+  isCaregiverView = false,
+}: PatientProfileScreenProps) {
+  const { user, gameReviews, latestSession } = usePatientProfile(
+    patientId,
+    patientName ? { fullName: patientName } : undefined,
+  );
+  const { soundEnabled, toggleSound } = useSettings();
   const [tab, setTab] = useState<ProfileTab>("overview");
 
   return (
@@ -62,21 +70,21 @@ export default function PatientProfileScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          <PatientHero user={user} />
-          <PatientDetailsSection user={user} />
-          <ScreeningSection
+          <PatientHero user={user} readOnly={isCaregiverView} />
+          <PatientDetailsSection user={user} readOnly={isCaregiverView} />
+          <SeverityCheckSection
+            patientId={user.id ?? ""}
             latestSession={latestSession}
-            loadingScreening={loadingScreening}
-            screeningRows={screeningRows}
+            showTakeAssessmentCta={!isCaregiverView}
           />
-          <CurrentLevelSection patientLevel={patientLevel} />
-          <StatisticsSection stats={appStats} />
           <GameReviewsSection reviews={gameReviews} />
-          <SettingsSection settings={settings} onToggleSetting={toggleSetting} />
+          {!isCaregiverView && (
+            <SettingsSection soundEnabled={soundEnabled} onToggleSound={toggleSound} />
+          )}
         </ScrollView>
       ) : (
         <View style={{ flex: 1, paddingHorizontal: 20 }}>
-          <PatientReportView />
+          <PatientReportView patientId={patientId} patientName={patientName} />
         </View>
       )}
     </SafeAreaView>

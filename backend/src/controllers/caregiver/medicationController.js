@@ -44,7 +44,7 @@ const getMedications = async (req, res) => {
         await createNotification({
           caregiverId,
           patientName: med.patientName,
-          message: `Missed ${med.name} (${med.dose}) — was due at ${med.time}.`,
+          message: `Missed ${med.name} (${med.dose}) - was due at ${med.time}.`,
           severity: 'warning',
           source: 'medication',
         });

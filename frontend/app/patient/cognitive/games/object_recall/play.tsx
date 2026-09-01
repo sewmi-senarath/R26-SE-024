@@ -27,18 +27,18 @@ import Animated, { FadeInDown, FadeInUp, ZoomIn } from 'react-native-reanimated'
 type Phase = 'instruction' | 'study' | 'recall' | 'result';
 
 export default function ObjectRecallGame() {
-  const { difficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
+  const { difficulty: routeDifficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
   const { playSound } = useSoundEffects();
   const saveGameSession = useSaveGameSession();
   const { patientId } = useAssessment();
-  const { config: liveConfig, loading } = usePersonalizedGameContent<ObjectRecallConfig>(
+  const { config: liveConfig, loading, refresh: refreshContent, difficulty } = usePersonalizedGameContent<ObjectRecallConfig>(
     'object_recall',
-    difficulty,
+    routeDifficulty,
     patientId,
   );
 
   // Freeze the content for the duration of a round. Without this, a late
-  // personalized response would swap the objects mid-game — which looked like
+  // personalized response would swap the objects mid-game - which looked like
   // the items "reloading" a second or two after they first appeared.
   const [frozenConfig, setFrozenConfig] = useState<ObjectRecallConfig | null>(null);
   const config = frozenConfig ?? liveConfig;
@@ -85,9 +85,25 @@ export default function ObjectRecallGame() {
   }, [phase, timer.isWarning]);
 
   const finishGame = useCallback(() => {
-    const correct = inputs.filter((input, i) =>
-      input.trim().toLowerCase() === config.objects[i]?.label.toLowerCase()
-    ).length;
+    // Free recall: the patient types objects in any order, so match each answer
+    // against the set of remembered objects rather than by field position. Each
+    // target can only be credited once, so repeating an answer doesn't inflate
+    // the score.
+    const remaining = new Map<string, number>();
+    config.objects.forEach((obj) => {
+      const key = obj.label.trim().toLowerCase();
+      remaining.set(key, (remaining.get(key) ?? 0) + 1);
+    });
+    let correct = 0;
+    inputs.forEach((input) => {
+      const key = input.trim().toLowerCase();
+      if (!key) return;
+      const left = remaining.get(key);
+      if (left && left > 0) {
+        remaining.set(key, left - 1);
+        correct += 1;
+      }
+    });
     const nextResult: GameSessionResult = {
       gameId: 'object_recall',
       difficulty,
@@ -119,6 +135,7 @@ export default function ObjectRecallGame() {
 
   const handleReset = () => {
     playSound('click');
+    refreshContent(progress?.difficulty);
     setFrozenConfig(null);
     setPhase('instruction');
     setInputs(Array(config.objectCount).fill(''));
@@ -140,6 +157,7 @@ export default function ObjectRecallGame() {
         onStart={() => {
           playSound('click');
           setFrozenConfig(liveConfig);
+          setInputs(Array(liveConfig.objectCount).fill(''));
           setPhase('study');
           setStartTime(Date.now());
           Speech.speak(`Study ${config.objectCount} objects carefully. They will disappear soon.`);
@@ -192,7 +210,7 @@ export default function ObjectRecallGame() {
             {config.objects.map((obj, index) => (
               <Animated.View
                 key={obj.id}
-                entering={ZoomIn.delay(index * 100).duration(400).springify().damping(12)}
+                entering={ZoomIn.delay(index * 100).duration(400)}
                 style={{
                   width: 126,
                   height: 132,

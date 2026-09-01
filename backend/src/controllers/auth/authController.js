@@ -363,6 +363,68 @@ const getMe = async (req, res) => {
   }
 };
 
+// ── UPDATE ME (patient edits their own registration details) ────────────────
+// Scalar fields the owner may edit. Email, password and role are intentionally
+// excluded — those are account/credential changes, not profile details.
+const EDITABLE_SCALAR_FIELDS = [
+  'fullName',
+  'age',
+  'gender',
+  'preferredLanguage',
+  'hometown',
+  'favoritePlacesText',
+  'preferredSportsText',
+];
+
+// Structured / array fields, parsed exactly like registration.
+const EDITABLE_ARRAY_PARSERS = {
+  familyMembers: (v) => parseJsonArrayField(v, 'familyMembers'),
+  lifeEvents: (v) => parseJsonArrayField(v, 'lifeEvents'),
+  countriesLived: (v) => parseStringArrayField(v, 'countriesLived'),
+  occupations: (v) => parseStringArrayField(v, 'occupations'),
+  favoritePhotos: (v) => parseStringArrayField(v, 'favoritePhotos'),
+  favoritePlaces: (v) => parseStringArrayField(v, 'favoritePlaces'),
+  festivalsCelebrated: (v) => parseStringArrayField(v, 'festivalsCelebrated'),
+  foodsPreferred: (v) => parseJsonArrayField(v, 'foodsPreferred'),
+  preferredSports: (v) => parseStringArrayField(v, 'preferredSports'),
+  languagesPreferred: (v) => parseStringArrayField(v, 'languagesPreferred'),
+};
+
+const updateMe = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found.' });
+    }
+
+    // Only apply fields that were actually sent, so a partial update never
+    // wipes data the client didn't touch.
+    for (const field of EDITABLE_SCALAR_FIELDS) {
+      if (req.body[field] !== undefined) {
+        user[field] = req.body[field];
+      }
+    }
+
+    for (const [field, parse] of Object.entries(EDITABLE_ARRAY_PARSERS)) {
+      if (req.body[field] !== undefined) {
+        user[field] = parse(req.body[field]);
+      }
+    }
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Profile updated successfully.',
+    });
+  } catch (error) {
+    const status = error.statusCode || 500;
+    res
+      .status(status)
+      .json({ success: false, message: error.message || 'Server error.' });
+  }
+};
+
 const toPhotoPayload = (user) => ({
   familyMembers: user?.familyMembers || [],
   favoritePhotos: user?.favoritePhotos || [],
@@ -432,7 +494,7 @@ const getPatientPhotos = async (req, res) => {
   }
 };
 
-module.exports = { register, login, refresh, logout, getMe, getMePhotos, getPatientPhotos };
+module.exports = { register, login, refresh, logout, getMe, updateMe, getMePhotos, getPatientPhotos };
 
 
 

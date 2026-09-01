@@ -20,7 +20,11 @@ const cognitivePatientRoutes = require("./src/routes/cognitive/patientRoutes");
 const recommendationRoutes = require('./src/routes/caregiver/recommendationRoutes');
 const { notFoundHandler, errorHandler } = require("./src/middleware/errorHandler");
 const notificationRoutes = require("./src/routes/caregiver/Notificationroutes");
+const reportRoutes = require("./src/routes/caregiver/Reportroutes");
 
+
+const memoryRoutes = require("./src/routes/family/memoryRoutes");
+const familyProfileRoutes = require("./src/routes/family/profileRoutes");
 
 // Routes from HEAD
 const lifeLoggingRoutes = require('./src/routes/life-logging-memory-vault');
@@ -73,6 +77,7 @@ app.use("/api/caregiver/insights", insightRoutes);
 app.use("/api/caregiver/medications", medicationRoutes);
 app.use('/api/caregiver/recommendations', recommendationRoutes);
 app.use("/api/caregiver/notifications", notificationRoutes);
+app.use("/api/caregiver/reports", reportRoutes);
 // Cognitive Assessment routes
 app.use("/api/cognitive", cognitiveRoutes);
 
@@ -83,6 +88,10 @@ app.use("/api/admin/behavior", behaviorRoutes);
 app.use("/api/admin/personal-objects", personalObjectRoutes);
 app.use("/api/patients", cognitivePatientRoutes);
 app.use("/api", protectedRoutes);
+
+// Family Memory Story routes
+app.use("/api/family/memories", memoryRoutes);
+app.use("/api/family/profile", familyProfileRoutes);
 
 // Health check
 app.get("/health", (req, res) => {

@@ -43,12 +43,19 @@ export default function FamilyLayout() {
     const checkRole = async () => {
       try {
         const role = await getStoredRole();
-        if (!role) { router.replace('/auth/login'); return; }
+        console.log('FamilyLayout: role retrieved =', JSON.stringify(role));
+        if (!role) { 
+          console.log('FamilyLayout: role is NULL, redirecting to /auth/login');
+          router.replace('/auth/login'); 
+          return; 
+        }
         if (role !== 'family') {
+          console.log('FamilyLayout: wrong role encountered:', role);
           if (role === 'patient') router.replace('/patient/activity-selector');
           else if (role === 'caregiver') router.replace('/caregiver');
           return;
         }
+        console.log('FamilyLayout: role is "family", continuing...');
       } catch (error) {
         router.replace('/auth/login');
       } finally {

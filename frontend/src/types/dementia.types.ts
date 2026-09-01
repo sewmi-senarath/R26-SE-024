@@ -1,138 +1,81 @@
-// Types for the two ML models served by backend/ml/dementia/app.py:
-//  1) severity classifier   -> /api/cognitive/dementia/predict/:patientId
-//  2) behavioral screener   -> /api/cognitive/dementia/screen/:patientId
+// Types for the dementia triage model served by backend/ml/dementia/app.py:
+//  2-class triage -> /api/cognitive/dementia/predict/:patientId
+//  questionnaire  -> /api/cognitive/dementia/faq/:patientId
 
-export type SeverityLevel = 'none' | 'mild' | 'moderate' | 'severe';
+export type TriageLevel = 'monitor' | 'escalate';
 
-export interface SeverityPrediction {
-  severity: SeverityLevel;
+export interface TriagePrediction {
+  triage: TriageLevel;
   confidence: number; // 0-1
-  probabilities: Record<SeverityLevel, number>;
-  ruleBasedSeverity: SeverityLevel;
-  agreesWithRule: boolean;
+  probabilities: Record<TriageLevel, number>;
   message: string;
   basedOnAssessment: string;
-  submittedAt: string;
-}
-
-export type RiskLevel = 'low' | 'moderate' | 'high';
-
-// Behavioral checklist - things a caregiver/family member can observe
-// without the patient taking any cognitive test.
-export interface RiskChecklist {
-  memoryComplaints: boolean;
-  behavioralProblems: boolean;
-  confusion: boolean;
-  disorientation: boolean;
-  personalityChanges: boolean;
-  difficultyCompletingTasks: boolean;
-  forgetfulness: boolean;
-
-  age?: number;
-  gender?: 'M' | 'F' | '';
-  educationLevel?: number; // 0=None,1=High School,2=Bachelor's,3=Higher
-  smoking?: boolean;
-  familyHistoryAlzheimers?: boolean;
-  cardiovascularDisease?: boolean;
-  diabetes?: boolean;
-  depression?: boolean;
-  headInjury?: boolean;
-  hypertension?: boolean;
-}
-
-export const DEFAULT_RISK_CHECKLIST: RiskChecklist = {
-  memoryComplaints: false,
-  behavioralProblems: false,
-  confusion: false,
-  disorientation: false,
-  personalityChanges: false,
-  difficultyCompletingTasks: false,
-  forgetfulness: false,
-  age: undefined,
-  gender: '',
-  educationLevel: 1,
-  smoking: false,
-  familyHistoryAlzheimers: false,
-  cardiovascularDisease: false,
-  diabetes: false,
-  depression: false,
-  headInjury: false,
-  hypertension: false,
-};
-
-export interface RiskResult {
-  riskProbability: number; // 0-1
-  riskLevel: RiskLevel;
-  message: string;
-  topFactors: string[];
+  basedOnFaq: string;
   submittedAt: string;
 }
 
 // ── History items (persisted rows, for the Reporting tab) ──────────────────
-export interface SeverityHistoryItem {
+export interface TriageHistoryItem {
   _id: string;
   patientId: string;
   basedOnAssessment: string | null;
-  severity: SeverityLevel;
+  basedOnFaq: string | null;
+  triage: TriageLevel;
   confidence: number;
-  probabilities: Record<SeverityLevel, number>;
-  ruleBasedSeverity: SeverityLevel;
-  agreesWithRule: boolean;
+  probabilities: Record<TriageLevel, number>;
   message: string;
   createdAt: string;
 }
 
-export interface RiskHistoryItem {
+// ── Functional Activities Questionnaire (FAQ) ─────────────────────────────
+// 10 items, each 0 (normal) .. 3 (someone else does it for them now).
+export const FAQ_ITEMS = [
+  'bills',
+  'taxes',
+  'shopping',
+  'games',
+  'stove',
+  'mealPrep',
+  'events',
+  'payAttention',
+  'remindDates',
+  'travel',
+] as const;
+
+export type FaqItem = (typeof FAQ_ITEMS)[number];
+export type FaqAnswers = Record<FaqItem, number>;
+
+export interface FunctionalAssessment extends FaqAnswers {
   _id: string;
   patientId: string;
-  checklist: Record<string, boolean>;
-  riskProbability: number;
-  riskLevel: RiskLevel;
-  topFactors: string[];
-  message: string;
+  basedOnAssessment: string | null;
+  total: number;
   createdAt: string;
 }
 
-export const EDUCATION_LEVELS = [
-  { value: 0, label: 'None' },
-  { value: 1, label: 'High School' },
-  { value: 2, label: "Bachelor's" },
-  { value: 3, label: 'Higher' },
+export interface FaqQuestion {
+  key: FaqItem;
+  prompt: string; // plain-English, older-adult friendly
+  checks: string; // one-line "what this measures", for the caregiver
+}
+
+// Wording drafted for older adults - keeps the ability each NACC item measures.
+export const FAQ_QUESTIONS: FaqQuestion[] = [
+  { key: 'bills',        prompt: 'Managing money — paying bills on time, handling cash or a bank card, checking the change or a receipt is right', checks: 'Number sense, following steps' },
+  { key: 'taxes',        prompt: 'Dealing with paperwork and official matters — forms, letters from the bank, insurance or government, keeping documents in order', checks: 'Handling complex, multi-step tasks' },
+  { key: 'shopping',     prompt: 'Going to the shops alone — buying groceries or household things and paying for them', checks: 'Independent errands, memory, money' },
+  { key: 'games',        prompt: 'Doing a hobby that needs focus — cards, board games, puzzles, gardening, knitting, an instrument', checks: 'Sustained attention, skill' },
+  { key: 'stove',        prompt: 'Making a hot drink or snack safely — boiling the kettle or using the stove, and remembering to turn it off', checks: 'Simple routine task, safety' },
+  { key: 'mealPrep',     prompt: 'Cooking a full meal — deciding what to make, getting everything together, having it ready at the right time', checks: 'Planning and sequencing' },
+  { key: 'events',       prompt: "Keeping up with what's going on — news, family updates, local happenings — and remembering it later", checks: 'Taking in and holding new information' },
+  { key: 'payAttention', prompt: 'Following a TV show, film, or a conversation, and being able to talk about it afterwards', checks: 'Attention, understanding, recall' },
+  { key: 'remindDates',  prompt: 'Remembering appointments, medications, birthdays and family occasions without being reminded', checks: 'Prospective memory' },
+  { key: 'travel',       prompt: 'Getting around outside the home alone — driving, walking to familiar places, or taking a bus or taxi — without getting lost', checks: 'Navigation, planning, independence' },
 ];
 
-export const BEHAVIORAL_QUESTIONS: {
-  key: keyof Pick<
-    RiskChecklist,
-    | 'memoryComplaints'
-    | 'behavioralProblems'
-    | 'confusion'
-    | 'disorientation'
-    | 'personalityChanges'
-    | 'difficultyCompletingTasks'
-    | 'forgetfulness'
-  >;
-  question: string;
-}[] = [
-  { key: 'memoryComplaints', question: 'Do they repeat questions or forget recent conversations?' },
-  { key: 'forgetfulness', question: 'General forgetfulness beyond normal aging?' },
-  { key: 'confusion', question: 'Do they seem confused about time or surroundings?' },
-  { key: 'disorientation', question: 'Do they get lost or disoriented in familiar places?' },
-  { key: 'difficultyCompletingTasks', question: 'Trouble finishing everyday tasks (cooking, bills, etc.)?' },
-  { key: 'personalityChanges', question: 'Noticeable changes in mood or personality?' },
-  { key: 'behavioralProblems', question: 'Any other unusual or concerning behavior recently?' },
-];
-
-export const MEDICAL_HISTORY_QUESTIONS: {
-  key: keyof Pick<
-    RiskChecklist,
-    'familyHistoryAlzheimers' | 'cardiovascularDisease' | 'diabetes' | 'depression' | 'headInjury' | 'hypertension'
-  >;
-  label: string;
-}[] = [
-  { key: 'familyHistoryAlzheimers', label: "Family history of Alzheimer's" },
-  { key: 'cardiovascularDisease', label: 'Cardiovascular disease' },
-  { key: 'diabetes', label: 'Diabetes' },
-  { key: 'depression', label: 'Depression' },
-  { key: 'headInjury', label: 'History of head injury' },
-  { key: 'hypertension', label: 'Hypertension' },
+export const FAQ_CHOICES: { value: number; label: string }[] = [
+  { value: 0, label: 'Normal — or never did this, but could if needed' },
+  { value: 1, label: "Does it alone, but it's harder than before" },
+  { value: 2, label: 'Needs some help' },
+  { value: 3, label: 'Someone else does it for them now' },
 ];

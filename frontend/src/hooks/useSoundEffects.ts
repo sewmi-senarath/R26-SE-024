@@ -1,6 +1,7 @@
 import { Audio } from "expo-av";
 import * as Haptics from "expo-haptics";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
+import { getSoundEffectsEnabled } from "../utils/soundEffectsPreference";
 
 type SoundType = "back" | "success" | "error" | "click";
 
@@ -21,7 +22,7 @@ async function fireHaptic(type: SoundType) {
         break;
     }
   } catch {
-    // haptics unavailable (e.g. web) — ignore
+    // haptics unavailable (e.g. web) - ignore
   }
 }
 
@@ -34,17 +35,25 @@ export const useSoundEffects = () => {
   });
 
   useEffect(() => {
+    const sounds = soundsRef.current;
+
     Audio.setAudioModeAsync({
       playsInSilentModeIOS: true,
       staysActiveInBackground: false,
     });
 
     return () => {
-      Object.values(soundsRef.current).forEach((sound) => sound?.unloadAsync());
+      Object.values(sounds).forEach((sound) => sound?.unloadAsync());
     };
   }, []);
 
-  const playSound = async (type: SoundType) => {
+  // Stable identity so callers can safely list `playSound` in effect/callback
+  // deps without causing re-render loops (it only ever touches refs).
+  const playSound = useCallback(async (type: SoundType) => {
+    if (!(await getSoundEffectsEnabled())) {
+      return;
+    }
+
     void fireHaptic(type);
 
     try {
@@ -64,7 +73,7 @@ export const useSoundEffects = () => {
     } catch (error) {
       console.log("Sound playback error:", error);
     }
-  };
+  }, []);
 
   return { playSound };
 };

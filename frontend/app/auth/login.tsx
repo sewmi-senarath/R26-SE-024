@@ -1,10 +1,11 @@
-import { loginUser } from '@/src/api/authApi';
+import { loginUser, storage } from '@/src/api/authApi';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Image,
+  Platform,
   ScrollView,
   Text,
   TextInput,
@@ -19,47 +20,54 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-const handleLogin = async () => {
-  if (!email || !password) {
-    Alert.alert('Error', 'Please enter email and password');
-    return;
-  }
-  setLoading(true);
-  try {
-    const result = await loginUser(email, password);
-    if (result.success) {
-      const role = result.data.user.role;
-
-      // ── Save caregiverId for web + mobile ──────────────────────────────
-      const userId = result.data.user._id || result.data.user.id;
-      const token  = result.data.token;
-
-      // Web (browser)
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('caregiverId', userId);
-        localStorage.setItem('token', token);
-      }
-
-      // Mobile (AsyncStorage)
-      try {
-        const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-        await AsyncStorage.setItem('caregiverId', userId);
-        await AsyncStorage.setItem('token', token);
-      } catch {}
-      // ──────────────────────────────────────────────────────────────────
-
-      if (role === 'patient') router.replace('/patient/activity-selector');
-      else if (role === 'caregiver') router.replace('/caregiver');
-      else if (role === 'family') router.replace('/family');
-    } else {
-      Alert.alert('Login Failed', result.message);
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert('Error', 'Please enter email and password');
+      return;
     }
-  } catch {
-    Alert.alert('Error', 'Cannot connect to server.');
-  } finally {
-    setLoading(false);
-  }
-};
+    setLoading(true);
+    try {
+      const result = await loginUser(email, password);
+      if (result.success) {
+        const role = result.data.user.role;
+
+        // Tokens, user data and caregiverId are already persisted by
+        // loginUser() in authApi. Nothing else to store here.
+
+        // Drop every pre-login screen from the stack so a swipe-back / hardware
+        // back from the dashboard can't return to the login/landing screens.
+        const goHome = (path: string) => {
+          if (Platform.OS === 'web') {
+            window.location.href = path;
+            return;
+          }
+          try {
+            if (router.canDismiss()) router.dismissAll();
+          } catch {
+            // no dismissable screens - replace() below is enough
+          }
+          router.replace(path as never);
+        };
+
+        if (role === 'patient') {
+          // One-shot flag: the landing screen shows the screening-test prompt
+          // once per login, then clears this.
+          await storage.setItem('pendingScreeningPrompt', '1');
+          goHome('/patient/activity-selector');
+        } else if (role === 'caregiver') {
+          goHome('/caregiver');
+        } else if (role === 'family') {
+          goHome('/family');
+        }
+      } else {
+        Alert.alert('Login Failed', result.message);
+      }
+    } catch {
+      Alert.alert('Error', 'Cannot connect to server.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <ScrollView

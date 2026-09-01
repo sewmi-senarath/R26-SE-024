@@ -107,26 +107,26 @@ const Blob: React.FC<{
   );
 };
 
-//  StatChip: small translucent pill for the hero's quick stats row 
-const StatChip: React.FC<{ icon: string; label: string; value: string; delay?: number }> = ({
-  icon, label, value, delay = 0,
+//  StatChip: small solid-white pill for the hero's quick stats row, tinted by the stress color 
+const StatChip: React.FC<{ icon: string; label: string; value: string; color: string; delay?: number }> = ({
+  icon, label, value, color, delay = 0,
 }) => (
   <Animated.View
     entering={FadeInUp.delay(delay).springify().damping(14)}
     style={{
       flex: 1,
-      backgroundColor: 'rgba(255,255,255,0.22)',
+      backgroundColor: Colors.white,
       borderRadius: 16,
       paddingVertical: 10,
       alignItems: 'center',
       gap: 2,
       borderWidth: 1,
-      borderColor: 'rgba(255,255,255,0.3)',
+      borderColor: color + '25',
     }}
   >
-    <Ionicons name={icon as any} size={15} color={Colors.white} />
-    <Text style={{ fontSize: 13, fontWeight: '800', color: Colors.white }}>{value}</Text>
-    <Text style={{ fontSize: 9, fontWeight: '600', color: 'rgba(255,255,255,0.85)' }}>{label}</Text>
+    <Ionicons name={icon as any} size={15} color={color} />
+    <Text style={{ fontSize: 13, fontWeight: '800', color: Colors.textPrimary }}>{value}</Text>
+    <Text style={{ fontSize: 9, fontWeight: '600', color: Colors.textMuted }}>{label}</Text>
   </Animated.View>
 );
 
@@ -489,13 +489,13 @@ const StoryModal: React.FC<{
           <Ionicons name="close" size={18} color={Colors.white} />
         </TouchableOpacity>
 
-        {/* Tap zones — left = back, right = forward */}
+        {/* Tap zones - left = back, right = forward */}
         <View style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, flexDirection: 'row' }}>
           <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={goPrev} />
           <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={goNext} />
         </View>
 
-        {/* Slide content — icon appears first, then a glass card holding the label and text (staggered) */}
+        {/* Slide content - icon appears first, then a glass card holding the label and text (staggered) */}
         <View
           key={index}
           style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28 }}
@@ -576,7 +576,7 @@ const RecCard: React.FC<{
   onFeedback: (id: string, feedback: 'helpful' | 'not_helpful') => void;
   feedbackGiven: Record<string, string>;
 }> = ({ rec, index, stressLevel, stressScore, onFeedback, feedbackGiven }) => {
-  const [expanded, setExpanded] = useState(index === 0);
+  const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [storyVisible, setStoryVisible] = useState(false);
   const pConfig = PRIORITY_CONFIG[rec.priority];
@@ -668,37 +668,51 @@ const RecCard: React.FC<{
               </View>
             </View>
 
-            <Animated.View style={chevronStyle}>
-              <Ionicons name="chevron-down" size={18} color={Colors.textMuted} />
-            </Animated.View>
           </View>
         </TouchableOpacity>
 
-        {/* ── Watch vs Read choice ── */}
-        <TouchableOpacity
-          onPress={() => { hapticTap(); setStoryVisible(true); }}
-          style={{
-            flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-            marginHorizontal: 16, marginBottom: 14,
-            backgroundColor: rec.color, borderRadius: 999, paddingVertical: 9,
-          }}
-        >
-          <Ionicons name="play-circle" size={15} color={Colors.white} />
-          <Text style={{ fontSize: 11, fontWeight: '700', color: Colors.white }}>
-            Watch Animated Walkthrough
-          </Text>
-        </TouchableOpacity>
+        {/* ── Watch vs Read choice — both paths now explicit, "watch" leads ── */}
+        <View style={{ paddingHorizontal: 16, paddingBottom: 14, gap: 8 }}>
+          <TouchableOpacity
+            onPress={() => { hapticTap(); setStoryVisible(true); }}
+            style={{
+              flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+              backgroundColor: Colors.white, borderRadius: 999, paddingVertical: 11,
+              borderWidth: 1.5, borderColor: rec.color + '35',
+            }}
+          >
+            <Ionicons name="play-circle" size={16} color={rec.color} />
+            <Text style={{ fontSize: 12, fontWeight: '700', color: rec.color }}>
+              Watch (30 seconds)
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={toggleExpanded}
+            style={{
+              flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5,
+              paddingVertical: 8,
+            }}
+          >
+            <Text style={{ fontSize: 12, fontWeight: '700', color: rec.color }}>
+              {expanded ? 'Hide the written version' : 'Prefer to read? Tap here'}
+            </Text>
+            <Animated.View style={chevronStyle}>
+              <Ionicons name="chevron-down" size={14} color={rec.color} />
+            </Animated.View>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* ── Expanded Content (read mode) ── */}
       {expanded && (
         <Animated.View entering={FadeIn.duration(220)} style={{ padding: 16, gap: 14 }}>
 
-          {/* Primary Cause */}
+          {/* What's going on — cause + reason merged into one block, one label */}
           <View style={{
             backgroundColor: rec.bg,
             borderRadius: 16, padding: 14,
-            flexDirection: 'row', alignItems: 'center', gap: 12,
+            flexDirection: 'row', alignItems: 'flex-start', gap: 12,
           }}>
             <Blob size={36} color={Colors.white}>
               <Ionicons name="alert-circle" size={16} color={rec.color} />
@@ -707,41 +721,22 @@ const RecCard: React.FC<{
               <Text style={{
                 fontSize: 10, fontWeight: '700',
                 color: rec.color, textTransform: 'uppercase',
-                letterSpacing: 0.5,
+                letterSpacing: 0.5, marginBottom: 2,
               }}>
-                Primary Cause
+                What's Going On
               </Text>
               <Text style={{
-                fontSize: 15, fontWeight: '800', color: rec.color, marginTop: 1,
+                fontSize: 14, fontWeight: '800', color: rec.color,
               }}>
                 {rec.primaryCause}
               </Text>
-            </View>
-          </View>
-
-          {/* Reason */}
-          <View>
-            <View style={{
-              flexDirection: 'row', gap: 6,
-              alignItems: 'center', marginBottom: 6,
-            }}>
-              <Ionicons
-                name="information-circle-outline"
-                size={14} color={Colors.primary}
-              />
               <Text style={{
-                fontSize: 10, fontWeight: '700',
-                color: Colors.primary, textTransform: 'uppercase',
+                fontSize: 12, color: Colors.textSecondary,
+                lineHeight: 17, marginTop: 4,
               }}>
-                Why This Was Recommended
+                {rec.reason}
               </Text>
             </View>
-            <Text style={{
-              fontSize: 12.5, color: Colors.textSecondary,
-              lineHeight: 19,
-            }}>
-              {rec.reason}
-            </Text>
           </View>
 
           {/* Recommendations list */}
@@ -758,7 +753,7 @@ const RecCard: React.FC<{
                 fontSize: 10, fontWeight: '700',
                 color: Colors.success, textTransform: 'uppercase',
               }}>
-                What To Do Now
+                Try This
               </Text>
             </View>
             {rec.recommendations.map((r, i) => (
@@ -793,29 +788,18 @@ const RecCard: React.FC<{
             ))}
           </View>
 
-          {/* Expected benefit */}
+          {/* Expected benefit — one light encouraging line, no separate header */}
           <View style={{
             backgroundColor: Colors.successSoft,
             borderRadius: 14, padding: 12,
-            flexDirection: 'row', gap: 10, alignItems: 'flex-start',
+            flexDirection: 'row', gap: 10, alignItems: 'center',
           }}>
-            <Blob size={30} color={Colors.white}>
-              <Ionicons name="trending-up-outline" size={14} color={Colors.success} />
-            </Blob>
-            <View style={{ flex: 1 }}>
-              <Text style={{
-                fontSize: 10, fontWeight: '700',
-                color: Colors.success,
-                textTransform: 'uppercase', marginBottom: 2,
-              }}>
-                Expected Benefit
-              </Text>
-              <Text style={{
-                fontSize: 12, color: Colors.success, lineHeight: 17,
-              }}>
-                {rec.expectedBenefit}
-              </Text>
-            </View>
+            <Ionicons name="leaf-outline" size={18} color={Colors.success} />
+            <Text style={{
+              flex: 1, fontSize: 12, color: Colors.success, lineHeight: 17, fontWeight: '600',
+            }}>
+              {rec.expectedBenefit}
+            </Text>
           </View>
 
           {/* Feedback */}
@@ -851,8 +835,8 @@ const RecCard: React.FC<{
                   color: given === 'helpful' ? Colors.success : Colors.danger,
                 }}>
                   {given === 'helpful'
-                    ? 'Marked as Helpful — we will prioritise this for you'
-                    : 'Marked as Not Helpful — we will suggest alternatives next time'}
+                    ? 'Marked as Helpful - we will prioritise this for you'
+                    : 'Marked as Not Helpful - we will suggest alternatives next time'}
                 </Text>
               </Animated.View>
             ) : (
@@ -1044,60 +1028,56 @@ export default function WellbeingScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ padding: 20, paddingBottom: 120 }}
       >
-        {/* Stress hero — full-bleed colour, breathing mascot */}
+        {/* Stress hero - full-bleed colour, breathing mascot */}
         <Animated.View
           entering={FadeIn.duration(420)}
           style={{
-            backgroundColor: stressConfig.color,
+            backgroundColor: stressConfig.bg,
             borderRadius: 28, padding: 20, marginBottom: 18,
             overflow: 'hidden',
+            borderWidth: 1, borderColor: stressConfig.color + '20',
           }}
         >
-          {/* decorative translucent circles */}
+          {/* decorative soft-tinted circles */}
           <View style={{
             position: 'absolute', top: -30, right: -30,
             width: 120, height: 120, borderRadius: 60,
-            backgroundColor: 'rgba(255,255,255,0.12)',
+            backgroundColor: stressConfig.color + '12',
           }} />
           <View style={{
             position: 'absolute', bottom: -40, left: -20,
             width: 100, height: 100, borderRadius: 50,
-            backgroundColor: 'rgba(255,255,255,0.08)',
-          }} />
-          <View style={{
-            position: 'absolute', top: 40, left: -35,
-            width: 70, height: 70, borderRadius: 35,
-            backgroundColor: 'rgba(0,0,0,0.06)',
+            backgroundColor: stressConfig.color + '0C',
           }} />
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
             <View style={{ alignItems: 'center', justifyContent: 'center' }}>
-              <IconHalo size={94} tint="rgba(255,255,255,0.7)" />
-              <Blob size={78} color="rgba(255,255,255,0.25)">
+              <IconHalo size={94} tint={stressConfig.color + '55'} />
+              <Blob size={78} color={Colors.white}>
                 <Text style={{ fontSize: 34 }}>{stressConfig.emoji}</Text>
               </Blob>
             </View>
             <View style={{ flex: 1 }}>
               <View style={{
                 alignSelf: 'flex-start',
-                backgroundColor: 'rgba(255,255,255,0.25)',
+                backgroundColor: Colors.white,
                 borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3,
                 marginBottom: 6,
               }}>
                 <Text style={{
                   fontSize: 10, fontWeight: '800',
-                  color: Colors.white, letterSpacing: 0.5,
+                  color: stressConfig.color, letterSpacing: 0.5,
                 }}>
                   TODAY'S STRESS LEVEL
                 </Text>
               </View>
               <Text style={{
-                fontSize: 30, fontWeight: '900', color: Colors.white,
+                fontSize: 30, fontWeight: '900', color: stressConfig.color,
               }}>
                 {stressLevel}
               </Text>
               <Text style={{
-                fontSize: 12, color: 'rgba(255,255,255,0.85)', marginTop: 2,
+                fontSize: 12, color: Colors.textSecondary, marginTop: 2,
               }}>
                 Score: {stressScore}/10
               </Text>
@@ -1110,18 +1090,21 @@ export default function WellbeingScreen() {
               icon="checkmark-done-outline"
               label="Tasks"
               value={`${form.tasksCompleted}/${form.tasksAssigned}`}
+              color={stressConfig.color}
               delay={80}
             />
             <StatChip
               icon="moon-outline"
               label="Sleep"
               value={`${form.sleepHours}h`}
+              color={stressConfig.color}
               delay={140}
             />
             <StatChip
               icon="cafe-outline"
               label="Breaks"
               value={`${form.breaksTaken}`}
+              color={stressConfig.color}
               delay={200}
             />
           </View>

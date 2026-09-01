@@ -182,7 +182,7 @@ function getSchemaDescription(gameId, staticConfig) {
     return (
       'Respond with JSON of the exact shape {"words": [{"word": string, "hint": string, "category": string}, ...]}. ' +
       `"word" must be a real, correctly spelled, common English dictionary word, alphabetic, uppercase, with ${lengthRule}. ` +
-      "Never truncate, pad, or invent a word just to match the length — if no themed word of that exact length comes " +
+      "Never truncate, pad, or invent a word just to match the length - if no themed word of that exact length comes " +
       "to mind, use any common everyday word of that length instead. " +
       '"hint" is a gentle clue under 60 characters. No other top-level keys.'
     );
@@ -280,8 +280,8 @@ async function generateLlmGameContent({ gameId, difficulty, patient, staticConfi
 }
 
 // Narrow, low-risk LLM calls used by orientation_game and face_name_match.
-// Unlike generateLlmGameContent, these NEVER supply a "correct answer" —
-// only extra wrong-answer options — so a hallucination can at worst make a
+// Unlike generateLlmGameContent, these NEVER supply a "correct answer" -
+// only extra wrong-answer options - so a hallucination can at worst make a
 // distractor odd, never make the quiz factually wrong.
 
 async function generateOrientationDistractors({ patient }) {
@@ -412,8 +412,213 @@ async function generateImagePrompts(items) {
   return out;
 }
 
+// Build a short, warm, personalized story plus verifiable questions for the
+// Story Recall game. The story is woven from the patient's own life events
+// (plus family, places, hobbies) and every question's answer is stated in the
+// text. Returns { story, questions } or null on any problem (caller falls back
+// to a generic story).
+async function generateStoryRecall({ patient, staticConfig }) {
+  const groq = getClient();
+  if (!groq) return null;
+
+  const questionCount = staticConfig?.questionCount || 3;
+  // Roughly one sentence more than half the questions, scaled by level.
+  const sentenceTarget = Math.max(3, questionCount + 1);
+
+  const facts = {
+    lifeEvents: (patient?.lifeEvents || [])
+      .map((e) => cleanText(e?.title, 80))
+      .filter(Boolean)
+      .slice(0, 6),
+    family: (patient?.familyMembers || [])
+      .filter((m) => m?.name)
+      .map((m) => ({ name: cleanText(m.name, 40), relation: cleanText(m.relation, 30) }))
+      .slice(0, 6),
+    hometown: cleanText(patient?.hometown, MAX_LABEL_LENGTH),
+    hobbies: compactStrings(patient?.hobbies).slice(0, 5),
+    interests: compactStrings(patient?.interests).slice(0, 5),
+    occupations: compactStrings(patient?.occupations).slice(0, 3),
+    favoritePlaces: compactStrings(patient?.favoritePlaces).slice(0, 5),
+    festivals: compactStrings(patient?.festivalsCelebrated).slice(0, 5),
+    foods: (patient?.foodsPreferred || [])
+      .map((f) => cleanText(f?.name || f, 40))
+      .filter(Boolean)
+      .slice(0, 5),
+  };
+
+  // Need at least a couple of real anchors, or the "story" is too generic to
+  // beat the static fallback.
+  const anchorCount =
+    facts.lifeEvents.length + facts.family.length + facts.favoritePlaces.length;
+  if (anchorCount < 2) return null;
+
+  const system = [
+    "You write a short, warm, TRUE-TO-LIFE story to help an elderly dementia patient practise memory, then questions about it.",
+    "Use the patient's real life events, family, places and hobbies as the story's content. Keep it gentle, positive and concrete - never anything sad, medical, political, or distressing.",
+    `Write about ${sentenceTarget} short, simple sentences in warm plain language (second or third person).`,
+    `Then write EXACTLY ${questionCount} questions. Every answer MUST be stated word-for-word in the story. Each question needs the correct answer plus 3 plausible but clearly wrong options.`,
+    'Respond with JSON only: {"story": "<the story>", "questions": [{"question": "<q>", "correctAnswer": "<a>", "options": ["<a>", "<wrong1>", "<wrong2>", "<wrong3>"]}]}',
+  ].join("\n");
+
+  const user = `Patient facts:\n${JSON.stringify(facts, null, 2)}`;
+
+  const response = await groq.chat.completions.create({
+    model: config.groqModel,
+    messages: [
+      { role: "system", content: system },
+      { role: "user", content: user },
+    ],
+    response_format: { type: "json_object" },
+    temperature: 0.7,
+  });
+
+  const parsed = extractResponseJson(response);
+  const story = cleanText(parsed?.story, 900);
+  if (!story || story.length < 40 || containsBlockedTerm(story)) return null;
+
+  const shuffle = (arr) => {
+    const out = [...arr];
+    for (let i = out.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [out[i], out[j]] = [out[j], out[i]];
+    }
+    return out;
+  };
+
+  const questions = [];
+  (Array.isArray(parsed?.questions) ? parsed.questions : []).forEach((q, i) => {
+    const question = cleanText(q?.question, 160);
+    const correctAnswer = cleanText(q?.correctAnswer, 60);
+    const rawOptions = (Array.isArray(q?.options) ? q.options : [])
+      .map((o) => cleanText(o, 60))
+      .filter(Boolean);
+    if (!question || !correctAnswer) return;
+    if ([question, correctAnswer, ...rawOptions].some(containsBlockedTerm)) return;
+
+    // Ensure the correct answer is present, and cap to 4 unique options.
+    const seen = new Set();
+    const options = [];
+    [correctAnswer, ...rawOptions].forEach((opt) => {
+      const key = opt.toLowerCase();
+      if (!seen.has(key) && options.length < 4) {
+        seen.add(key);
+        options.push(opt);
+      }
+    });
+    if (options.length < 2) return;
+
+    questions.push({
+      id: `sq${i}`,
+      question,
+      correctAnswer,
+      options: shuffle(options),
+    });
+  });
+
+  // Only trust the LLM round if it produced the full set; otherwise fall back.
+  if (questions.length < questionCount) return null;
+
+  return { story, questions: questions.slice(0, questionCount) };
+}
+
+// Build personalized single-blank cloze sentences about the patient's own life
+// and preferences, each with the blank being a concrete personal fact plus 3
+// plausible wrong options. Returns { items } or null (caller falls back to the
+// generic sentence pool).
+async function generateSentenceCompletion({ patient, staticConfig }) {
+  const groq = getClient();
+  if (!groq) return null;
+
+  const blankCount = staticConfig?.blankCount || 3;
+
+  const facts = {
+    family: (patient?.familyMembers || [])
+      .filter((m) => m?.name)
+      .map((m) => ({ name: cleanText(m.name, 40), relation: cleanText(m.relation, 30) }))
+      .slice(0, 6),
+    hometown: cleanText(patient?.hometown, MAX_LABEL_LENGTH),
+    hobbies: compactStrings(patient?.hobbies).slice(0, 5),
+    interests: compactStrings(patient?.interests).slice(0, 5),
+    occupations: compactStrings(patient?.occupations).slice(0, 3),
+    favoritePlaces: compactStrings(patient?.favoritePlaces).slice(0, 5),
+    festivals: compactStrings(patient?.festivalsCelebrated).slice(0, 5),
+    foods: (patient?.foodsPreferred || [])
+      .map((f) => cleanText(f?.name || f, 40))
+      .filter(Boolean)
+      .slice(0, 5),
+    lifeEvents: (patient?.lifeEvents || [])
+      .map((e) => cleanText(e?.title, 80))
+      .filter(Boolean)
+      .slice(0, 5),
+  };
+
+  const anchorCount =
+    facts.family.length + facts.hobbies.length + facts.favoritePlaces.length +
+    facts.foods.length + (facts.hometown ? 1 : 0);
+  if (anchorCount < 2) return null;
+
+  const system = [
+    "You write simple, warm fill-in-the-blank sentences to help an elderly dementia patient practise language, using facts about THEIR OWN life.",
+    'Each sentence has exactly one blank written as "___". The blank must be a single concrete word or short name that is a real fact about the patient.',
+    "Keep sentences short, positive, and clear - nothing sad, medical, or distressing.",
+    `Write EXACTLY ${blankCount} sentences. For each, give the correct answer and 3 plausible but clearly wrong options.`,
+    'Respond with JSON only: {"items": [{"text": "<sentence with ___>", "answer": "<word>", "options": ["<answer>", "<wrong1>", "<wrong2>", "<wrong3>"]}]}',
+  ].join("\n");
+
+  const user = `Patient facts:\n${JSON.stringify(facts, null, 2)}`;
+
+  const response = await groq.chat.completions.create({
+    model: config.groqModel,
+    messages: [
+      { role: "system", content: system },
+      { role: "user", content: user },
+    ],
+    response_format: { type: "json_object" },
+    temperature: 0.7,
+  });
+
+  const parsed = extractResponseJson(response);
+  const shuffle = (arr) => {
+    const out = [...arr];
+    for (let i = out.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [out[i], out[j]] = [out[j], out[i]];
+    }
+    return out;
+  };
+
+  const items = [];
+  (Array.isArray(parsed?.items) ? parsed.items : []).forEach((it, i) => {
+    const text = cleanText(it?.text, 160);
+    const answer = cleanText(it?.answer, 50);
+    if (!text || !answer || !text.includes("___")) return;
+    if ([text, answer].some(containsBlockedTerm)) return;
+
+    const rawOptions = (Array.isArray(it?.options) ? it.options : [])
+      .map((o) => cleanText(o, 50))
+      .filter((o) => o && !containsBlockedTerm(o));
+    const seen = new Set();
+    const options = [];
+    [answer, ...rawOptions].forEach((opt) => {
+      const key = opt.toLowerCase();
+      if (!seen.has(key) && options.length < 4) {
+        seen.add(key);
+        options.push(opt);
+      }
+    });
+    if (options.length < 2) return;
+
+    items.push({ id: `sc${i}`, text, answer, options: shuffle(options) });
+  });
+
+  if (items.length < blankCount) return null;
+  return { items: items.slice(0, blankCount) };
+}
+
 module.exports = {
   generateLlmGameContent,
+  generateStoryRecall,
+  generateSentenceCompletion,
   generateOrientationDistractors,
   generateFaceNameDecoys,
   generateImagePrompts,

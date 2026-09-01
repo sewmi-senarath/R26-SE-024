@@ -12,12 +12,11 @@ import * as Speech from 'expo-speech';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Image, SafeAreaView, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import Animated, {
-  BounceIn,
   FadeIn,
   ZoomIn,
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 
 type Phase = 'instruction' | 'showing' | 'recall' | 'result';
@@ -34,7 +33,7 @@ function SelectableOption({
   const scale = useSharedValue(1);
 
   useEffect(() => {
-    scale.value = withSpring(selected ? 1.05 : 1, { damping: 10 });
+    scale.value = withTiming(selected ? 1.05 : 1, { duration: 130 });
   }, [selected]);
 
   const animStyle = useAnimatedStyle(() => ({
@@ -58,19 +57,19 @@ function SelectableOption({
 }
 
 export default function MemoryRecallGame() {
-  const { difficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
+  const { difficulty: routeDifficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
   const router = useRouter();
   const { playSound } = useSoundEffects();
   const saveGameSession = useSaveGameSession();
   const { patientId } = useAssessment();
-  const { config: liveConfig, loading } = usePersonalizedGameContent<MemoryRecallConfig>(
+  const { config: liveConfig, loading, refresh: refreshContent, difficulty } = usePersonalizedGameContent<MemoryRecallConfig>(
     'memory_recall',
-    difficulty,
+    routeDifficulty,
     patientId,
   );
 
   // Freeze the content for the duration of a round. Without this, a late
-  // personalized response would swap the words mid-game — which looked like the
+  // personalized response would swap the words mid-game - which looked like the
   // items "reloading" a second or two after they first appeared.
   const [frozenConfig, setFrozenConfig] = useState<MemoryRecallConfig | null>(null);
   const config = frozenConfig ?? liveConfig;
@@ -117,18 +116,25 @@ export default function MemoryRecallGame() {
   };
 
   const ALL_OPTIONS = useMemo(() => {
-    const extras: typeof config.items = [
-      { id: 'd1', emoji: '🎸', label: 'Guitar', category: 'Music' },
-      { id: 'd2', emoji: '🚂', label: 'Train', category: 'Vehicle' },
-      { id: 'd3', emoji: '🍕', label: 'Pizza', category: 'Food' },
-    ];
-    const base = [...config.items, ...extras];
+    // Distractors come from the same content pipeline as the correct items, so
+    // they carry generated images too (no emoji-vs-image "tell"). Dedupe by
+    // label as a safety net so the grid can never show the same object twice.
+    const usedLabels = new Set(
+      config.items.map(item => item.label.trim().toLowerCase()),
+    );
+    const distractors = (config.distractors ?? []).filter(d => {
+      const key = d.label.trim().toLowerCase();
+      if (usedLabels.has(key)) return false;
+      usedLabels.add(key);
+      return true;
+    });
+    const base = [...config.items, ...distractors];
     for (let i = base.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [base[i], base[j]] = [base[j], base[i]];
     }
     return base;
-  }, [config.items]);
+  }, [config.items, config.distractors]);
 
   const toggleSelect = useCallback((id: string) => {
     playSound('click');
@@ -180,6 +186,7 @@ export default function MemoryRecallGame() {
 
   const handleReset = () => {
     playSound('click');
+    refreshContent(progress?.difficulty);
     setFrozenConfig(null);
     setPhase('instruction');
     setCurrentShowIndex(0);
@@ -244,7 +251,7 @@ export default function MemoryRecallGame() {
             {currentShowIndex < config.items.length ? (
               <Animated.View
                 key={currentShowIndex}
-                entering={BounceIn.duration(500)}
+                entering={ZoomIn.duration(400)}
                 style={{ overflow: 'hidden' }}
                 className="w-56 h-56 bg-white rounded-3xl border border-gray-100 items-center justify-center shadow-sm"
               >

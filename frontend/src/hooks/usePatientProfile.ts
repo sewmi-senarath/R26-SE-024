@@ -9,7 +9,8 @@ import { getMe, getStoredUser } from "@/src/api/authApi";
 import { MMSESession, Severity } from "@/src/types/assessment.types";
 import { GameId } from "@/src/types/games.types";
 import { loadActiveSession } from "@/src/utils/sessionStorage";
-import { useEffect, useMemo, useState } from "react";
+import { useFocusEffect } from "expo-router";
+import { useCallback, useMemo, useState } from "react";
 
 export type UserProfile = {
   id?: string;
@@ -24,13 +25,6 @@ export type ScreeningRow = {
   score: number;
   max: number;
   percent: number;
-};
-
-export type ProfileStat = {
-  label: string;
-  value: string;
-  icon: string;
-  tone: string;
 };
 
 const SECTION_MAX: Record<keyof MMSESession["sectionScores"], number> = {
@@ -80,12 +74,6 @@ function formatRelativeDate(value?: string) {
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-function formatAverageSession(seconds: number) {
-  if (!seconds) return "0m";
-  if (seconds < 60) return `${Math.round(seconds)}s`;
-  return `${Math.round(seconds / 60)}m`;
-}
-
 function getGameReview(averageScore: number, sessions: number) {
   if (averageScore >= 85) {
     return "Excellent recent performance. Keep the routine steady.";
@@ -101,64 +89,72 @@ function getGameReview(averageScore: number, sessions: number) {
     : "A few more plays are needed before a clear pattern appears.";
 }
 
-export function getLevel(severity?: Severity, totalScore = 0) {
-  if (severity === "none" || totalScore >= 24) return "Independent";
-  if (severity === "mild" || totalScore >= 18) return "Mild Support";
-  if (severity === "moderate" || totalScore >= 10) return "Guided Support";
-  if (severity === "severe") return "High Support";
-  return "Awaiting Screening";
-}
-
-export function getLevelDescription(level: string) {
-  switch (level) {
-    case "Independent":
-      return "Current results suggest strong day-to-day independence.";
-    case "Mild Support":
-      return "Light reminders and short practice sessions are recommended.";
-    case "Guided Support":
-      return "Caregiver-guided routines and simpler game levels are recommended.";
-    case "High Support":
-      return "Frequent support and calm, familiar activities are recommended.";
-    default:
-      return "Complete the screening test to personalize this level.";
-  }
-}
-
-export function usePatientProfile() {
-  const [user, setUser] = useState<UserProfile>(fallbackUser);
+/**
+ * @param explicitPatientId When given (e.g. a caregiver viewing a linked
+ *   patient's profile), loads that patient's data instead of the logged-in
+ *   user's own - `getMe()`/`getStoredUser()` only ever return the CALLER's
+ *   account, so they're skipped entirely in this mode, and so is the
+ *   local-device "active session" check (that's only ever this device's own
+ *   in-progress session, never another patient's).
+ * @param seedUser Basic display fields (name/age/gender) the caller already
+ *   has on hand (e.g. from the caregiver's own patient list) - used to seed
+ *   the profile header immediately, since there's no "fetch any patient's
+ *   account" endpoint to call in explicit mode.
+ */
+export function usePatientProfile(
+  explicitPatientId?: string,
+  seedUser?: Partial<UserProfile>,
+) {
+  const [user, setUser] = useState<UserProfile>(
+    explicitPatientId
+      ? { ...fallbackUser, ...seedUser, id: explicitPatientId }
+      : fallbackUser,
+  );
   const [latestSession, setLatestSession] = useState<MMSESession | null>(null);
   const [gameSessions, setGameSessions] = useState<GameSessionHistoryItem[]>([]);
   const [loadingScreening, setLoadingScreening] = useState(true);
 
-  useEffect(() => {
+  // Reload on every focus so edits made on the profile-edit screen show
+  // immediately when the user navigates back to this tab.
+  useFocusEffect(
+    useCallback(() => {
     let mounted = true;
 
     const loadProfile = async () => {
       try {
-        const stored = await getStoredUser();
-        if (stored && mounted) setUser({ ...fallbackUser, ...stored });
+        let patientId = explicitPatientId;
 
-        const meRes = await getMe();
-        const authUser = meRes?.success ? meRes.data?.user : stored;
-        if (authUser && mounted) setUser({ ...fallbackUser, ...authUser });
+        if (explicitPatientId) {
+          setUser({ ...fallbackUser, ...seedUser, id: explicitPatientId });
+        } else {
+          const stored = await getStoredUser();
+          if (stored && mounted) setUser({ ...fallbackUser, ...stored });
 
-        if (authUser?.id) {
+          const meRes = await getMe();
+          const authUser = meRes?.success ? meRes.data?.user : stored;
+          if (authUser && mounted) setUser({ ...fallbackUser, ...authUser });
+          patientId = authUser?.id;
+        }
+
+        if (patientId) {
           try {
-            const gameHistory = await getPatientGameSessions(authUser.id);
+            const gameHistory = await getPatientGameSessions(patientId);
             if (mounted) setGameSessions(gameHistory);
           } catch {
             if (mounted) setGameSessions([]);
           }
         }
 
-        const activeSession = await loadActiveSession();
-        if (activeSession?.status === "done" && mounted) {
-          setLatestSession(activeSession);
-          return;
+        if (!explicitPatientId) {
+          const activeSession = await loadActiveSession();
+          if (activeSession?.status === "done" && mounted) {
+            setLatestSession(activeSession);
+            return;
+          }
         }
 
-        if (authUser?.id) {
-          const assessmentHistory = await getPatientAssessmentHistory(authUser.id);
+        if (patientId) {
+          const assessmentHistory = await getPatientAssessmentHistory(patientId);
           const latestDone = assessmentHistory.find(
             (session) => session.status === "done",
           );
@@ -175,11 +171,7 @@ export function usePatientProfile() {
     return () => {
       mounted = false;
     };
-  }, []);
-
-  const patientLevel = getLevel(
-    latestSession?.severity,
-    latestSession?.totalScore ?? 0,
+    }, [explicitPatientId]),
   );
 
   const screeningRows = useMemo<ScreeningRow[]>(() => {
@@ -197,52 +189,6 @@ export function usePatientProfile() {
       },
     );
   }, [latestSession]);
-
-  const appStats = useMemo<ProfileStat[]>(() => {
-    const now = new Date();
-    const weekStart = new Date(now);
-    weekStart.setDate(now.getDate() - 7);
-
-    const thisWeek = gameSessions.filter(
-      (session) => new Date(session.completedAt) >= weekStart,
-    ).length;
-    const bestScore = gameSessions.reduce(
-      (best, session) => Math.max(best, getScorePercent(session)),
-      0,
-    );
-    const averageSeconds =
-      gameSessions.length === 0
-        ? 0
-        : gameSessions.reduce((total, session) => total + session.timeTaken, 0) /
-          gameSessions.length;
-
-    return [
-      {
-        label: "Total Plays",
-        value: String(gameSessions.length),
-        icon: "game-controller-outline",
-        tone: "#2563EB",
-      },
-      {
-        label: "This Week",
-        value: String(thisWeek),
-        icon: "calendar-outline",
-        tone: "#16A34A",
-      },
-      {
-        label: "Best Score",
-        value: `${bestScore}%`,
-        icon: "trophy-outline",
-        tone: "#F97316",
-      },
-      {
-        label: "Avg. Session",
-        value: formatAverageSession(averageSeconds),
-        icon: "time-outline",
-        tone: "#8B5CF6",
-      },
-    ];
-  }, [gameSessions]);
 
   const gameReviews = useMemo<Review[]>(() => {
     return GAME_ORDER.map((gameId) => {
@@ -271,9 +217,7 @@ export function usePatientProfile() {
     user,
     latestSession,
     loadingScreening,
-    patientLevel,
     screeningRows,
-    appStats,
     gameReviews,
   };
 }

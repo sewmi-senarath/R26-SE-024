@@ -1,12 +1,111 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import { ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  Modal,
+  ScrollView,
+  StatusBar,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { Colors } from '../../src/constants/colors';
-import { getMemoryStories } from '../../src/services/family/familyService';
+import { getLinkedPatient, getMemoryStories } from '../../src/services/family/familyService';
+import {
+  generateStoryFromPhoto,
+  pickPhoto,
+} from '../../src/services/family/storyService';
+import { speakStory, stopSpeaking } from '../../src/services/family/ttsService';
 
 export default function StoriesScreen() {
   const stories = getMemoryStories();
+  const patient = getLinkedPatient();   // gives us patient.id = 'p-001'
+
   const [playing, setPlaying] = useState<string | null>(null);
+  const [showModal, setShowModal] = useState(false);
+
+  // upload state
+  const [photo, setPhoto] = useState<any>(null);
+  const [familyNote, setFamilyNote] = useState('');
+
+  // result state
+  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState('');
+  const [generatedStory, setGeneratedStory] = useState('');
+  const [voicePlaying, setVoicePlaying] = useState(false);
+
+  const handlePickPhoto = async () => {
+    const asset = await pickPhoto();
+    if (asset) {
+      setPhoto(asset);
+      setGeneratedStory('');
+    }
+  };
+
+  const handleGenerate = async () => {
+    if (!photo) {
+      Alert.alert('Missing', 'Please select a photo first');
+      return;
+    }
+    if (!familyNote.trim()) {
+      Alert.alert('Missing', 'Please write a memory note');
+      return;
+    }
+
+    setLoading(true);
+    setGeneratedStory('');
+    stopSpeaking();
+    setVoicePlaying(false);
+
+    try {
+      setStatus('Creating story...');
+      const result = await generateStoryFromPhoto({
+        patientId:    patient.id,
+        image_base64: photo.base64,
+        family_note:  familyNote,
+      });
+
+      if (result.success) {
+        setGeneratedStory(result.memory.generatedStory);
+        setStatus('');
+        setVoicePlaying(true);
+        speakStory(result.memory.generatedStory);
+        setTimeout(() => setVoicePlaying(false), 20000);
+      } else {
+        Alert.alert('Error', result.error || 'Could not generate story');
+        setStatus('');
+      }
+    } catch (e: any) {
+      Alert.alert('Connection Error', 'Make sure the backend server is running');
+      setStatus('');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVoicePlayStop = () => {
+    if (voicePlaying) {
+      stopSpeaking();
+      setVoicePlaying(false);
+    } else {
+      setVoicePlaying(true);
+      speakStory(generatedStory);
+      setTimeout(() => setVoicePlaying(false), 20000);
+    }
+  };
+
+  const resetModal = () => {
+    setPhoto(null);
+    setFamilyNote('');
+    setGeneratedStory('');
+    setStatus('');
+    stopSpeaking();
+    setVoicePlaying(false);
+    setShowModal(false);
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
@@ -32,9 +131,10 @@ export default function StoriesScreen() {
           </View>
         </View>
 
-        {/* Upload button */}
+        {/* Upload button — connects to modal */}
         <TouchableOpacity
           activeOpacity={0.85}
+          onPress={() => setShowModal(true)}
           style={{ marginHorizontal: 20, marginBottom: 20, backgroundColor: Colors.purple, borderRadius: 16, paddingVertical: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, shadowColor: Colors.purple, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 6 }}
         >
           <Ionicons name="camera" size={22} color="#fff" />
@@ -47,7 +147,6 @@ export default function StoriesScreen() {
           {stories.map((story) => (
             <View key={story.id} style={{ backgroundColor: Colors.white, borderRadius: 16, padding: 16, marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3, borderWidth: 1, borderColor: Colors.borderLight }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-                {/* Thumbnail placeholder */}
                 <View style={{ width: 56, height: 56, borderRadius: 12, backgroundColor: Colors.purpleSoft, justifyContent: 'center', alignItems: 'center' }}>
                   <Ionicons name="images" size={26} color={Colors.purple} />
                 </View>
@@ -74,7 +173,6 @@ export default function StoriesScreen() {
                     )}
                   </View>
                 </View>
-                {/* Play button */}
                 <TouchableOpacity
                   onPress={() => setPlaying(playing === story.id ? null : story.id)}
                   style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: playing === story.id ? Colors.success : Colors.purple, justifyContent: 'center', alignItems: 'center' }}
@@ -83,11 +181,10 @@ export default function StoriesScreen() {
                 </TouchableOpacity>
               </View>
 
-              {/* Playing indicator */}
               {playing === story.id && (
                 <View style={{ marginTop: 12, backgroundColor: Colors.successSoft, borderRadius: 10, padding: 10, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <Ionicons name="volume-high" size={16} color={Colors.success} />
-                  <Text style={{ fontSize: 12, color: Colors.success, fontWeight: '700' }}>Playing in Margaret's room...</Text>
+                  <Text style={{ fontSize: 12, color: Colors.success, fontWeight: '700' }}>Playing in {patient.name}'s room...</Text>
                   <View style={{ flex: 1, height: 3, backgroundColor: Colors.success + '30', borderRadius: 2, overflow: 'hidden' }}>
                     <View style={{ width: '45%', height: '100%', backgroundColor: Colors.success, borderRadius: 2 }} />
                   </View>
@@ -98,6 +195,158 @@ export default function StoriesScreen() {
         </View>
 
       </ScrollView>
+
+      {/* ─── MODAL — Create Story ─── */}
+      <Modal
+        visible={showModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={resetModal}
+      >
+        <View style={{ flex: 1, backgroundColor: Colors.background }}>
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ padding: 20, paddingBottom: 60 }}
+          >
+
+            {/* Modal header */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+              <View>
+                <Text style={{ fontSize: 20, fontWeight: '800', color: Colors.textPrimary }}>
+                  Create Memory Story
+                </Text>
+                <Text style={{ fontSize: 13, color: Colors.textMuted, marginTop: 2 }}>
+                  For {patient.name}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={resetModal}>
+                <Ionicons name="close-circle" size={28} color={Colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Photo picker */}
+            <TouchableOpacity onPress={handlePickPhoto} style={{ marginBottom: 16 }}>
+              {photo ? (
+                <View style={{ borderRadius: 16, overflow: 'hidden', borderWidth: 2, borderColor: Colors.purple }}>
+                  <Image
+                    source={{ uri: photo.uri }}
+                    style={{ width: '100%', height: 200 }}
+                    resizeMode="cover"
+                  />
+                  <View style={{ backgroundColor: Colors.purple, padding: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                    <Ionicons name="camera" size={16} color="#fff" />
+                    <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>
+                      Tap to change photo
+                    </Text>
+                  </View>
+                </View>
+              ) : (
+                <View style={{ backgroundColor: Colors.white, borderRadius: 16, borderWidth: 2, borderStyle: 'dashed', borderColor: Colors.purple + '60', height: 180, justifyContent: 'center', alignItems: 'center' }}>
+                  <Ionicons name="cloud-upload-outline" size={48} color={Colors.purple + '80'} />
+                  <Text style={{ color: Colors.purple, fontWeight: '700', fontSize: 15, marginTop: 10 }}>
+                    Tap to select photo
+                  </Text>
+                  <Text style={{ color: Colors.textMuted, fontSize: 12, marginTop: 4 }}>
+                    Wedding, festival, family moments...
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+
+            {/* Memory note */}
+            <View style={{ backgroundColor: Colors.white, borderRadius: 16, padding: 16, marginBottom: 24, borderWidth: 1, borderColor: Colors.borderLight }}>
+              <Text style={{ fontSize: 13, fontWeight: '800', color: Colors.textPrimary, marginBottom: 4 }}>
+                Your Memory Note
+              </Text>
+              <Text style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 10 }}>
+                What do you remember about this moment?
+              </Text>
+              <TextInput
+                style={{ borderWidth: 1, borderColor: Colors.borderLight, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: 13, color: Colors.textPrimary, backgroundColor: Colors.background, minHeight: 100 }}
+                placeholder="e.g. Amma wore the red sari her mother chose. Thaththa was so nervous that morning. Grandmother cried happy tears."
+                value={familyNote}
+                onChangeText={setFamilyNote}
+                multiline
+                textAlignVertical="top"
+              />
+            </View>
+
+            {/* Generate button */}
+            <TouchableOpacity
+              onPress={handleGenerate}
+              disabled={loading}
+              style={{ backgroundColor: loading ? Colors.purple + '70' : Colors.purple, borderRadius: 16, paddingVertical: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 20 }}
+            >
+              {loading ? (
+                <>
+                  <ActivityIndicator color="#fff" size="small" />
+                  <Text style={{ color: '#fff', fontWeight: '800', fontSize: 15 }}>
+                    {status || 'Creating story...'}
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <Ionicons name="sparkles" size={20} color="#fff" />
+                  <Text style={{ color: '#fff', fontWeight: '800', fontSize: 15 }}>
+                    Generate Memory Story
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            {/* Story result */}
+            {generatedStory ? (
+              <View style={{ backgroundColor: Colors.purple + '10', borderRadius: 16, padding: 18, borderWidth: 1, borderColor: Colors.purple + '30' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                  <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.purple, justifyContent: 'center', alignItems: 'center' }}>
+                    <Ionicons name="heart" size={18} color="#fff" />
+                  </View>
+                  <Text style={{ fontSize: 15, fontWeight: '800', color: Colors.purple }}>
+                    Memory Story Ready
+                  </Text>
+                </View>
+
+                <Text style={{ fontSize: 14, color: Colors.textPrimary, lineHeight: 22, fontStyle: 'italic', marginBottom: 16 }}>
+                  "{generatedStory}"
+                </Text>
+
+                <TouchableOpacity
+                  onPress={handleVoicePlayStop}
+                  style={{ backgroundColor: voicePlaying ? '#EF4444' : Colors.success, borderRadius: 12, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 10 }}
+                >
+                  <Ionicons
+                    name={voicePlaying ? 'stop-circle' : 'play-circle'}
+                    size={22}
+                    color="#fff"
+                  />
+                  <Text style={{ color: '#fff', fontWeight: '800', fontSize: 14 }}>
+                    {voicePlaying ? 'Stop Voice' : 'Play Voice Story'}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => {
+                    Alert.alert(
+                      'Saved to Memory Vault',
+                      `${patient.name} can listen to this story anytime.`,
+                      [{ text: 'OK', onPress: resetModal }]
+                    );
+                  }}
+                  style={{ backgroundColor: Colors.purple, borderRadius: 12, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                >
+                  <Ionicons name="checkmark-circle" size={20} color="#fff" />
+                  <Text style={{ color: '#fff', fontWeight: '800', fontSize: 14 }}>
+                    Saved to Vault
+                  </Text>
+                </TouchableOpacity>
+
+              </View>
+            ) : null}
+
+          </ScrollView>
+        </View>
+      </Modal>
+
     </View>
   );
 }

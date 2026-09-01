@@ -3,13 +3,13 @@ import { normalizeStoredImageUri } from "@/src/utils/photoUri";
 // ─────────────────────────────────────────────────────────────
 // DEVELOPMENT: All images are local assets.
 // PRODUCTION:  Replace `uri` values with URLs from your backend.
-//              The component only reads `source` — nothing else changes.
+//              The component only reads `source` - nothing else changes.
 // ─────────────────────────────────────────────────────────────
 
 export interface PuzzleImage {
   id: string;
   label: string; // shown in UI
-  source: any; // ImageSourcePropType — local require() or { uri: string }
+  source: any; // ImageSourcePropType - local require() or { uri: string }
   category: "family" | "place" | "general";
 }
 
@@ -105,9 +105,14 @@ export function buildMixedPuzzleImagePool(
 
 export function getRandomPuzzleImageFromPool(
   images: PuzzleImage[],
+  excludeId?: string,
 ): PuzzleImage {
   const pool = images.length > 0 ? images : MOCK_PUZZLE_IMAGES;
-  return pool[Math.floor(Math.random() * pool.length)];
+  const filteredCandidates = excludeId && pool.length > 1
+    ? pool.filter((image) => image.id !== excludeId)
+    : pool;
+  const candidates = filteredCandidates.length > 0 ? filteredCandidates : pool;
+  return candidates[Math.floor(Math.random() * candidates.length)];
 }
 
 function shufflePuzzleImages(images: PuzzleImage[]): PuzzleImage[] {

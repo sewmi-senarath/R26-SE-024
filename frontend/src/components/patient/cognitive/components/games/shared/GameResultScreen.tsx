@@ -23,7 +23,7 @@ import { DifficultyChangeBanner } from './DifficultyChangeBanner';
 
 interface Props {
   result: GameSessionResult;
-  onPlayAgain: () => void;
+  onPlayAgain: () => void | Promise<void>;
   onBack?: () => void;
   /** Adaptive-difficulty update returned after saving this session, if any. */
   progress?: DifficultyProgressUpdate | null;
@@ -35,6 +35,17 @@ export function GameResultScreen({ result, onPlayAgain, onBack, progress }: Prop
   const pct = Math.round((result.score / result.maxScore) * 100);
   const passed = pct >= 60;
   const [showConfetti, setShowConfetti] = useState(passed);
+  const [restarting, setRestarting] = useState(false);
+
+  const handlePlayAgain = () => {
+    if (restarting) return;
+    setRestarting(true);
+    try {
+      Promise.resolve(onPlayAgain()).catch(() => setRestarting(false));
+    } catch {
+      setRestarting(false);
+    }
+  };
 
   useEffect(() => {
     Haptics.notificationAsync(
@@ -63,7 +74,7 @@ export function GameResultScreen({ result, onPlayAgain, onBack, progress }: Prop
         />
       )}
 
-      {/* ── Top section — centred content ──────────────────── */}
+      {/* ── Top section - centred content ──────────────────── */}
       <View
         style={{
           flex: 1,
@@ -75,7 +86,7 @@ export function GameResultScreen({ result, onPlayAgain, onBack, progress }: Prop
       >
         {/* Result emoji circle */}
         <Animated.View
-          entering={ZoomIn.duration(500).springify().damping(11)}
+          entering={ZoomIn.duration(500)}
           style={{
             width: 100,
             height: 100,
@@ -117,7 +128,7 @@ export function GameResultScreen({ result, onPlayAgain, onBack, progress }: Prop
 
         {/* Score card */}
         <Animated.View
-          entering={FadeInUp.delay(220).duration(500).springify().damping(14)}
+          entering={FadeInUp.delay(220).duration(500)}
           style={{
             width: '100%',
             backgroundColor: '#ffffff',
@@ -211,17 +222,19 @@ export function GameResultScreen({ result, onPlayAgain, onBack, progress }: Prop
       >
         {/* Play Again */}
         <TouchableOpacity
-          onPress={onPlayAgain}
+          onPress={handlePlayAgain}
+          disabled={restarting}
           activeOpacity={0.85}
           style={{
             backgroundColor: '#3b82f6',
             paddingVertical: 16,
             borderRadius: 18,
             alignItems: 'center',
+            opacity: restarting ? 0.7 : 1,
           }}
         >
           <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 18 }}>
-            Play Again
+            {restarting ? 'Preparing…' : 'Play Again'}
           </Text>
         </TouchableOpacity>
 

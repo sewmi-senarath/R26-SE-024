@@ -2,12 +2,13 @@ import { GameHeader } from '@/src/components/patient/cognitive/components/games/
 import { GameResultScreen } from '@/src/components/patient/cognitive/components/games/shared/GameResultScreen';
 import { InstructionScreen } from '@/src/components/patient/cognitive/components/games/shared/InstructionScreen';
 import { getGameContent } from '@/src/constants/gameContent';
+import { pickAttentionTheme } from '@/src/constants/game-content/attentionThemes';
 import { useQuestionTimer } from '@/src/hooks/useQuestionTimer';
 import { useSaveGameSession } from '@/src/hooks/useSaveGameSession';
 import { useSoundEffects } from '@/src/hooks/useSoundEffects';
 import { AttentionGameConfig, Difficulty, DifficultyProgressUpdate, GameSessionResult } from '@/src/types/games.types';
 import { useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SafeAreaView, Text, TouchableOpacity, View } from 'react-native';
 import Animated, {
   Easing,
@@ -92,10 +93,45 @@ function AttentionCell({
 }
 
 export default function AttentionGame() {
-  const { difficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
+  const { difficulty: routeDifficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
+  const [difficulty, setDifficulty] = useState<Difficulty>(routeDifficulty);
   const { playSound } = useSoundEffects();
   const saveGameSession = useSaveGameSession();
-  const config = getGameContent<AttentionGameConfig>('attention_game', difficulty);
+  const baseConfig = getGameContent<AttentionGameConfig>('attention_game', difficulty);
+
+  // Rotate the target/distractor theme across sessions so a returning patient
+  // isn't always hunting the same star among the same circles. Difficulty is
+  // preserved: only which emojis are used changes, never the grid, speed, or
+  // counts. `theme` is picked fresh on mount and whenever a new game starts.
+  const [theme, setTheme] = useState<{ targetEmoji: string; distractorEmojis: string[] } | null>(null);
+  const [themeLoading, setThemeLoading] = useState(true);
+  const themeRequestRef = useRef(0);
+
+  const loadTheme = useCallback((distractorCount: number) => {
+    themeRequestRef.current += 1;
+    const requestId = themeRequestRef.current;
+    setThemeLoading(true);
+    pickAttentionTheme(distractorCount)
+      .then((t) => {
+        if (themeRequestRef.current !== requestId) return;
+        setTheme({ targetEmoji: t.targetEmoji, distractorEmojis: t.distractorEmojis });
+      })
+      .catch(() => {
+        if (themeRequestRef.current === requestId) setTheme(null);
+      })
+      .finally(() => {
+        if (themeRequestRef.current === requestId) setThemeLoading(false);
+      });
+  }, []);
+
+  useEffect(() => {
+    loadTheme(baseConfig.distractorEmojis.length);
+  }, [baseConfig.distractorEmojis.length, loadTheme]);
+
+  const config = useMemo<AttentionGameConfig>(
+    () => (theme ? { ...baseConfig, targetEmoji: theme.targetEmoji, distractorEmojis: theme.distractorEmojis } : baseConfig),
+    [baseConfig, theme],
+  );
 
   const [phase, setPhase] = useState<Phase>('instruction');
   const [grid, setGrid] = useState<string[]>([]);
@@ -203,6 +239,11 @@ export default function AttentionGame() {
 
   const handleReset = () => {
     playSound('click');
+    const nextDifficulty = progress?.difficulty ?? difficulty;
+    const nextConfig = getGameContent<AttentionGameConfig>('attention_game', nextDifficulty);
+    setDifficulty(nextDifficulty);
+    setTheme(null);
+    loadTheme(nextConfig.distractorEmojis.length);
     setPhase('instruction');
     setScore(0);
     scoreRef.current = 0;
@@ -244,6 +285,8 @@ export default function AttentionGame() {
           startTimeRef.current = now;
           setPhase('playing');
         }}
+        startDisabled={themeLoading}
+        startLabel={themeLoading ? 'Preparing your game…' : 'Start Game'}
       />
     );
   }

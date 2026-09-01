@@ -1,6 +1,6 @@
 import { BRAIN_AREA_BY_SECTION } from "@/src/constants/brainAreas";
 import { usePatientReport } from "@/src/hooks/usePatientReport";
-import { SeverityLevel } from "@/src/types/dementia.types";
+import { Severity } from "@/src/types/assessment.types";
 import { SectionName } from "@/src/types/games.types";
 import { generatePatientReportHtml } from "@/src/utils/generatePatientReportHtml";
 import { Ionicons } from "@expo/vector-icons";
@@ -18,6 +18,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { AdaptiveDifficultySection } from "./AdaptiveDifficultySection";
 import { AssessmentTrendChart } from "./AssessmentTrendChart";
 import { BrainAreaRadar, RadarDatum } from "./BrainAreaRadar";
 import { GamePerformanceBreakdown } from "./GamePerformanceBreakdown";
@@ -25,8 +26,9 @@ import { ProgressOverTime } from "./ProgressOverTime";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
+// MMSE-derived status (Assessment.severity) - unrelated to the ML triage model.
 const SEVERITY_META: Record<
-  SeverityLevel,
+  Severity,
   { label: string; color: string; bg: string }
 > = {
   none: { label: "No Impairment", color: "#16A34A", bg: "#F0FDF4" },
@@ -103,15 +105,13 @@ export const PatientReportView: React.FC<PatientReportViewProps> = ({
   const {
     loading,
     error,
+    patientId: resolvedPatientId,
     assessments,
-    severityHistory,
-    riskHistory,
+    triageHistory,
     assessmentStats,
     gameStats,
-    riskFactorFrequency,
     progress,
-    latestSeverityPrediction,
-    latestRiskScreening,
+    latestTriagePrediction,
     reload,
   } = usePatientReport(patientId);
   const [refreshing, setRefreshing] = useState(false);
@@ -132,12 +132,9 @@ export const PatientReportView: React.FC<PatientReportViewProps> = ({
         assessments,
         assessmentStats,
         gameStats,
-        severityHistory,
-        riskHistory,
-        riskFactorFrequency,
+        triageHistory,
         progress,
-        latestSeverityPrediction,
-        latestRiskScreening,
+        latestTriagePrediction,
       });
       const { uri } = await Print.printToFileAsync({ html, base64: false });
 
@@ -168,13 +165,6 @@ export const PatientReportView: React.FC<PatientReportViewProps> = ({
     }
   };
 
-  const handleSend = () => {
-    Alert.alert(
-      "Send Report",
-      "Sending reports directly to family members is coming soon.",
-    );
-  };
-
   if (loading) {
     return (
       <View className="flex-1 items-center justify-center py-20">
@@ -196,7 +186,7 @@ export const PatientReportView: React.FC<PatientReportViewProps> = ({
   const trend = TREND_META[assessmentStats.trend];
 
   // Merge assessment-derived and game-derived section performance into one
-  // "brain area profile" — averaged when both sources are available so the
+  // "brain area profile" - averaged when both sources are available so the
   // radar reflects the fullest picture of function in that domain.
   const sections: SectionName[] = [
     "Orientation",
@@ -220,11 +210,13 @@ export const PatientReportView: React.FC<PatientReportViewProps> = ({
     return { section, percent };
   });
 
-  const latestSeverity =
-    latestSeverityPrediction?.severity ??
-    assessmentStats.latestSeverity ??
-    null;
+  const latestSeverity = assessmentStats.latestSeverity ?? null;
   const severityMeta = latestSeverity ? SEVERITY_META[latestSeverity] : null;
+  const triageMeta = latestTriagePrediction
+    ? latestTriagePrediction.triage === "escalate"
+      ? { label: "See a doctor", color: "#DC2626", bg: "#FEF2F2" }
+      : { label: "Keep an eye at home", color: "#16A34A", bg: "#F0FDF4" }
+    : null;
 
   return (
     <ScrollView
@@ -246,12 +238,12 @@ export const PatientReportView: React.FC<PatientReportViewProps> = ({
       )}
 
       {/* ── Report actions ──────────────────────────────────────────── */}
-      <View className="flex-row gap-2.5 mb-4">
+      <View className="mb-4">
         <TouchableOpacity
           onPress={handleDownload}
           disabled={downloading}
           activeOpacity={0.8}
-          className="flex-1 flex-row items-center justify-center gap-2 py-3 rounded-2xl"
+          className="flex-row items-center justify-center gap-2 py-3 rounded-2xl"
           style={{ backgroundColor: "#3B82F6", opacity: downloading ? 0.7 : 1 }}
         >
           {downloading ? (
@@ -262,15 +254,6 @@ export const PatientReportView: React.FC<PatientReportViewProps> = ({
           <Text className="text-xs font-bold text-white">
             {downloading ? "Preparing…" : "Download Report"}
           </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={handleSend}
-          activeOpacity={0.8}
-          className="flex-1 flex-row items-center justify-center gap-2 py-3 rounded-2xl bg-white border border-gray-200"
-        >
-          <Ionicons name="paper-plane-outline" size={16} color="#475569" />
-          <Text className="text-xs font-bold text-gray-600">Send Report</Text>
         </TouchableOpacity>
       </View>
 
@@ -287,12 +270,6 @@ export const PatientReportView: React.FC<PatientReportViewProps> = ({
           value={String(gameStats.totalPlays)}
           icon="game-controller-outline"
           color="#8B5CF6"
-        />
-        <StatCard
-          label="Screenings"
-          value={String(riskHistory.length)}
-          icon="pulse-outline"
-          color="#F59E0B"
         />
       </View>
 
@@ -325,6 +302,34 @@ export const PatientReportView: React.FC<PatientReportViewProps> = ({
               style={{ color: trend.color }}
             >
               {trend.label}
+            </Text>
+          </View>
+        </View>
+      )}
+
+      {/* ── AI triage (ML model) ────────────────────────────────────── */}
+      {triageMeta && latestTriagePrediction && (
+        <View
+          className="rounded-2xl p-4 mb-2 flex-row items-center gap-3"
+          style={{ backgroundColor: triageMeta.bg }}
+        >
+          <View className="flex-1">
+            <Text
+              className="text-[10px] font-bold uppercase tracking-widest"
+              style={{ color: triageMeta.color }}
+            >
+              AI Triage
+            </Text>
+            <Text className="text-base font-extrabold text-gray-900">
+              {triageMeta.label}
+            </Text>
+          </View>
+          <View className="px-2.5 py-1.5 rounded-xl bg-white/70">
+            <Text
+              className="text-[11px] font-semibold"
+              style={{ color: triageMeta.color }}
+            >
+              {Math.round(latestTriagePrediction.confidence * 100)}% confidence
             </Text>
           </View>
         </View>
@@ -382,7 +387,7 @@ export const PatientReportView: React.FC<PatientReportViewProps> = ({
                   style={{ backgroundColor: info.color }}
                 />
                 <Text className="text-[11px] text-gray-500 flex-1">
-                  <Text className="font-semibold text-gray-700">{s}</Text> —{" "}
+                  <Text className="font-semibold text-gray-700">{s}</Text> -{" "}
                   {info.shortArea}
                 </Text>
               </View>
@@ -401,11 +406,14 @@ export const PatientReportView: React.FC<PatientReportViewProps> = ({
         <GamePerformanceBreakdown perGame={gameStats.perGame} />
       </View>
 
+      {/* ── Adaptive difficulty ─────────────────────────────────────── */}
+      <AdaptiveDifficultySection patientId={resolvedPatientId} />
+
       {/* ── Methodology footnote ────────────────────────────────────── */}
       <Text className="text-[10px] text-gray-300 text-center px-6 leading-4">
         Brain area associations reflect standard MMSE domain groupings and are
         provided for general context, not a clinical diagnosis. Severity/risk
-        figures come from MemoCare's ML models — see the assessment and
+        figures come from MemoCare's ML models - see the assessment and
         screening screens for full details.
       </Text>
     </ScrollView>

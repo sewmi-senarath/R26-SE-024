@@ -4,7 +4,16 @@ import {
   FaceNameMatchConfig,
   FaceNameQuestion,
   GameId,
+  GoNoGoConfig,
+  GridFlashConfig,
+  ListenRepeatConfig,
+  CalendarFindConfig,
+  MemoryMatchConfig,
   MemoryRecallConfig,
+  NamePictureConfig,
+  SentenceCompletionConfig,
+  SpotDifferenceConfig,
+  StoryRecallConfig,
   ObjectRecallConfig,
   OrientationGameConfig,
   OrientationQuestion,
@@ -14,6 +23,8 @@ import {
 import { SEQUENCE_ITEMS } from "./game-content/sequence_items";
 import { PUZZLE_WORDS } from "./game-content/puzzle_words";
 import { RECALL_OBJECTS } from "./game-content/recall_objects";
+import { STORY_POOL } from "./game-content/story_content";
+import { SENTENCE_POOL } from "./game-content/sentence_content";
 
 function sampleItems<T>(items: T[], count: number): T[] {
   const shuffled = [...items];
@@ -28,6 +39,25 @@ function sampleItems<T>(items: T[], count: number): T[] {
 
 function matchesWordLength(word: string, wordLength: number): boolean {
   return wordLength === 8 ? word.length >= 8 : word.length === wordLength;
+}
+
+// How many decoy options pad the Memory Recall grid beyond the correct items.
+const MEMORY_RECALL_DISTRACTOR_COUNT = 3;
+
+// Pick decoys from the shared pool, excluding anything already chosen as a
+// correct item, so the recall grid never shows the same object twice.
+function sampleMemoryDistractors(
+  chosen: { label: string }[],
+  count: number,
+): (typeof SEQUENCE_ITEMS)[number][] {
+  const used = new Set(chosen.map((i) => i.label.trim().toLowerCase()));
+  const pool = SEQUENCE_ITEMS.filter(
+    (i) => !used.has(i.label.trim().toLowerCase()),
+  );
+  return sampleItems(pool, count).map((item, idx) => ({
+    ...item,
+    id: `distractor_${idx}_${item.id}`,
+  }));
 }
 
 function pickDistractors<T>(pool: T[], exclude: T[], count: number): T[] {
@@ -56,40 +86,186 @@ function getTimeOfDay(hour: number): string {
   return "Night";
 }
 
-// Deterministic, real-clock questions — never LLM-generated, so "what day is
-// it" can never be answered wrong. Mirrors backend/orientationFacts.js.
-function buildTimeOrientationQuestions(optionsCount: number): OrientationQuestion[] {
+interface OrientationBuildOpts {
+  tiers?: number[];
+  spread?: "near" | "far";
+}
+
+// Neighbours of `correct` within an ordered list - mirrors backend so "near"
+// distractors are genuinely tempting (e.g. Monday next to Sunday/Tuesday).
+function orderedNeighbours(list: string[], correct: string, count: number): string[] {
+  const index = list.indexOf(correct);
+  if (index === -1) return pickDistractors(list, [correct], count);
+  const out: string[] = [];
+  for (let distance = 1; out.length < count && distance < list.length; distance += 1) {
+    const before = list[(index - distance + list.length) % list.length];
+    const after = list[(index + distance) % list.length];
+    if (before !== correct && !out.includes(before)) out.push(before);
+    if (out.length >= count) break;
+    if (after !== correct && !out.includes(after)) out.push(after);
+  }
+  return out.slice(0, count);
+}
+
+const RECALL_WORDS = [
+  "Sunflower", "Elephant", "Rainbow", "Mountain", "River",
+  "Garden", "Butterfly", "Lantern", "Umbrella", "Harbour",
+];
+
+// Deterministic, real-clock questions - never LLM-generated, so "what day is
+// it" can never be answered wrong. Mirrors backend/orientationFacts.js: each
+// item is tagged with a cognitive tier (1=recognition, 2=orientation,
+// 3=reasoning) and honours the requested tier set + distractor spread.
+function buildTimeOrientationQuestions(
+  optionsCount: number,
+  opts: OrientationBuildOpts = {},
+): OrientationQuestion[] {
+  const { tiers = [1, 2, 3], spread = "far" } = opts;
   const now = new Date();
   const year = now.getFullYear();
-  const month = MONTHS[now.getMonth()];
-  const weekday = WEEKDAYS[now.getDay()];
-  const timeOfDay = getTimeOfDay(now.getHours());
-  const yearPool = [year - 2, year - 1, year, year + 1, year + 2].map(String);
+  const monthIndex = now.getMonth();
+  const month = MONTHS[monthIndex];
+  const dayIndex = now.getDay();
+  const weekday = WEEKDAYS[dayIndex];
+  const dateOfMonth = now.getDate();
+  const hour = now.getHours();
+  const timeOfDay = getTimeOfDay(hour);
+  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+  // Nearby years are all tempting, so keep four either way - this also ensures
+  // enough options for the higher medium/hard option counts.
+  const yearPool = [year - 2, year - 1, year + 1, year + 2].map(String);
 
-  const build = (
+  const tomorrow = WEEKDAYS[(dayIndex + 1) % 7];
+  const yesterday = WEEKDAYS[(dayIndex + 6) % 7];
+  const dayAfterTomorrow = WEEKDAYS[(dayIndex + 2) % 7];
+  const nextMonth = MONTHS[(monthIndex + 1) % 12];
+  const twoMonthsAgo = MONTHS[(monthIndex + 10) % 12];
+  const isWeekend = dayIndex === 0 || dayIndex === 6;
+
+  const choice = (
     id: string,
     question: string,
     icon: string,
     correctAnswer: string,
     pool: string[],
+    tier: 1 | 2 | 3,
+    extra: {
+      hint?: string;
+      numeric?: boolean;
+      category?: OrientationQuestion["category"];
+      numericRange?: { min: number; max: number };
+    } = {},
+  ): OrientationQuestion => {
+    const distractors =
+      spread === "near"
+        ? orderedNeighbours(pool, correctAnswer, optionsCount - 1)
+        : pickDistractors(pool, [correctAnswer], optionsCount - 1);
+    return {
+      id,
+      question,
+      icon,
+      category: extra.category ?? "Time",
+      correctAnswer,
+      options: sampleItems([correctAnswer, ...distractors], optionsCount),
+      tier,
+      ...(extra.hint ? { hint: extra.hint } : {}),
+      ...(extra.numeric ? { numeric: true } : {}),
+      ...(extra.numericRange ? { numericRange: extra.numericRange } : {}),
+    };
+  };
+
+  const number = (
+    id: string,
+    question: string,
+    icon: string,
+    answer: number,
+    pool: number[],
+    tier: 1 | 2 | 3,
+    range?: { min: number; max: number },
   ): OrientationQuestion => ({
     id,
     question,
     icon,
     category: "Time",
-    correctAnswer,
+    correctAnswer: String(answer),
     options: sampleItems(
-      [correctAnswer, ...pickDistractors(pool, [correctAnswer], optionsCount - 1)],
+      [String(answer), ...pickDistractors(pool.map(String), [String(answer)], optionsCount - 1)],
       optionsCount,
     ),
+    tier,
+    numeric: true,
+    ...(range ? { numericRange: range } : {}),
   });
 
-  return [
-    build("ot-year", "What year is it right now?", "📅", String(year), yearPool),
-    build("ot-weekday", "What day of the week is it today?", "📆", weekday, WEEKDAYS),
-    build("ot-month", "What month is it right now?", "🗓️", month, MONTHS),
-    build("ot-timeofday", "Is it morning, afternoon, evening, or night right now?", "⏰", timeOfDay, TIMES_OF_DAY),
+  const numberNeighbours = (id: string, question: string, icon: string, answer: number, min: number, max: number, tier: 1 | 2 | 3, range?: { min: number; max: number }): OrientationQuestion => {
+    const maxDelta = spread === "near" ? 2 : 4;
+    const minDelta = spread === "near" ? 1 : 2;
+    const pool: number[] = [];
+    for (let delta = -maxDelta; delta <= maxDelta; delta += 1) {
+      if (delta === 0 || Math.abs(delta) < minDelta) continue;
+      const value = answer + delta;
+      if (value >= min && value <= max) pool.push(value);
+    }
+    return number(id, question, icon, answer, pool, tier, range);
+  };
+
+  const all: OrientationQuestion[] = [
+    // Tier 2 - current date & time awareness
+    choice("ot-year", "What year is it right now?", "📅", String(year), yearPool, 2, {
+      numeric: true,
+      numericRange: { min: year - 5, max: year + 5 },
+      hint: "Think about the year we are living in now.",
+    }),
+    choice("ot-weekday", "What day of the week is it today?", "📆", weekday, WEEKDAYS, 2, {
+      hint: "Think about what you did today or have planned.",
+    }),
+    choice("ot-month", "What month is it right now?", "🗓️", month, MONTHS, 2, {
+      hint: "Think about the season and any recent festivals.",
+    }),
+    choice("ot-timeofday", "Is it morning, afternoon, evening, or night right now?", "⏰", timeOfDay, TIMES_OF_DAY, 2, {
+      hint: "Look at how light or dark it is outside.",
+    }),
+    numberNeighbours("ot-dateofmonth", "What is today's date (the day of the month)?", "📅", dateOfMonth, 1, 31, 2, { min: 1, max: 31 }),
+    choice("ot-ampm", "Right now, is the time AM (before noon) or PM (after noon)?", "🕛", hour < 12 ? "AM" : "PM", ["AM", "PM"], 2),
+    choice("ot-weekpart", "Is today a weekday or part of the weekend?", "📆", isWeekend ? "Weekend" : "Weekday", ["Weekday", "Weekend"], 2),
+
+    // Tier 3 - reasoning about the calendar
+    choice("ot-tomorrow", `Today is ${weekday}. Which day comes tomorrow?`, "➡️", tomorrow, WEEKDAYS, 3, { category: "Calendar" }),
+    choice("ot-yesterday", `Today is ${weekday}. Which day was yesterday?`, "⬅️", yesterday, WEEKDAYS, 3, { category: "Calendar" }),
+    choice("ot-day-after-tomorrow", `Today is ${weekday}. Which day will it be the day after tomorrow?`, "⏩", dayAfterTomorrow, WEEKDAYS, 3, { category: "Calendar" }),
+    choice("ot-nextmonth", `It is ${month} now. Which month comes next?`, "🗓️", nextMonth, MONTHS, 3, { category: "Calendar" }),
+    choice("ot-two-months-ago", `It is ${month} now. Which month was it two months ago?`, "⏪", twoMonthsAgo, MONTHS, 3, { category: "Calendar" }),
+    numberNeighbours("ot-daysinmonth", `How many days does ${month} have this year?`, "📆", daysInMonth, 28, 31, 3, { min: 28, max: 31 }),
+
+    // Tier 1 - general knowledge
+    number("ot-days-in-week", "How many days are there in one week?", "🗓️", 7, [5, 6, 7, 8, 10], 1),
+    number("ot-months-in-year", "How many months are there in one year?", "📅", 12, [10, 11, 12, 13, 14], 1),
+    number("ot-hours-in-day", "How many hours are there in one day?", "⏰", 24, [12, 20, 24, 30, 48], 1),
+    choice("ot-dayorder", "Which comes first in a day - morning or evening?", "🌅", "Morning", ["Morning", "Evening"], 1),
   ];
+
+  const tierSet = new Set(tiers);
+  const selected = all.filter((q) => q.tier && tierSet.has(q.tier));
+  return sampleItems(selected.length ? selected : all, selected.length ? selected.length : all.length);
+}
+
+function buildMemoryAnchor(optionsCount: number) {
+  const word = RECALL_WORDS[Math.floor(Math.random() * RECALL_WORDS.length)];
+  const question: OrientationQuestion = {
+    id: "ot-recall",
+    question: "Which word were you asked to remember at the start?",
+    icon: "🧠",
+    category: "Memory",
+    correctAnswer: word,
+    options: sampleItems([word, ...pickDistractors(RECALL_WORDS, [word], optionsCount - 1)], optionsCount),
+    tier: 3,
+  };
+  const anchor = {
+    word,
+    icon: "🧠",
+    statement: `Please remember this word. We will ask for it again at the end: ${word}`,
+  };
+  return { anchor, question };
 }
 
 const FALLBACK_FACES: { id: string; emoji: string; name: string }[] = [
@@ -240,20 +416,238 @@ const WORD_PUZZLE: Record<Difficulty, WordPuzzleConfig> = {
   hard: buildWordPuzzleConfig(8, false, 45, true),
 };
 
-// orientation_game and face_name_match are always regenerated fresh in
-// getGameContent() below (they depend on the real clock / need reshuffling
-// each play), so there is no eagerly-built module-level config for them —
-// unlike the other five games, nothing here would ever be read.
-const ORIENTATION_META: Record<Difficulty, { questionCount: number; optionsCount: number; timeLimitSeconds: number | null }> = {
-  easy: { questionCount: 4, optionsCount: 3, timeLimitSeconds: null },
-  medium: { questionCount: 5, optionsCount: 3, timeLimitSeconds: 30 },
-  hard: { questionCount: 6, optionsCount: 4, timeLimitSeconds: 20 },
+// Grid Flash: a spatial sequence over an N×N grid. Flash speed is deliberately
+// constant across levels - only the grid size and sequence length grow.
+function buildGridFlashConfig(
+  gridSize: number,
+  sequenceLength: number,
+  showLabels: boolean,
+): GridFlashConfig {
+  return {
+    gridSize,
+    sequenceLength,
+    flashTimeMs: 750,
+    showLabels,
+    items: sampleItems(SEQUENCE_ITEMS, sequenceLength),
+  };
+}
+
+const GRID_FLASH: Record<Difficulty, GridFlashConfig> = {
+  easy: buildGridFlashConfig(3, 3, true),
+  medium: buildGridFlashConfig(4, 5, false),
+  hard: buildGridFlashConfig(5, 7, false),
 };
 
-const FACE_NAME_META: Record<Difficulty, { questionCount: number; optionsCount: number; timeLimitSeconds: number | null }> = {
-  easy: { questionCount: 3, optionsCount: 3, timeLimitSeconds: null },
-  medium: { questionCount: 4, optionsCount: 3, timeLimitSeconds: 20 },
-  hard: { questionCount: 5, optionsCount: 4, timeLimitSeconds: 15 },
+// Listen & Repeat: words are spoken, then recognised (choice) or typed (input).
+function buildListenRepeatConfig(
+  wordCount: number,
+  allowReplay: boolean,
+  answerMode: "choice" | "input",
+): ListenRepeatConfig {
+  const items = sampleItems(SEQUENCE_ITEMS, wordCount);
+  return {
+    wordCount,
+    allowReplay,
+    answerMode,
+    items,
+    distractors: sampleMemoryDistractors(items, wordCount),
+  };
+}
+
+const LISTEN_REPEAT: Record<Difficulty, ListenRepeatConfig> = {
+  easy: buildListenRepeatConfig(3, true, "choice"),
+  medium: buildListenRepeatConfig(5, false, "choice"),
+  hard: buildListenRepeatConfig(7, false, "input"),
+};
+
+// Memory Match: pairs of personalized items over a flip-card grid.
+function buildMemoryMatchConfig(
+  pairCount: number,
+  columns: number,
+  peekMs: number,
+  moveLimit: number | null,
+): MemoryMatchConfig {
+  return {
+    pairCount,
+    columns,
+    peekMs,
+    moveLimit,
+    items: sampleItems(SEQUENCE_ITEMS, pairCount),
+  };
+}
+
+const MEMORY_MATCH: Record<Difficulty, MemoryMatchConfig> = {
+  easy: buildMemoryMatchConfig(3, 3, 3500, null),
+  medium: buildMemoryMatchConfig(6, 4, 1800, null),
+  hard: buildMemoryMatchConfig(8, 4, 1200, 24),
+};
+
+// Story Recall: pick a generic story and slice it to the level's question count.
+// (Personalized stories come from the backend LLM; this is the offline fallback.)
+function buildStoryRecallConfig(
+  questionCount: number,
+  answerMode: "choice" | "mixed",
+  delayMs: number,
+): StoryRecallConfig {
+  const story = STORY_POOL[Math.floor(Math.random() * STORY_POOL.length)];
+  const chosen = sampleItems(story.questions, Math.min(questionCount, story.questions.length));
+  return {
+    questionCount: chosen.length,
+    answerMode,
+    delayMs,
+    story: story.text,
+    questions: chosen.map((q, i) => ({
+      id: `sq${i}`,
+      question: q.question,
+      correctAnswer: q.correctAnswer,
+      options: sampleItems(q.options, q.options.length),
+    })),
+  };
+}
+
+const STORY_RECALL: Record<Difficulty, StoryRecallConfig> = {
+  easy: buildStoryRecallConfig(2, "choice", 0),
+  medium: buildStoryRecallConfig(4, "choice", 0),
+  hard: buildStoryRecallConfig(6, "choice", 4000),
+};
+
+// Spot the Difference: two grids of the same items where some tiles change.
+function buildSpotDifferenceConfig(
+  rows: number,
+  columns: number,
+  differenceCount: number,
+  timeLimitSeconds: number | null,
+): SpotDifferenceConfig {
+  const items = sampleItems(SEQUENCE_ITEMS, rows * columns);
+  return {
+    rows,
+    columns,
+    differenceCount,
+    timeLimitSeconds,
+    items,
+    distractors: sampleMemoryDistractors(items, differenceCount),
+  };
+}
+
+const SPOT_DIFFERENCE: Record<Difficulty, SpotDifferenceConfig> = {
+  easy: buildSpotDifferenceConfig(2, 4, 3, null),
+  medium: buildSpotDifferenceConfig(3, 4, 5, 60),
+  hard: buildSpotDifferenceConfig(4, 4, 7, 45),
+};
+
+// Go / No-Go: items[0] is the target; the rest are lures.
+function buildGoNoGoConfig(
+  targetCount: number,
+  lureCount: number,
+  intervalMs: number,
+): GoNoGoConfig {
+  return {
+    targetCount,
+    lureCount,
+    intervalMs,
+    items: sampleItems(SEQUENCE_ITEMS, 6),
+  };
+}
+
+const GO_NO_GO: Record<Difficulty, GoNoGoConfig> = {
+  easy: buildGoNoGoConfig(5, 5, 1600),
+  medium: buildGoNoGoConfig(6, 8, 1100),
+  hard: buildGoNoGoConfig(7, 11, 800),
+};
+
+// Name the Picture: pictures to name + a decoy-name pool.
+function buildNamePictureConfig(
+  itemCount: number,
+  optionsCount: number,
+  answerMode: "choice" | "type",
+): NamePictureConfig {
+  const items = sampleItems(SEQUENCE_ITEMS, itemCount);
+  return {
+    itemCount,
+    optionsCount,
+    answerMode,
+    items,
+    distractors: sampleMemoryDistractors(items, itemCount + 4),
+  };
+}
+
+const NAME_PICTURE: Record<Difficulty, NamePictureConfig> = {
+  easy: buildNamePictureConfig(5, 3, "choice"),
+  medium: buildNamePictureConfig(5, 4, "choice"),
+  hard: buildNamePictureConfig(5, 4, "type"),
+};
+
+// Sentence Completion: pick sentences from the generic pool (personalized
+// sentences come from the backend LLM; this is the offline fallback).
+function buildSentenceCompletionConfig(
+  blankCount: number,
+  answerMode: "choice" | "type",
+): SentenceCompletionConfig {
+  const picked = sampleItems(SENTENCE_POOL, Math.min(blankCount, SENTENCE_POOL.length));
+  return {
+    blankCount: picked.length,
+    answerMode,
+    items: picked.map((s, i) => ({
+      id: `sc${i}`,
+      text: s.text,
+      answer: s.answer,
+      options: sampleItems(s.options, s.options.length),
+    })),
+  };
+}
+
+const CALENDAR_FIND: Record<Difficulty, CalendarFindConfig> = {
+  easy: { promptCount: 3, showTodayHint: true, relativeReasoning: false },
+  medium: { promptCount: 4, showTodayHint: false, relativeReasoning: false },
+  hard: { promptCount: 5, showTodayHint: false, relativeReasoning: true },
+};
+
+const SENTENCE_COMPLETION: Record<Difficulty, SentenceCompletionConfig> = {
+  easy: buildSentenceCompletionConfig(3, "choice"),
+  medium: buildSentenceCompletionConfig(4, "choice"),
+  hard: buildSentenceCompletionConfig(5, "type"),
+};
+
+// orientation_game and face_name_match are always regenerated fresh in
+// getGameContent() below (they depend on the real clock / need reshuffling
+// each play), so there is no eagerly-built module-level config for them -
+// unlike the other five games, nothing here would ever be read.
+type OrientationMeta = Omit<OrientationGameConfig, "questions" | "memoryAnchor">;
+const ORIENTATION_META: Record<Difficulty, OrientationMeta> = {
+  easy: {
+    questionCount: 4, optionsCount: 3, timeLimitSeconds: null,
+    tiers: [1, 2], distractorSpread: "far",
+    showHints: true, showCategory: true, autoReadAloud: true,
+    answerMode: "choice", delayedRecall: false,
+  },
+  medium: {
+    questionCount: 5, optionsCount: 4, timeLimitSeconds: 30,
+    tiers: [2], distractorSpread: "near",
+    showHints: false, showCategory: true, autoReadAloud: false,
+    answerMode: "choice", delayedRecall: false,
+  },
+  hard: {
+    questionCount: 6, optionsCount: 5, timeLimitSeconds: 20,
+    tiers: [2, 3], distractorSpread: "near",
+    showHints: false, showCategory: false, autoReadAloud: false,
+    answerMode: "recall", delayedRecall: true,
+  },
+};
+
+type FaceNameMeta = Omit<FaceNameMatchConfig, "questions">;
+const FACE_NAME_META: Record<Difficulty, FaceNameMeta> = {
+  easy: {
+    questionCount: 3, optionsCount: 3, timeLimitSeconds: null,
+    answerMode: "choice", studyPhase: false, firstLetterCue: true, distractorStyle: "mixed",
+  },
+  medium: {
+    questionCount: 4, optionsCount: 4, timeLimitSeconds: 20,
+    answerMode: "choice", studyPhase: true, firstLetterCue: false, distractorStyle: "sameGender",
+  },
+  hard: {
+    questionCount: 5, optionsCount: 4, timeLimitSeconds: 15,
+    answerMode: "recall", studyPhase: true, firstLetterCue: false, distractorStyle: "sameGender",
+  },
 };
 
 export const GAME_CONTENT: Record<Exclude<GameId, "orientation_game" | "face_name_match">, Record<Difficulty, any>> = {
@@ -262,14 +656,25 @@ export const GAME_CONTENT: Record<Exclude<GameId, "orientation_game" | "face_nam
   attention_game: ATTENTION_GAME,
   photo_puzzle: PHOTO_PUZZLE,
   word_puzzle: WORD_PUZZLE,
+  grid_flash: GRID_FLASH,
+  listen_repeat: LISTEN_REPEAT,
+  memory_match: MEMORY_MATCH,
+  story_recall: STORY_RECALL,
+  spot_difference: SPOT_DIFFERENCE,
+  go_no_go: GO_NO_GO,
+  name_picture: NAME_PICTURE,
+  sentence_completion: SENTENCE_COMPLETION,
+  calendar_find: CALENDAR_FIND,
 };
 
 export function getGameContent<T>(gameId: GameId, difficulty: Difficulty): T {
   if (gameId === "memory_recall") {
     const config = GAME_CONTENT[gameId][difficulty] as MemoryRecallConfig;
+    const items = sampleItems(SEQUENCE_ITEMS, config.sequenceLength);
     return {
       ...config,
-      items: sampleItems(SEQUENCE_ITEMS, config.sequenceLength),
+      items,
+      distractors: sampleMemoryDistractors(items, MEMORY_RECALL_DISTRACTOR_COUNT),
     } as T;
   }
 
@@ -292,10 +697,89 @@ export function getGameContent<T>(gameId: GameId, difficulty: Difficulty): T {
     } as T;
   }
 
+  if (gameId === "grid_flash") {
+    const config = GAME_CONTENT[gameId][difficulty] as GridFlashConfig;
+    return {
+      ...config,
+      items: sampleItems(SEQUENCE_ITEMS, config.sequenceLength),
+    } as T;
+  }
+
+  if (gameId === "listen_repeat") {
+    const config = GAME_CONTENT[gameId][difficulty] as ListenRepeatConfig;
+    const items = sampleItems(SEQUENCE_ITEMS, config.wordCount);
+    return {
+      ...config,
+      items,
+      distractors: sampleMemoryDistractors(items, config.wordCount),
+    } as T;
+  }
+
+  if (gameId === "memory_match") {
+    const config = GAME_CONTENT[gameId][difficulty] as MemoryMatchConfig;
+    return {
+      ...config,
+      items: sampleItems(SEQUENCE_ITEMS, config.pairCount),
+    } as T;
+  }
+
+  if (gameId === "story_recall") {
+    const config = GAME_CONTENT[gameId][difficulty] as StoryRecallConfig;
+    return buildStoryRecallConfig(
+      config.questionCount,
+      config.answerMode,
+      config.delayMs,
+    ) as T;
+  }
+
+  if (gameId === "spot_difference") {
+    const config = GAME_CONTENT[gameId][difficulty] as SpotDifferenceConfig;
+    const items = sampleItems(SEQUENCE_ITEMS, config.rows * config.columns);
+    return {
+      ...config,
+      items,
+      distractors: sampleMemoryDistractors(items, config.differenceCount),
+    } as T;
+  }
+
+  if (gameId === "go_no_go") {
+    const config = GAME_CONTENT[gameId][difficulty] as GoNoGoConfig;
+    return {
+      ...config,
+      items: sampleItems(SEQUENCE_ITEMS, 6),
+    } as T;
+  }
+
+  if (gameId === "name_picture") {
+    const config = GAME_CONTENT[gameId][difficulty] as NamePictureConfig;
+    const items = sampleItems(SEQUENCE_ITEMS, config.itemCount);
+    return {
+      ...config,
+      items,
+      distractors: sampleMemoryDistractors(items, config.itemCount + 4),
+    } as T;
+  }
+
+  if (gameId === "sentence_completion") {
+    const config = GAME_CONTENT[gameId][difficulty] as SentenceCompletionConfig;
+    return buildSentenceCompletionConfig(config.blankCount, config.answerMode) as T;
+  }
+
   if (gameId === "orientation_game") {
     const meta = ORIENTATION_META[difficulty];
-    const questions = buildTimeOrientationQuestions(meta.optionsCount).slice(0, meta.questionCount);
-    return { ...meta, questions } as T;
+    const timeQuestions = buildTimeOrientationQuestions(meta.optionsCount, {
+      tiers: meta.tiers,
+      spread: meta.distractorSpread,
+    });
+    const recall = meta.delayedRecall ? buildMemoryAnchor(meta.optionsCount) : null;
+    const slots = recall ? meta.questionCount - 1 : meta.questionCount;
+    const chosen = timeQuestions.slice(0, Math.max(1, slots));
+    const questions = recall ? [...chosen, recall.question] : chosen;
+    return {
+      ...meta,
+      questions,
+      ...(recall ? { memoryAnchor: recall.anchor } : {}),
+    } as T;
   }
 
   if (gameId === "face_name_match") {

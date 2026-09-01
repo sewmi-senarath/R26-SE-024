@@ -1,30 +1,98 @@
 const express = require('express');
 const router = express.Router();
-const axios = require('axios');
 const { protect, authorize } = require('../../middleware/auth');
 const Assessment = require('../../models/cognitive/Assessment');
 const User = require('../../models/auth/User');
+const Patient = require('../../models/caregiver/Patient');
 const SeverityPrediction = require('../../models/cognitive/SeverityPrediction');
-const RiskScreening = require('../../models/cognitive/RiskScreening');
+const svc = require('../../services/cognitive/dementiaPrediction/dementiaPredictionService');
 
-// Mirrors backend/ml/caregiver -> backend/src/routes/caregiver/insightRoutes.js pattern.
-// Dementia Flask API runs on its own port so it can be started/restarted
-// independently of the caregiver stress model.
-const ML_URL = 'http://localhost:5002';
+// Mirrors backend/ml/caregiver -> backend/src/routes/caregiver/insightRoutes.js.
+// The dementia Flask API (backend/ml/dementia/app.py, port 5002) returns a
+// 2-class triage (monitor / escalate, ~93% accuracy). It needs the patient's
+// Functional Activities Questionnaire (FAQ) on file - see POST /faq.
+
+const ROLES = ['patient', 'caregiver', 'family'];
+
+// Confirms the caller is actually allowed to act on :patientId, not just that
+// their ROLE is on the allow-list above. A patient may only act on their own
+// id; a caregiver only on a patient they've linked (Patient.registeredPatientId).
+// 'family' is left unrestricted for now - its patient-linking model wasn't
+// available to check here, so this deliberately doesn't guess at it.
+async function verifyOwnsPatient(req, res, next) {
+  const { patientId } = req.params;
+  const { userId, role } = req.user;
+
+  if (role === 'patient') {
+    // req.user.userId is a Mongoose ObjectId, patientId is a string from the
+    // URL - compare as strings so a patient acting on their own id passes.
+    if (String(patientId) !== String(userId)) {
+      return res.status(403).json({ success: false, message: 'Not authorized for this patient' });
+    }
+    return next();
+  }
+
+  if (role === 'caregiver') {
+    const link = await Patient.findOne({ caregiverId: userId, registeredPatientId: patientId });
+    if (!link) {
+      return res.status(403).json({ success: false, message: 'Not authorized for this patient' });
+    }
+    return next();
+  }
+
+  return next();
+}
+
+// POST /api/cognitive/dementia/faq/:patientId
+// Save one FAQ submission (10 items, each 0-3). `sessionId` (optional) ties it
+// to the screening-test session it followed; the "retake" flows don't pass one,
+// so fall back to the patient's latest completed assessment so the Reporting
+// tab shows which MMSE score each questionnaire was paired with.
+router.post('/faq/:patientId', protect, authorize(...ROLES), verifyOwnsPatient, async (req, res) => {
+  try {
+    const { patientId } = req.params;
+    const { answers, sessionId } = req.body || {};
+
+    let basedOnAssessment = sessionId || null;
+    if (!basedOnAssessment) {
+      const latestAssessment = await Assessment.findOne({ patientId, status: 'done' })
+        .sort({ completedAt: -1 });
+      basedOnAssessment = latestAssessment?.sessionId || null;
+    }
+
+    const doc = await svc.saveFaq(patientId, answers, basedOnAssessment);
+    return res.status(201).json({ success: true, result: doc });
+  } catch (error) {
+    return res
+      .status(error.statusCode || 500)
+      .json({ success: false, message: error.message, details: error.details });
+  }
+});
+
+// GET /api/cognitive/dementia/faq/:patientId/latest
+// Most recent FAQ for the patient, or null. The results screen uses this to
+// decide whether to show the "complete the questionnaire" button.
+router.get('/faq/:patientId/latest', protect, authorize(...ROLES), verifyOwnsPatient, async (req, res) => {
+  try {
+    const doc = await svc.getLatestFaq(req.params.patientId);
+    return res.status(200).json({ success: true, result: doc || null });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
 
 // POST /api/cognitive/dementia/predict/:patientId
-// Pulls the patient's latest completed assessment score + profile info,
-// calls the ML model, and returns both the ML prediction and the existing
-// rule-based severity (from scoringService) so they can be compared. Also
-// persists a SeverityPrediction row so the Reporting tab can chart this
-// over time instead of only ever seeing the most recent call.
-router.post('/predict/:patientId', protect, authorize('patient', 'caregiver', 'family'), async (req, res) => {
+// Pulls the patient's latest completed assessment + latest FAQ, calls the ML
+// model, returns the triage, and persists a SeverityPrediction row for the
+// Reporting tab.
+router.post('/predict/:patientId', protect, authorize(...ROLES), verifyOwnsPatient, async (req, res) => {
   try {
     const { patientId } = req.params;
 
-    const [patient, latestAssessment] = await Promise.all([
+    const [patient, latestAssessment, faq] = await Promise.all([
       User.findById(patientId),
       Assessment.findOne({ patientId, status: 'done' }).sort({ completedAt: -1 }),
+      svc.getLatestFaq(patientId),
     ]);
 
     if (!patient) {
@@ -36,52 +104,36 @@ router.post('/predict/:patientId', protect, authorize('patient', 'caregiver', 'f
         message: 'No completed assessment found for this patient yet',
       });
     }
+    if (!faq) {
+      return res.status(409).json({
+        success: false,
+        code: 'FAQ_REQUIRED',
+        message: 'Complete the daily-living questionnaire to get a triage result.',
+      });
+    }
 
-    const payload = {
-      age: patient.age || 75,
-      // educationYears / ses aren't collected yet in the User model -
-      // sensible defaults are used until those fields are added to onboarding.
-      educationYears: 12,
-      ses: 3,
-      totalScore: latestAssessment.adjustedScore ?? latestAssessment.totalScore,
-      sex: patient.gender ? patient.gender[0].toUpperCase() : '',
-    };
-
-    const mlResponse = await axios.post(`${ML_URL}/predict`, payload);
-    const result = mlResponse.data;
-
-    if (!result.success) {
+    const ml = await svc.requestPrediction({ patient, assessment: latestAssessment, faq });
+    if (!ml || !ml.success) {
       return res.status(500).json({ success: false, message: 'ML model prediction failed' });
     }
 
-    // Fire-and-forget-ish, but awaited so a save failure doesn't silently
-    // vanish - if it fails we still return the prediction to the caller.
+    // Best-effort persist - a save failure must not lose the prediction.
     try {
-      await SeverityPrediction.create({
-        patientId,
-        basedOnAssessment: latestAssessment.sessionId,
-        severity: result.severity,
-        confidence: result.confidence,
-        probabilities: result.probabilities,
-        ruleBasedSeverity: result.ruleBasedSeverity,
-        agreesWithRule: result.agreesWithRule,
-        message: result.message,
-      });
+      await svc.persistPrediction({ patientId, assessment: latestAssessment, faq, ml });
     } catch (saveErr) {
       console.error('[Dementia] Failed to persist SeverityPrediction:', saveErr.message);
     }
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       result: {
-        severity: result.severity,
-        confidence: result.confidence,
-        probabilities: result.probabilities,
-        ruleBasedSeverity: result.ruleBasedSeverity,
-        agreesWithRule: result.agreesWithRule,
-        message: result.message,
+        triage: ml.triage,
+        confidence: ml.confidence,
+        probabilities: ml.probabilities,
+        message: ml.message,
         basedOnAssessment: latestAssessment.sessionId,
-        submittedAt: result.submittedAt,
+        basedOnFaq: faq._id,
+        submittedAt: ml.submittedAt,
       },
     });
   } catch (error) {
@@ -91,106 +143,22 @@ router.post('/predict/:patientId', protect, authorize('patient', 'caregiver', 'f
         message: 'Dementia ML service not running. Start backend/ml/dementia/app.py first.',
       });
     }
-    res.status(500).json({ success: false, message: error.message });
+    return res
+      .status(error.statusCode || 500)
+      .json({ success: false, message: error.message });
   }
 });
 
 // GET /api/cognitive/dementia/predict/:patientId/history
-// All past severity predictions for this patient, most recent first - used
-// by the Reporting tab to chart severity/confidence trends over time.
-router.get('/predict/:patientId/history', protect, authorize('patient', 'caregiver', 'family'), async (req, res) => {
+// All past predictions for this patient, most recent first - used by the
+// Reporting tab to chart triage trends over time.
+router.get('/predict/:patientId/history', protect, authorize(...ROLES), verifyOwnsPatient, async (req, res) => {
   try {
     const { patientId } = req.params;
     const limit = Math.min(Number(req.query.limit) || 50, 200);
-    const history = await SeverityPrediction.find({ patientId }).sort({ createdAt: -1 }).limit(limit);
-    res.status(200).json({ success: true, result: history });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-// POST /api/cognitive/dementia/screen/:patientId
-// Behavioral risk screener - NO cognitive test required. The caregiver/family
-// member fills out a short observation checklist (memory complaints,
-// confusion, disorientation, personality changes, etc.) and this calls the
-// screener model for an early risk read, complementary to /predict above
-// which needs a completed formal assessment. Good as a prompt to schedule
-// the full MemoCare assessment sooner if risk comes back elevated. Also
-// persists a RiskScreening row for the Reporting tab's history view.
-router.post('/screen/:patientId', protect, authorize('patient', 'caregiver', 'family'), async (req, res) => {
-  try {
-    const { patientId } = req.params;
-    const checklist = req.body; // { memoryComplaints, behavioralProblems, confusion, ... }
-
-    // patientId may be a real registered User (patient self-flow, or a
-    // caregiver's linked patient) OR a caregiver-only Patient record with no
-    // login of its own - in that case this just resolves to null and the
-    // checklist's own age/gender fields (already known to the caregiver) are
-    // used instead. Either way this route should never 404 on that alone.
-    const patient = await User.findById(patientId).catch(() => null);
-
-    const payload = {
-      ...checklist,
-      age: checklist.age ?? patient?.age ?? 75,
-      gender: checklist.gender ?? patient?.gender ?? '',
-    };
-
-    const mlResponse = await axios.post(`${ML_URL}/predict-risk`, payload);
-    const result = mlResponse.data;
-
-    if (!result.success) {
-      return res.status(500).json({ success: false, message: 'Risk screening failed' });
-    }
-
-    try {
-      await RiskScreening.create({
-        patientId,
-        checklist: {
-          memoryComplaints: !!checklist.memoryComplaints,
-          behavioralProblems: !!checklist.behavioralProblems,
-          confusion: !!checklist.confusion,
-          disorientation: !!checklist.disorientation,
-          personalityChanges: !!checklist.personalityChanges,
-          difficultyCompletingTasks: !!checklist.difficultyCompletingTasks,
-          forgetfulness: !!checklist.forgetfulness,
-        },
-        riskProbability: result.riskProbability,
-        riskLevel: result.riskLevel,
-        topFactors: result.topFactors,
-        message: result.message,
-        submittedBy: req.user?.userId || null,
-      });
-    } catch (saveErr) {
-      console.error('[Dementia] Failed to persist RiskScreening:', saveErr.message);
-    }
-
-    res.status(200).json({
-      success: true,
-      result: {
-        riskProbability: result.riskProbability,
-        riskLevel: result.riskLevel,
-        message: result.message,
-        topFactors: result.topFactors,
-        submittedAt: result.submittedAt,
-      },
-    });
-  } catch (error) {
-    if (error.code === 'ECONNREFUSED') {
-      return res.status(503).json({
-        success: false,
-        message: 'Dementia ML service not running. Start backend/ml/dementia/app.py first.',
-      });
-    }
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-// GET /api/cognitive/dementia/screen/:patientId/history
-router.get('/screen/:patientId/history', protect, authorize('patient', 'caregiver', 'family'), async (req, res) => {
-  try {
-    const { patientId } = req.params;
-    const limit = Math.min(Number(req.query.limit) || 50, 200);
-    const history = await RiskScreening.find({ patientId }).sort({ createdAt: -1 }).limit(limit);
+    const history = await SeverityPrediction.find({ patientId })
+      .sort({ createdAt: -1 })
+      .limit(limit);
     res.status(200).json({ success: true, result: history });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

@@ -2,12 +2,9 @@ import { getMe, getStoredUser } from "@/src/api/authApi";
 import { getPatientAssessmentHistory } from "@/src/api/assessmentApi";
 import { GameSessionHistoryItem, getPatientGameSessions } from "@/src/api/gameSessionApi";
 import { GAME_CONFIGS, GAME_ORDER } from "@/src/constants/games";
-import {
-  getRiskHistory,
-  getSeverityHistory,
-} from "@/src/services/patient/cognitive/dementiaService";
+import { getTriageHistory } from "@/src/services/patient/cognitive/dementiaService";
 import { MMSESession, SectionName, Severity } from "@/src/types/assessment.types";
-import { RiskHistoryItem, SeverityHistoryItem } from "@/src/types/dementia.types";
+import { TriageHistoryItem } from "@/src/types/dementia.types";
 import { GameId } from "@/src/types/games.types";
 import { useCallback, useEffect, useState } from "react";
 
@@ -41,13 +38,6 @@ export interface BrainAreaStat {
   section: SectionName;
   avgPercent: number;
   plays: number;
-}
-
-export interface RiskFactorFrequency {
-  key: string;
-  label: string;
-  count: number;
-  percent: number;
 }
 
 export type ProgressDirection = "improved" | "declined" | "steady" | "insufficient-data";
@@ -105,16 +95,6 @@ function pct(score: number, max: number) {
   return Math.round((score / max) * 100);
 }
 
-const FACTOR_LABELS: Record<string, string> = {
-  memoryComplaints: "Memory complaints",
-  behavioralProblems: "Behavioral changes",
-  confusion: "Confusion",
-  disorientation: "Disorientation",
-  personalityChanges: "Personality changes",
-  difficultyCompletingTasks: "Difficulty with tasks",
-  forgetfulness: "Forgetfulness",
-};
-
 export function usePatientReport(explicitPatientId?: string) {
   const [patientId, setPatientId] = useState<string | null>(explicitPatientId ?? null);
   const [loading, setLoading] = useState(true);
@@ -122,8 +102,7 @@ export function usePatientReport(explicitPatientId?: string) {
 
   const [assessments, setAssessments] = useState<MMSESession[]>([]);
   const [gameSessions, setGameSessions] = useState<GameSessionHistoryItem[]>([]);
-  const [severityHistory, setSeverityHistory] = useState<SeverityHistoryItem[]>([]);
-  const [riskHistory, setRiskHistory] = useState<RiskHistoryItem[]>([]);
+  const [triageHistory, setTriageHistory] = useState<TriageHistoryItem[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -143,11 +122,10 @@ export function usePatientReport(explicitPatientId?: string) {
       }
       setPatientId(id);
 
-      const [assessmentRes, gamesRes, severityRes, riskRes] = await Promise.all([
+      const [assessmentRes, gamesRes, triageRes] = await Promise.all([
         getPatientAssessmentHistory(id).catch(() => []),
         getPatientGameSessions(id).catch(() => []),
-        getSeverityHistory(id),
-        getRiskHistory(id),
+        getTriageHistory(id),
       ]);
 
       const doneAssessments = (assessmentRes || [])
@@ -160,8 +138,7 @@ export function usePatientReport(explicitPatientId?: string) {
           (a, b) => new Date(a.completedAt).getTime() - new Date(b.completedAt).getTime()
         )
       );
-      setSeverityHistory([...severityRes].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()));
-      setRiskHistory([...riskRes].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()));
+      setTriageHistory([...triageRes].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()));
     } catch (e: any) {
       setError(e?.message || "Could not load report data.");
     } finally {
@@ -255,22 +232,6 @@ export function usePatientReport(explicitPatientId?: string) {
     brainAreaPerformance,
   };
 
-  // ── Risk factor frequency ────────────────────────────────────────────
-  const factorCounts: Record<string, number> = {};
-  riskHistory.forEach((r) => {
-    Object.entries(r.checklist || {}).forEach(([key, val]) => {
-      if (val) factorCounts[key] = (factorCounts[key] || 0) + 1;
-    });
-  });
-  const riskFactorFrequency: RiskFactorFrequency[] = Object.entries(factorCounts)
-    .map(([key, count]) => ({
-      key,
-      label: FACTOR_LABELS[key] ?? key,
-      count,
-      percent: riskHistory.length ? Math.round((count / riskHistory.length) * 100) : 0,
-    }))
-    .sort((a, b) => b.count - a.count);
-
   // ── Progress: initial screening (baseline) vs. latest ─────────────────
   const baseline = assessments[0] ?? null;
   const latest = assessments[assessments.length - 1] ?? null;
@@ -339,7 +300,7 @@ export function usePatientReport(explicitPatientId?: string) {
         )
       : null;
 
-  // Overall direction — a ±2 point MMSE swing is the meaningful threshold.
+  // Overall direction - a ±2 point MMSE swing is the meaningful threshold.
   let direction: ProgressDirection = "insufficient-data";
   if (hasComparison && scoreDelta !== null) {
     if (scoreDelta >= 2) direction = "improved";
@@ -399,15 +360,12 @@ export function usePatientReport(explicitPatientId?: string) {
 
     assessments,
     gameSessions,
-    severityHistory,
-    riskHistory,
+    triageHistory,
 
     assessmentStats,
     gameStats,
-    riskFactorFrequency,
     progress,
 
-    latestSeverityPrediction: severityHistory[severityHistory.length - 1] ?? null,
-    latestRiskScreening: riskHistory[riskHistory.length - 1] ?? null,
+    latestTriagePrediction: triageHistory[triageHistory.length - 1] ?? null,
   };
 }

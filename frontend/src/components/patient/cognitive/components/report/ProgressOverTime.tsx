@@ -15,7 +15,7 @@ const DIRECTION_META: Record<
 };
 
 function fmtDate(d: string | null) {
-  if (!d) return "—";
+  if (!d) return "-";
   return new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
@@ -93,7 +93,7 @@ interface ProgressOverTimeProps {
 export const ProgressOverTime: React.FC<ProgressOverTimeProps> = ({ progress }) => {
   const dir = DIRECTION_META[progress.direction];
 
-  // No baseline at all — nothing to anchor progress to.
+  // No baseline at all - nothing to anchor progress to.
   if (!progress.hasBaseline) {
     return (
       <View className="items-center py-6 px-6">
@@ -133,7 +133,7 @@ export const ProgressOverTime: React.FC<ProgressOverTimeProps> = ({ progress }) 
         <View className="flex-1 items-center">
           <Text className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Baseline</Text>
           <Text className="text-2xl font-extrabold text-gray-800">
-            {progress.baselineScore ?? "—"}
+            {progress.baselineScore ?? "-"}
             <Text className="text-sm text-gray-400">/30</Text>
           </Text>
           <Text className="text-[10px] text-gray-400 mt-0.5">{fmtDate(progress.baselineDate)}</Text>
@@ -149,7 +149,7 @@ export const ProgressOverTime: React.FC<ProgressOverTimeProps> = ({ progress }) 
         <View className="flex-1 items-center">
           <Text className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Latest</Text>
           <Text className="text-2xl font-extrabold" style={{ color: dir.color }}>
-            {progress.latestScore ?? "—"}
+            {progress.latestScore ?? "-"}
             <Text className="text-sm text-gray-400">/30</Text>
           </Text>
           <Text className="text-[10px] text-gray-400 mt-0.5">{fmtDate(progress.latestDate)}</Text>

@@ -1,44 +1,56 @@
-
 import pandas as pd
 import numpy as np
 import joblib
 import warnings
-import time
 warnings.filterwarnings('ignore')
 
-from sklearn.ensemble import (
-    RandomForestClassifier,
-    GradientBoostingClassifier,
-    ExtraTreesClassifier,
-    VotingClassifier,
-    StackingClassifier,
-    BaggingClassifier
-)
-from sklearn.linear_model import LogisticRegression
-from sklearn.svm import SVC
+from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier
 from sklearn.model_selection import (
-    train_test_split, StratifiedKFold,
-    cross_val_score, GridSearchCV
+    train_test_split, StratifiedKFold, RandomizedSearchCV
 )
 from sklearn.metrics import (
-    classification_report, accuracy_score,
-    confusion_matrix, precision_score,
-    recall_score, f1_score
+    classification_report, accuracy_score, confusion_matrix, f1_score
 )
-from sklearn.preprocessing import StandardScaler
-from sklearn.feature_selection import SelectFromModel
-from imblearn.over_sampling import SMOTE, BorderlineSMOTE
-from imblearn.combine import SMOTETomek
+from sklearn.calibration import CalibratedClassifierCV
+from imblearn.over_sampling import SMOTE
+from imblearn.pipeline import Pipeline as ImbPipeline
+
+RANDOM_STATE = 42
 
 print("=" * 60)
-print("CAREGIVER STRESS - MAXIMUM ACCURACY TUNING")
+print("CAREGIVER STRESS - REGULARIZED, LEAKAGE-CHECKED TUNING (v2)")
 print("=" * 60)
 
 # ── Load ───────────────────────────────────────────────────────────────────
 df = pd.read_excel('MemoCare_Caregiver_Stress_Dataset.xlsx')
-df.columns = df.columns.str.strip()                              # fixes the KeyError
+df.columns = df.columns.str.strip()
 df = df.drop(columns=['Timestamp', 'Column 19'], errors='ignore')
 print(f"Loaded: {df.shape[0]} rows")
+
+# ── Duplicate / leakage sanity check (always run, always printed) ─────────
+num_cols_check = [
+    'How many patients do you currently care for?',
+    'How many hours did you sleep last night?',
+    'How physically tired do you feel today?',
+    'How many hours did you spend caregiving today?',
+    'How many caregiving tasks were assigned today?',
+    'How many tasks did you complete today?',
+    'How many tasks are still pending?',
+    'How many difficult situations (e.g., patient confusion, agitation) occurred today?',
+    'How would you describe your mood today?',
+    'Did you feel emotionally overwhelmed today?',
+    'How stressed did you feel today?',
+    'I felt mentally exhausted today Question',
+    'I had difficulty managing my caregiving tasks today',
+    'I felt emotionally drained today',
+    'How many breaks did you take today?',
+]
+_dupe_check = df[num_cols_check].apply(pd.to_numeric, errors='coerce')
+n_dupes = _dupe_check.duplicated().sum()
+print(f"Duplicate rows on raw survey columns: {n_dupes} ({n_dupes/len(df)*100:.1f}%)")
+if n_dupes > 0:
+    print("  ⚠ WARNING: duplicate rows found. These will be removed before the")
+    print("  train/test split so the same row can never appear on both sides.")
 
 # ── Encode ─────────────────────────────────────────────────────────────────
 df['age_encoded']  = df['Age Group'].map(
@@ -62,29 +74,12 @@ df['exp_encoded']  = df['How many years of caregiving experience do you have?'].
 
 df['sup_encoded']  = df['Do you have support from others?'].map({'Yes':1,'No':0}).fillna(1)
 
-num_cols = [
-    'How many patients do you currently care for?',
-    'How many hours did you sleep last night?',
-    'How physically tired do you feel today?',
-    'How many hours did you spend caregiving today?',
-    'How many caregiving tasks were assigned today?',
-    'How many tasks did you complete today?',
-    'How many tasks are still pending?',
-    'How many difficult situations (e.g., patient confusion, agitation) occurred today?',
-    'How would you describe your mood today?',
-    'Did you feel emotionally overwhelmed today?',
-    'How stressed did you feel today?',
-    'I felt mentally exhausted today Question',
-    'I had difficulty managing my caregiving tasks today',
-    'I felt emotionally drained today',
-    'How many breaks did you take today?',
-]
-for col in num_cols:
+for col in num_cols_check:
     df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
 
 stress_col = 'How stressed did you feel today?'
 
-# ── Rich feature engineering ───────────────────────────────────────────────
+# ── Feature engineering (unchanged from original) ──────────────────────────
 df['task_completion_rate']     = df['How many tasks did you complete today?'] / df['How many caregiving tasks were assigned today?'].replace(0,1)
 df['workload_score']           = df['How many tasks are still pending?'] + df['How many difficult situations (e.g., patient confusion, agitation) occurred today?']
 df['wellbeing_score']          = df['Did you feel emotionally overwhelmed today?'] + df['I felt mentally exhausted today Question'] + df['I felt emotionally drained today']
@@ -100,14 +95,13 @@ df['emotional_physical_ratio'] = df['wellbeing_score'] / (df['How physically tir
 df['break_efficiency']         = df['How many breaks did you take today?'] / df['How many hours did you spend caregiving today?'].replace(0,1)
 df['mood_overwhelm_gap']       = df['How would you describe your mood today?'] - df['Did you feel emotionally overwhelmed today?']
 df['total_stress_index']       = (df['How physically tired do you feel today?'] + df['wellbeing_score'] + df['workload_score']) / 3
-# New features
 df['high_risk_flag']           = ((df['How many hours did you sleep last night?'] < 6) & (df['wellbeing_score'] > 9)).astype(int)
 df['task_stress_interaction']  = df['task_pressure'] * df['How physically tired do you feel today?']
 df['recovery_deficit']         = df['workload_score'] / (df['recovery_score'] + 1)
 df['emotional_collapse_risk']  = df['wellbeing_score'] * df['How physically tired do you feel today?']
 df['workload_per_hour']        = df['How many caregiving tasks were assigned today?'] / df['How many hours did you spend caregiving today?'].replace(0,1)
 
-# ── Labels ─────────────────────────────────────────────────────────────────
+# ── Labels (unchanged from original) ────────────────────────────────────────
 def create_label(row):
     stress_n   = (row[stress_col] - 1) / 9
     emotional  = (row['Did you feel emotionally overwhelmed today?'] +
@@ -125,9 +119,18 @@ def create_label(row):
     else:                   return 'High'
 
 df['Stress_Label'] = df.apply(create_label, axis=1)
+
+# ── Deduplicate BEFORE splitting (protects against train/test leakage even
+#    if duplicates exist for innocent reasons, e.g. real caregivers giving
+#    identical answers on coarse Likert scales) ─────────────────────────────
+before = len(df)
+df = df.drop_duplicates(subset=num_cols_check).reset_index(drop=True)
+after = len(df)
+if before != after:
+    print(f"Removed {before-after} duplicate rows before splitting ({before} → {after})")
+
 print(f"Labels: {dict(df['Stress_Label'].value_counts())}")
 
-# ── Features ───────────────────────────────────────────────────────────────
 feature_cols = [
     'age_encoded','type_encoded','exp_encoded','sup_encoded',
     'How many patients do you currently care for?',
@@ -155,175 +158,127 @@ feature_cols = [
 
 X = df[feature_cols].fillna(0)
 y = df['Stress_Label']
-X = X[y.notna()]
-y = y[y.notna()]
 print(f"Features: {len(feature_cols)} | Samples: {len(X)}")
 
-# ── Split ──────────────────────────────────────────────────────────────────
+# ── Split — touched exactly ONCE for final reporting ────────────────────────
 X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42, stratify=y
+    X, y, test_size=0.2, random_state=RANDOM_STATE, stratify=y
 )
 print(f"Train: {len(X_train)} | Test: {len(X_test)}")
 
-# ── Try different balancing techniques ────────────────────────────────────
-print("\nTrying different sampling methods...")
-samplers = {
-    'SMOTE':          SMOTE(random_state=42, k_neighbors=3),
-    'BorderlineSMOTE':BorderlineSMOTE(random_state=42, k_neighbors=3),
-    'SMOTETomek':     SMOTETomek(random_state=42),
+cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=RANDOM_STATE)
+
+# ── Regularized search spaces ────────────────────────────────────────────
+# Shallower trees + larger leaf sizes than the original (max_depth up to 15,
+# min_samples_leaf=1) — this is the main lever for closing the train/test
+# accuracy gap. Wrapped in an imblearn Pipeline so SMOTE is refit fresh on
+# each CV fold's training portion only (never on the fold being validated).
+et_pipe = ImbPipeline([
+    ('sampler', SMOTE(random_state=RANDOM_STATE, k_neighbors=3)),
+    ('clf', ExtraTreesClassifier(random_state=RANDOM_STATE, n_jobs=-1, class_weight='balanced')),
+])
+et_grid = {
+    'clf__n_estimators':      [200, 300, 400],
+    'clf__max_depth':         [4, 6, 8, 10],
+    'clf__min_samples_leaf':  [2, 4, 8],
+    'clf__min_samples_split': [4, 8, 12],
+    'clf__max_features':      ['sqrt', 'log2'],
 }
 
-cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+rf_pipe = ImbPipeline([
+    ('sampler', SMOTE(random_state=RANDOM_STATE, k_neighbors=3)),
+    ('clf', RandomForestClassifier(random_state=RANDOM_STATE, n_jobs=-1, class_weight='balanced')),
+])
+rf_grid = {
+    'clf__n_estimators':      [200, 300, 500],
+    'clf__max_depth':         [4, 6, 8, 10],
+    'clf__min_samples_leaf':  [2, 4, 8],
+    'clf__min_samples_split': [4, 8, 12],
+    'clf__max_features':      ['sqrt', 'log2'],
+}
 
-best_overall_acc  = 0
-best_overall_model= None
-best_overall_pred = None
-best_overall_cv   = None
-best_overall_name = ''
+print("\nSearching hyperparameters via CV on the TRAINING set only")
+print("(test set is not touched during this step)...")
 
-for sname, sampler in samplers.items():
-    try:
-        X_bal, y_bal = sampler.fit_resample(X_train, y_train)
-    except:
-        X_bal, y_bal = SMOTE(random_state=42).fit_resample(X_train, y_train)
-
-    print(f"\n  Sampler: {sname} → {dict(pd.Series(y_bal).value_counts())}")
-
-    # Best ET config from previous run
-    et = ExtraTreesClassifier(
-        n_estimators=400,
-        max_depth=15,
-        max_features='log2',
-        class_weight='balanced',
-        random_state=42,
-        n_jobs=-1,
+candidates = {}
+for name, pipe, grid in [('ExtraTrees', et_pipe, et_grid), ('RandomForest', rf_pipe, rf_grid)]:
+    search = RandomizedSearchCV(
+        pipe, grid, n_iter=25, scoring='f1_macro',
+        cv=cv, random_state=RANDOM_STATE, n_jobs=-1, refit=True,
     )
-    et.fit(X_bal, y_bal)
-    et_pred = et.predict(X_test)
-    et_acc  = accuracy_score(y_test, et_pred)
-    et_cv   = cross_val_score(et, X_train, y_train, cv=cv, scoring='accuracy')
+    search.fit(X_train, y_train)
+    candidates[name] = search
+    print(f"  {name}: best CV f1_macro = {search.best_score_*100:.2f}%  "
+          f"(params: {search.best_params_})")
 
-    # Best RF config
-    rf = RandomForestClassifier(
-        n_estimators=500,
-        max_depth=15,
-        min_samples_split=3,
-        min_samples_leaf=1,
-        max_features='sqrt',
-        class_weight='balanced',
-        bootstrap=True,
-        random_state=42,
-        n_jobs=-1,
-    )
-    rf.fit(X_bal, y_bal)
-    rf_pred = rf.predict(X_test)
-    rf_acc  = accuracy_score(y_test, rf_pred)
-    rf_cv   = cross_val_score(rf, X_train, y_train, cv=cv, scoring='accuracy')
+# ── Pick the winner by CV score ONLY — test set not involved yet ──────────
+best_name = max(candidates, key=lambda k: candidates[k].best_score_)
+best_search = candidates[best_name]
+best_pipe = best_search.best_estimator_
+print(f"\nSelected model: {best_name} (chosen by CV, before ever touching test set)")
 
-    # GB
-    gb = GradientBoostingClassifier(
-        n_estimators=300,
-        max_depth=5,
-        learning_rate=0.05,
-        subsample=0.85,
-        random_state=42,
-    )
-    gb.fit(X_bal, y_bal)
-    gb_pred = gb.predict(X_test)
-    gb_acc  = accuracy_score(y_test, gb_pred)
-    gb_cv   = cross_val_score(gb, X_train, y_train, cv=cv, scoring='accuracy')
+# ── Honest overfitting diagnostic ──────────────────────────────────────────
+# Train accuracy is measured on the ORIGINAL (non-resampled) training data —
+# this is the number that should be compared against test accuracy to see
+# real overfitting; comparing against the SMOTE-balanced fit accuracy would
+# be misleading, since that data was partially synthetic.
+train_acc = accuracy_score(y_train, best_pipe.predict(X_train))
+test_acc  = accuracy_score(y_test,  best_pipe.predict(X_test))
+cv_f1     = best_search.best_score_
 
-    # Voting
-    voting = VotingClassifier(
-        estimators=[('et', et), ('rf', rf), ('gb', gb)],
-        voting='soft',
-    )
-    voting.fit(X_bal, y_bal)
-    v_pred = voting.predict(X_test)
-    v_acc  = accuracy_score(y_test, v_pred)
-    v_cv   = cross_val_score(voting, X_train, y_train, cv=cv, scoring='accuracy')
-
-    print(f"    ET:     Test={et_acc*100:.2f}% CV={et_cv.mean()*100:.2f}% Gap={abs(et_cv.mean()-et_acc)*100:.2f}%")
-    print(f"    RF:     Test={rf_acc*100:.2f}% CV={rf_cv.mean()*100:.2f}% Gap={abs(rf_cv.mean()-rf_acc)*100:.2f}%")
-    print(f"    GB:     Test={gb_acc*100:.2f}% CV={gb_cv.mean()*100:.2f}% Gap={abs(gb_cv.mean()-gb_acc)*100:.2f}%")
-    print(f"    Voting: Test={v_acc*100:.2f}% CV={v_cv.mean()*100:.2f}% Gap={abs(v_cv.mean()-v_acc)*100:.2f}%")
-
-    for mname, model, pred, acc, cv_s in [
-        (f'{sname}-ET', et, et_pred, et_acc, et_cv),
-        (f'{sname}-RF', rf, rf_pred, rf_acc, rf_cv),
-        (f'{sname}-GB', gb, gb_pred, gb_acc, gb_cv),
-        (f'{sname}-Voting', voting, v_pred, v_acc, v_cv),
-    ]:
-        if acc > best_overall_acc:
-            best_overall_acc   = acc
-            best_overall_model = model
-            best_overall_pred  = pred
-            best_overall_cv    = cv_s
-            best_overall_name  = mname
-
-# ── Stacking Classifier ────────────────────────────────────────────────────
-print("\n[Trying Stacking Classifier...]")
-X_bal, y_bal = SMOTE(random_state=42, k_neighbors=3).fit_resample(X_train, y_train)
-
-base_learners = [
-    ('et', ExtraTreesClassifier(n_estimators=400,max_depth=15,max_features='log2',class_weight='balanced',random_state=42)),
-    ('rf', RandomForestClassifier(n_estimators=500,max_depth=15,min_samples_split=3,class_weight='balanced',random_state=42)),
-    ('gb', GradientBoostingClassifier(n_estimators=300,max_depth=5,learning_rate=0.05,random_state=42)),
-]
-meta_learner = LogisticRegression(max_iter=1000, random_state=42)
-
-stacking = StackingClassifier(
-    estimators=base_learners,
-    final_estimator=meta_learner,
-    cv=5,
-    passthrough=False,
-    n_jobs=-1,
-)
-stacking.fit(X_bal, y_bal)
-s_pred = stacking.predict(X_test)
-s_acc  = accuracy_score(y_test, s_pred)
-s_cv   = cross_val_score(stacking, X_train, y_train, cv=cv, scoring='accuracy')
-print(f"  Stacking: Test={s_acc*100:.2f}% CV={s_cv.mean()*100:.2f}% Gap={abs(s_cv.mean()-s_acc)*100:.2f}%")
-
-if s_acc > best_overall_acc:
-    best_overall_acc   = s_acc
-    best_overall_model = stacking
-    best_overall_pred  = s_pred
-    best_overall_cv    = s_cv
-    best_overall_name  = 'Stacking'
-
-# ── Final results ──────────────────────────────────────────────────────────
 print("\n" + "=" * 60)
-print("FINAL BEST MODEL")
+print("OVERFITTING DIAGNOSTIC")
 print("=" * 60)
-print(f"\nBest Model:    {best_overall_name}")
-print(f"Test Accuracy: {best_overall_acc*100:.2f}%")
-print(f"CV Accuracy:   {best_overall_cv.mean()*100:.2f}% +/- {best_overall_cv.std()*100:.2f}%")
-print(f"Gap:           {abs(best_overall_cv.mean()-best_overall_acc)*100:.2f}%")
-print(f"\nClassification Report:")
-print(classification_report(y_test, best_overall_pred))
-print(f"Confusion Matrix:")
-cm = confusion_matrix(y_test, best_overall_pred, labels=['Low','Moderate','High'])
-print(f"              Predicted")
-print(f"              Low  Mod  High")
-for i, rl in enumerate(['Low  ','Mod  ','High ']):
+print(f"Train accuracy (real, non-resampled data): {train_acc*100:.2f}%")
+print(f"CV f1_macro (on train, proper SMOTE-in-fold pipeline): {cv_f1*100:.2f}%")
+print(f"Held-out TEST accuracy (touched once, final): {test_acc*100:.2f}%")
+print(f"Train vs Test gap: {abs(train_acc-test_acc)*100:.2f} points "
+      f"{'(healthy)' if abs(train_acc-test_acc) < 0.05 else '(still some overfitting — consider shallower trees)'}")
+
+print(f"\nClassification Report (test set, evaluated once):")
+test_pred = best_pipe.predict(X_test)
+print(classification_report(y_test, test_pred))
+
+print("Confusion Matrix:")
+cm = confusion_matrix(y_test, test_pred, labels=['Low', 'Moderate', 'High'])
+print("              Predicted")
+print("              Low  Mod  High")
+for i, rl in enumerate(['Low  ', 'Mod  ', 'High ']):
     print(f"Actual {rl}  {cm[i]}")
+
+# ── Calibrate probabilities (app.py relies on predict_proba thresholds) ────
+# Tree ensembles fit on SMOTE-resampled data tend to have skewed, poorly
+# calibrated probabilities. This wraps the already-chosen pipeline so
+# predict_proba outputs are closer to true likelihoods, without changing
+# predict()'s class labels or requiring any change to app.py (it still
+# exposes .predict, .predict_proba, and .classes_).
+print("\nCalibrating probabilities...")
+calibrated_model = CalibratedClassifierCV(best_pipe, method='isotonic', cv=5)
+calibrated_model.fit(X_train, y_train)
+
+# Recheck accuracy after calibration (should be very close to before)
+calibrated_test_acc = accuracy_score(y_test, calibrated_model.predict(X_test))
+print(f"Test accuracy after calibration: {calibrated_test_acc*100:.2f}% "
+      f"(should be close to {test_acc*100:.2f}%)")
 
 # ── Save ───────────────────────────────────────────────────────────────────
 joblib.dump({
-    'model':         best_overall_model,
-    'feature_cols':  feature_cols,
-    'accuracy':      best_overall_acc,
-    'cv_accuracy':   best_overall_cv.mean(),
-    'model_name':    best_overall_name,
-    'component':     'caregiver',
-    'tuning_method': 'Multi-sampler + Ensemble + Stacking',
+    'model':          calibrated_model,
+    'feature_cols':   feature_cols,
+    'accuracy':       calibrated_test_acc,
+    'train_accuracy': train_acc,
+    'cv_f1_macro':    cv_f1,
+    'model_name':     f'{best_name} (regularized, calibrated)',
+    'component':      'caregiver',
+    'tuning_method':  'RandomizedSearchCV on train-only CV, test touched once, isotonic calibration',
+    'best_params':    best_search.best_params_,
 }, 'stress_model.pkl')
 
 print(f"\n✅ stress_model.pkl saved!")
-print(f"✅ Test Accuracy: {best_overall_acc*100:.2f}%")
-print(f"✅ CV Accuracy:   {best_overall_cv.mean()*100:.2f}%")
-print(f"✅ Gap:           {abs(best_overall_cv.mean()-best_overall_acc)*100:.2f}%")
+print(f"✅ Model:          {best_name}")
+print(f"✅ Train accuracy:  {train_acc*100:.2f}%")
+print(f"✅ Test accuracy:   {calibrated_test_acc*100:.2f}%")
+print(f"✅ Train/Test gap:  {abs(train_acc-calibrated_test_acc)*100:.2f} points")
 print("\n" + "=" * 60)
 print("COMPLETE")
 print("=" * 60)

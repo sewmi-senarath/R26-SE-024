@@ -5,7 +5,16 @@ export type GameId =
   | "photo_puzzle"
   | "word_puzzle"
   | "orientation_game"
-  | "face_name_match";
+  | "face_name_match"
+  | "grid_flash"
+  | "listen_repeat"
+  | "memory_match"
+  | "story_recall"
+  | "spot_difference"
+  | "go_no_go"
+  | "name_picture"
+  | "sentence_completion"
+  | "calendar_find";
 
 export type Difficulty = "easy" | "medium" | "hard";
 export type GamePhase = "instruction" | "playing" | "result";
@@ -17,14 +26,147 @@ export interface MemoryRecallConfig {
   timeLimitSeconds: number;
   showHints: boolean;
   items: SequenceItem[];
+  /**
+   * Decoy options shown in the recall grid alongside `items`. Drawn from the
+   * same pool and de-duplicated against `items`, and carry generated images
+   * just like the correct items so the answer isn't given away by styling.
+   */
+  distractors?: SequenceItem[];
 }
 export interface SequenceItem {
   id: string;
   emoji: string;
   label: string;
   category: string;
-  /** Real personal photo (e.g. a family member's photo) — shown instead of the emoji when present. */
+  /** Real personal photo (e.g. a family member's photo) - shown instead of the emoji when present. */
   image?: string;
+}
+
+// ── Grid Flash config (Registration / visuo-spatial working memory)
+export interface GridFlashConfig {
+  /** Grid is gridSize x gridSize cells. 3 | 4 | 5 */
+  gridSize: number;
+  /** How many cells light up in the sequence. 3 | 5 | 7 */
+  sequenceLength: number;
+  /** How long each cell stays lit - held constant across difficulties. */
+  flashTimeMs: number;
+  /** Show the item label under a flashed cell (easy support). */
+  showLabels: boolean;
+  /** Tokens shown on the flashed cells - one per sequence step, personalized. */
+  items: SequenceItem[];
+}
+
+// ── Memory Match config (Recall / delayed visual pairing)
+export interface MemoryMatchConfig {
+  /** Number of distinct pairs. 3 | 6 | 8 (cards = pairCount * 2). */
+  pairCount: number;
+  /** Columns in the card grid - drives the layout. */
+  columns: number;
+  /** How long all cards are shown face-up before play begins. */
+  peekMs: number;
+  /** Optional cap on flip attempts (hard); null = unlimited. */
+  moveLimit: number | null;
+  /** One item per pair - each appears on exactly two cards. Personalized. */
+  items: SequenceItem[];
+}
+
+// ── Story Recall config (Recall / delayed narrative memory)
+export interface StoryQuestion {
+  id: string;
+  question: string;
+  correctAnswer: string;
+  /** Multiple-choice options; when omitted the patient types the answer. */
+  options?: string[];
+}
+export interface StoryRecallConfig {
+  /** How many questions are asked. 2 | 4 | 6 */
+  questionCount: number;
+  /** "choice" = all multiple-choice; "mixed" = some typed (hard). */
+  answerMode: "choice" | "mixed";
+  /** A light distraction gap before the questions appear (ms). */
+  delayMs: number;
+  /** The narrative, ideally built from the patient's own life events. */
+  story: string;
+  questions: StoryQuestion[];
+}
+
+// ── Name the Picture config (Language / confrontation naming)
+export interface NamePictureConfig {
+  /** How many pictures the patient names (also the max score). */
+  itemCount: number;
+  /** Number of answer choices in choice mode. 3 | 4 */
+  optionsCount: number;
+  /** "choice" = pick the name; "type" = type it (fuzzy-matched). */
+  answerMode: "choice" | "type";
+  /** The pictures to name. */
+  items: SequenceItem[];
+  /** Pool of wrong-name options, de-duplicated against items. */
+  distractors?: SequenceItem[];
+}
+
+// ── Sentence Completion config (Language / semantic cloze)
+export interface SentenceItem {
+  id: string;
+  /** Sentence text with a "___" placeholder marking the blank. */
+  text: string;
+  answer: string;
+  /** Multiple-choice options; omitted when the patient types. */
+  options?: string[];
+}
+export interface SentenceCompletionConfig {
+  /** Number of sentences/blanks (also the max score). */
+  blankCount: number;
+  answerMode: "choice" | "type";
+  items: SentenceItem[];
+}
+
+// ── Calendar Find config (Orientation / temporal orientation)
+export interface CalendarFindConfig {
+  /** How many find-the-date prompts (also the max score). */
+  promptCount: number;
+  /** Highlight today's cell as a support cue (easy). */
+  showTodayHint: boolean;
+  /** Include relative-date reasoning prompts, e.g. "3 days after the 12th" (hard). */
+  relativeReasoning: boolean;
+}
+
+// ── Spot the Difference config (Attention / visual comparison)
+export interface SpotDifferenceConfig {
+  rows: number;
+  columns: number;
+  /** How many tiles differ between the two grids. */
+  differenceCount: number;
+  timeLimitSeconds: number | null;
+  /** Items filling the grid (rows * columns), shared by both copies. */
+  items: SequenceItem[];
+  /** Replacement items for the changed tiles (>= differenceCount). */
+  distractors?: SequenceItem[];
+}
+
+// ── Go / No-Go config (Attention / sustained attention + inhibition)
+export interface GoNoGoConfig {
+  /** How many target presentations appear (also the max score). */
+  targetCount: number;
+  /** How many non-target (lure) presentations appear. */
+  lureCount: number;
+  /** How long each item is shown / the pace of the stream. */
+  intervalMs: number;
+  /** items[0] is the target to tap for; items[1..] are the lures. */
+  items: SequenceItem[];
+}
+
+// ── Listen & Repeat config (Registration / auditory verbal span)
+export interface ListenRepeatConfig {
+  /** How many words are spoken. 3 | 5 | 7 */
+  wordCount: number;
+  /** Whether the patient may replay the spoken words (easy). */
+  allowReplay: boolean;
+  /** "choice" shows a selectable grid; "input" asks the patient to type. */
+  answerMode: "choice" | "input";
+  /** The spoken target words (label is read aloud and scored). */
+  items: SequenceItem[];
+  /** Decoy options for the choice grid, de-duplicated against items. */
+  distractors?: SequenceItem[];
 }
 
 //  Object Recall config
@@ -40,7 +182,7 @@ export interface RecallObject {
   emoji: string;
   label: string;
   category: string;
-  /** Real personal photo (e.g. a family member's photo) — shown instead of the emoji when present. */
+  /** Real personal photo (e.g. a family member's photo) - shown instead of the emoji when present. */
   image?: string;
 }
 
@@ -80,19 +222,47 @@ export interface PuzzleWord {
 }
 
 // ── Orientation Game config
+export interface OrientationMemoryAnchor {
+  /** The word the patient is asked to hold in mind (hard-level delayed recall). */
+  word: string;
+  icon: string;
+  statement: string;
+}
 export interface OrientationGameConfig {
   questionCount: number;
   optionsCount: number;
   timeLimitSeconds: number | null;
   questions: OrientationQuestion[];
+  /** Cognitive tiers this level draws from: 1=recognition, 2=orientation, 3=reasoning. */
+  tiers?: number[];
+  distractorSpread?: "near" | "far";
+  /** Show a helper hint under the question (easy). */
+  showHints?: boolean;
+  /** Show the category label + icon (hidden on hard to remove cues). */
+  showCategory?: boolean;
+  /** Read each question aloud automatically (easy). */
+  autoReadAloud?: boolean;
+  /** "recall" replaces the option buttons with a typed answer for numeric questions. */
+  answerMode?: "choice" | "recall";
+  /** Whether a delayed-recall word is woven into this round (hard). */
+  delayedRecall?: boolean;
+  memoryAnchor?: OrientationMemoryAnchor;
 }
 export interface OrientationQuestion {
   id: string;
   question: string;
   icon: string;
-  category: "Time" | "Place" | "Festival";
+  category: "Time" | "Place" | "Festival" | "Calendar" | "Memory";
   correctAnswer: string;
   options: string[];
+  /** Cognitive demand tier: 1=recognition, 2=current-state orientation, 3=reasoning. */
+  tier?: 1 | 2 | 3;
+  /** Optional hint shown on easy difficulty. */
+  hint?: string;
+  /** True when the answer is a plain number - eligible for hard-level recall input. */
+  numeric?: boolean;
+  /** Inclusive range for the hard-level number wheel (recall input). */
+  numericRange?: { min: number; max: number };
 }
 
 // ── Face-Name Match config
@@ -101,18 +271,28 @@ export interface FaceNameMatchConfig {
   optionsCount: number;
   timeLimitSeconds: number | null;
   questions: FaceNameQuestion[];
+  /** "choice" = pick from options; "recall" = free recall, reveal & self-check (hard). */
+  answerMode?: "choice" | "recall";
+  /** Show the Family Album to study before the questions begin (medium/hard). */
+  studyPhase?: boolean;
+  /** Errorless helper: reveal the first letter if the patient hesitates (easy). */
+  firstLetterCue?: boolean;
+  /** Wrong-answer names are always other real relatives; "sameGender" (medium/hard) prefers same-gender relatives for a more confusable choice, "mixed" (easy) uses any. */
+  distractorStyle?: "mixed" | "sameGender";
 }
 export interface FaceNameQuestion {
   id: string;
   emoji: string;
-  /** Real family photo — shown instead of the emoji when present. */
+  /** Real family photo - shown instead of the emoji when present. */
   image?: string;
   relationLabel: string;
+  /** The relation word alone (e.g. "daughter") - used for album narration. */
+  relation?: string;
   correctAnswer: string;
   options: string[];
 }
 
-// Union type — any game config
+// Union type - any game config
 export type GameConfig =
   | MemoryRecallConfig
   | ObjectRecallConfig
@@ -120,7 +300,16 @@ export type GameConfig =
   | PhotoPuzzleConfig
   | WordPuzzleConfig
   | OrientationGameConfig
-  | FaceNameMatchConfig;
+  | FaceNameMatchConfig
+  | GridFlashConfig
+  | ListenRepeatConfig
+  | MemoryMatchConfig
+  | StoryRecallConfig
+  | SpotDifferenceConfig
+  | GoNoGoConfig
+  | NamePictureConfig
+  | SentenceCompletionConfig
+  | CalendarFindConfig;
 
 // Result tracked after each game session
 export interface GameSessionResult {
@@ -158,7 +347,7 @@ export interface GamePlan {
   basedOnSessionId: string;
 }
 
-// Adaptive difficulty — server-computed, updated after every session
+// Adaptive difficulty - server-computed, updated after every session
 export interface DifficultyProgressUpdate {
   gameId: GameId;
   previousDifficulty: Difficulty;
@@ -177,4 +366,31 @@ export interface PatientGameProgress {
   lastChangeAt: string | null;
   lastChangeReason: string | null;
   recentScores: number[];
+}
+
+// Rich per-game adaptive-difficulty report shown in the patient profile.
+export interface DifficultyChangeEntry {
+  from: Difficulty;
+  to: Difficulty;
+  direction: "up" | "down";
+  reason: string;
+  avgComposite: number;
+  at: string | null;
+}
+
+export interface DifficultyGameReport {
+  gameId: GameId;
+  currentDifficulty: Difficulty;
+  totalSessions: number;
+  averageComposite: number | null;
+  latestMetrics: {
+    accuracy: number | null;
+    correctnessRate: number | null;
+    speedScore: number | null;
+    composite: number | null;
+  } | null;
+  recentScores: number[];
+  lastChangeAt: string | null;
+  changeCount: number;
+  changeHistory: DifficultyChangeEntry[];
 }

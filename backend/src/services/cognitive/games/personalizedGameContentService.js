@@ -1,13 +1,27 @@
 const mongoose = require("mongoose");
 const Patient = require("../../../models/caregiver/Patient");
 const User = require("../../../models/auth/User");
-const { getStaticGameContent, buildFaceQuestions, FALLBACK_FACES } = require("./staticGameContent");
-const { buildTimeOrientationQuestions } = require("./orientationFacts");
+const {
+  getStaticGameContent,
+  buildFaceQuestions,
+  FALLBACK_FACES,
+  SEQUENCE_ITEMS,
+  RECALL_OBJECTS,
+  PUZZLE_WORDS,
+} = require("./staticGameContent");
+const { buildTimeOrientationQuestions, buildMemoryAnchor } = require("./orientationFacts");
 const { shuffle, pickDistractors } = require("./gameContentUtils");
+const {
+  ROTATION_GAMES,
+  loadRecentKeys,
+  recordServedKeys,
+  rotateSample,
+} = require("./contentRotation");
 const {
   generateLlmGameContent,
   generateOrientationDistractors,
-  generateFaceNameDecoys,
+  generateStoryRecall,
+  generateSentenceCompletion,
 } = require("./llmGameContentService");
 
 const VALID_GAMES = new Set([
@@ -16,6 +30,15 @@ const VALID_GAMES = new Set([
   "word_puzzle",
   "orientation_game",
   "face_name_match",
+  "grid_flash",
+  "listen_repeat",
+  "memory_match",
+  "story_recall",
+  "spot_difference",
+  "go_no_go",
+  "name_picture",
+  "sentence_completion",
+  "calendar_find",
 ]);
 // Games whose entire content the LLM is trusted to generate directly.
 const LLM_FULL_CONTENT_GAMES = new Set(["memory_recall", "object_recall", "word_puzzle"]);
@@ -32,7 +55,6 @@ const FALLBACK_CITIES = [
   "Colombo", "Kandy", "Galle", "Jaffna", "Negombo",
   "Kurunegala", "Anuradhapura", "Matara", "Trincomalee", "Batticaloa",
 ];
-const FILLER_NAMES = ["Alex", "Maria", "Sam", "Grace", "John", "Emma", "Leo", "Nina", "Ray", "Zoe"];
 
 const FAMILY_EMOJIS = {
   daughter: "\u{1F469}",
@@ -217,7 +239,7 @@ function buildFamilyPhotoMap(patient) {
     if (name) map.set(normalizeKey(name), photo);
 
     // The LLM sometimes echoes the relation ("Mom") instead of the literal
-    // name — index that too so the real photo still gets matched.
+    // name - index that too so the real photo still gets matched.
     const relation = member?.relation?.trim();
     if (relation && !map.has(normalizeKey(relation))) {
       map.set(normalizeKey(relation), photo);
@@ -286,6 +308,34 @@ function takeWithFallback(personalItems, fallbackItems, requiredCount) {
 function emojiForRelation(relation) {
   const key = normalizeKey(relation);
   return FAMILY_EMOJIS[key] || "\u{1F46A}";
+}
+
+const MALE_RELATIONS = new Set([
+  "son", "husband", "father", "brother", "grandson", "grandfather",
+  "uncle", "nephew", "dad", "papa",
+]);
+const FEMALE_RELATIONS = new Set([
+  "daughter", "wife", "mother", "sister", "granddaughter", "grandmother",
+  "aunt", "niece", "mom", "mum", "mama",
+]);
+
+// Best-effort gender from the relation word, so hard-level distractors can be
+// same-gender relatives (confusing a daughter with a niece is far harder than
+// with a male name). Returns "male" | "female" | null.
+function genderFromRelation(relation) {
+  const key = normalizeKey(relation);
+  if (MALE_RELATIONS.has(key)) return "male";
+  if (FEMALE_RELATIONS.has(key)) return "female";
+  return null;
+}
+
+// Take up to `count` distinct distractors, preferring the priority pool and
+// topping up from the fallback pool. Never includes any excluded name.
+function chooseDistractors(exclude, priorityPool, fallbackPool, count) {
+  const first = pickDistractors(priorityPool, exclude, count);
+  if (first.length >= count) return first;
+  const more = pickDistractors(fallbackPool, [...exclude, ...first], count - first.length);
+  return [...first, ...more];
 }
 
 function emojiForFood(food) {
@@ -372,7 +422,7 @@ function buildObjectItems(patient) {
     ...item,
   }));
 
-  // Family members with a real photo take priority — recalling a loved one's
+  // Family members with a real photo take priority - recalling a loved one's
   // face and name is more meaningful than a generic occupation/food object.
   return [...buildFamilyObjectItems(patient), ...genericItems];
 }
@@ -448,6 +498,7 @@ function buildFestivalQuestion(patient, optionsCount, extraDistractors = []) {
     question: "Which festival does your family celebrate?",
     icon: "\u{1F389}",
     category: "Festival",
+    tier: 2,
     correctAnswer,
     options: shuffle([
       correctAnswer,
@@ -459,7 +510,7 @@ function buildFestivalQuestion(patient, optionsCount, extraDistractors = []) {
 function buildPlaceQuestion(patient, optionsCount, extraDistractors = []) {
   // Only a real hometown answers "which town do you call home". A favorite
   // place (e.g. "Village") is not necessarily where the patient is from, so we
-  // no longer fall back to it — the question is simply skipped without one.
+  // no longer fall back to it - the question is simply skipped without one.
   const home = (patient.hometown || "").trim();
   if (!home) return null;
 
@@ -473,6 +524,7 @@ function buildPlaceQuestion(patient, optionsCount, extraDistractors = []) {
     question: "Which city or town do you call home?",
     icon: "\u{1F3E0}",
     category: "Place",
+    tier: 2,
     correctAnswer,
     options: shuffle([
       correctAnswer,
@@ -481,13 +533,20 @@ function buildPlaceQuestion(patient, optionsCount, extraDistractors = []) {
   };
 }
 
-function buildOrientationItems(patient, optionsCount, llmDistractors) {
-  const personalizedQuestions = [
-    buildFestivalQuestion(patient, optionsCount, llmDistractors?.festivalDistractors),
-    buildPlaceQuestion(patient, optionsCount, llmDistractors?.cityDistractors),
-  ].filter(Boolean);
+function buildOrientationItems(patient, optionsCount, llmDistractors, opts = {}) {
+  const { tiers = [1, 2, 3], spread = "far" } = opts;
+  const tierSet = new Set(tiers);
 
-  const timeQuestions = buildTimeOrientationQuestions(optionsCount);
+  // Festival/hometown are personal current-state orientation (tier 2), so they
+  // only appear when this difficulty actually draws from tier 2.
+  const personalizedQuestions = tierSet.has(2)
+    ? [
+        buildFestivalQuestion(patient, optionsCount, llmDistractors?.festivalDistractors),
+        buildPlaceQuestion(patient, optionsCount, llmDistractors?.cityDistractors),
+      ].filter(Boolean)
+    : [];
+
+  const timeQuestions = buildTimeOrientationQuestions(optionsCount, { tiers, spread });
 
   return {
     all: [...personalizedQuestions, ...timeQuestions],
@@ -495,14 +554,18 @@ function buildOrientationItems(patient, optionsCount, llmDistractors) {
   };
 }
 
-function buildFaceNameItems(patient, optionsCount, llmDecoyNames) {
+function buildFaceNameItems(patient, optionsCount, opts = {}) {
+  const { distractorStyle = "mixed" } = opts;
+
   const realPeople = shuffle(
     (patient.familyMembers || [])
       .filter((member) => member?.name)
       .map((member) => ({
         name: member.name.trim(),
+        relation: member.relation ? member.relation.trim() : undefined,
         relationLabel: member.relation ? `Who is your ${member.relation}?` : "Who is this?",
         emoji: emojiForRelation(member.relation),
+        gender: genderFromRelation(member.relation),
         image: normalizePhotoValue(member.photo) || undefined,
       }))
   );
@@ -510,22 +573,31 @@ function buildFaceNameItems(patient, optionsCount, llmDecoyNames) {
   if (!realPeople.length) return [];
 
   const realNames = realPeople.map((p) => p.name);
-  const fillerPool = [...FILLER_NAMES, ...(llmDecoyNames || [])].filter(
-    (name) => !realNames.some((real) => normalizeKey(real) === normalizeKey(name))
-  );
-  const distractorPool = [...realNames, ...fillerPool];
+  // Every wrong option is another real relative - never a random stranger - so
+  // we can only offer as many choices as there are people on file.
+  const effectiveOptions = Math.max(1, Math.min(optionsCount, realNames.length));
+  const preferSameGender = distractorStyle === "sameGender";
 
-  return realPeople.map((person, index) => ({
-    id: `pface${index + 1}`,
-    emoji: person.emoji,
-    ...(person.image ? { image: person.image } : {}),
-    relationLabel: person.relationLabel,
-    correctAnswer: person.name,
-    options: shuffle([
-      person.name,
-      ...pickDistractors(distractorPool, [person.name], optionsCount - 1),
-    ]),
-  }));
+  return realPeople.map((person, index) => {
+    // On medium/hard, prefer other relatives of the same gender as decoys, so
+    // the choice is genuinely confusable (a daughter vs a niece). Easy just
+    // uses any other relative. Either way, all names are real family.
+    const sameGender = person.gender
+      ? realPeople.filter((p) => p.gender === person.gender).map((p) => p.name)
+      : [];
+    const priorityPool = preferSameGender && sameGender.length ? sameGender : realNames;
+    const distractors = chooseDistractors([person.name], priorityPool, realNames, effectiveOptions - 1);
+
+    return {
+      id: `pface${index + 1}`,
+      emoji: person.emoji,
+      ...(person.image ? { image: person.image } : {}),
+      ...(person.relation ? { relation: person.relation } : {}),
+      relationLabel: person.relationLabel,
+      correctAnswer: person.name,
+      options: shuffle([person.name, ...distractors]),
+    };
+  });
 }
 
 async function isAuthorizedForPatient(requestUser, patientId) {
@@ -549,6 +621,64 @@ async function isAuthorizedForPatient(requestUser, patientId) {
   }).select("_id");
 
   return Boolean(caregiverPatient);
+}
+
+function matchesWordLength(word, wordLength) {
+  return wordLength === 8 ? word.length >= 8 : word.length === wordLength;
+}
+
+// How many items a single round of each rotation game shows.
+function roundSize(gameId, staticConfig) {
+  if (gameId === "memory_recall" || gameId === "grid_flash") return staticConfig.sequenceLength;
+  if (gameId === "listen_repeat") return staticConfig.wordCount;
+  if (gameId === "memory_match") return staticConfig.pairCount;
+  if (gameId === "spot_difference") return staticConfig.rows * staticConfig.columns;
+  if (gameId === "go_no_go") return (staticConfig.items || []).length || 6;
+  if (gameId === "name_picture") return staticConfig.itemCount;
+  if (gameId === "object_recall") return staticConfig.objectCount;
+  return (staticConfig.words || []).length; // word_puzzle
+}
+
+// The stable rotation keys (labels / words) of whatever a config will show.
+function servedKeysOf(gameId, config) {
+  if (gameId === "object_recall") return (config.objects || []).map((it) => it.label);
+  if (gameId === "word_puzzle") return (config.words || []).map((it) => it.word);
+  // memory_recall, grid_flash, listen_repeat all key on item labels.
+  return (config.items || []).map((it) => it.label);
+}
+
+// The full shared pool a rotation game draws its generic (non-personal) items
+// from, so we can re-sample it while avoiding recently-seen items.
+function poolFor(gameId, staticConfig) {
+  if (gameId === "object_recall") return { pool: RECALL_OBJECTS, keyOf: (it) => it.label };
+  if (gameId === "word_puzzle") {
+    return {
+      pool: PUZZLE_WORDS.filter((w) => matchesWordLength(w.word, staticConfig.wordLength)),
+      keyOf: (it) => it.word,
+    };
+  }
+  // memory_recall, grid_flash, listen_repeat all draw from the sequence pool.
+  return { pool: SEQUENCE_ITEMS, keyOf: (it) => it.label };
+}
+
+// Re-sample the generic pool for a rotation game, skipping recently-seen items.
+// Used when no personalized content is available (no profile, or LLM fallback
+// with an empty personal set) so a returning patient still gets fresh items.
+function rotatedStaticList(gameId, staticConfig, recentKeys) {
+  const { pool, keyOf } = poolFor(gameId, staticConfig);
+  return rotateSample(pool, roundSize(gameId, staticConfig), recentKeys, keyOf);
+}
+
+// Persist what a round actually showed. Awaited but self-contained: it swallows
+// its own errors, so a bookkeeping failure never breaks content delivery.
+async function persistRotation(gameId, patientId, staticConfig, config) {
+  if (!ROTATION_GAMES.has(gameId)) return;
+  await recordServedKeys(
+    patientId,
+    gameId,
+    servedKeysOf(gameId, config),
+    roundSize(gameId, staticConfig) * 4 // keep ~4 sessions of history
+  );
 }
 
 async function getPersonalizedGameContent({ gameId, patientId, difficulty, requestUser }) {
@@ -580,7 +710,22 @@ async function getPersonalizedGameContent({ gameId, patientId, difficulty, reque
       "favoritePlaces favoritePlacesText festivalsCelebrated foodsPreferred preferredSports " +
       "preferredSportsText languagesPreferred"
   );
+  // Recently-served content, so we can avoid repeating items across the next
+  // few sessions. Only the pooled games rotate; personalized items are never
+  // gated by this (see contentRotation.js).
+  const recentKeys = ROTATION_GAMES.has(gameId)
+    ? await loadRecentKeys(patientId, gameId)
+    : [];
+
   if (!hasProfileData(patient)) {
+    if (ROTATION_GAMES.has(gameId)) {
+      const rotated = rotatedStaticList(gameId, staticConfig, recentKeys);
+      const listKey = gameId === "object_recall" ? "objects" : gameId === "word_puzzle" ? "words" : "items";
+      const config = { ...staticConfig, [listKey]: rotated };
+      await persistRotation(gameId, patientId, staticConfig, config);
+      logTier("static (no profile data)", { gameId, difficulty, patientId, personalized: false });
+      return { config, personalized: false };
+    }
     logTier("static (no profile data)", { gameId, difficulty, patientId, personalized: false });
     return { config: staticConfig, personalized: false };
   }
@@ -589,8 +734,8 @@ async function getPersonalizedGameContent({ gameId, patientId, difficulty, reque
 
   if (gameId === "orientation_game") {
     // The correct answer for every question here is either a real fact from
-    // the patient's profile or the actual current date/time — never
-    // LLM-generated — so a hallucination can never surface as "correct".
+    // the patient's profile or the actual current date/time - never
+    // LLM-generated - so a hallucination can never surface as "correct".
     // The LLM is only ever asked for plausible extra wrong-answer options.
     let llmDistractors = null;
     try {
@@ -603,47 +748,112 @@ async function getPersonalizedGameContent({ gameId, patientId, difficulty, reque
     const { all, personalizedCount } = buildOrientationItems(
       patient,
       staticConfig.optionsCount,
-      llmDistractors
+      llmDistractors,
+      { tiers: staticConfig.tiers, spread: staticConfig.distractorSpread }
     );
+
+    // On hard, reserve the final slot for a delayed-recall word shown up front.
+    const recall = staticConfig.delayedRecall ? buildMemoryAnchor(staticConfig.optionsCount) : null;
+    const slotsForContent = recall ? requiredCount - 1 : requiredCount;
+    const questions = recall
+      ? [...all.slice(0, Math.max(1, slotsForContent)), recall.question]
+      : all.slice(0, slotsForContent);
 
     logTier(
       llmDistractors ? "rule-based + groq distractors (orientation)" : "rule-based (orientation)",
       { gameId, difficulty, patientId, personalized: personalizedCount > 0 }
     );
     return {
-      config: { ...staticConfig, questions: all.slice(0, requiredCount) },
+      config: {
+        ...staticConfig,
+        questions,
+        ...(recall ? { memoryAnchor: recall.anchor } : {}),
+      },
       personalized: personalizedCount > 0,
     };
   }
 
   if (gameId === "face_name_match") {
-    // The correct name for a photo always comes from the patient's own
-    // family records — the LLM only ever supplies extra decoy first names.
-    const realNames = compactStrings((patient.familyMembers || []).map((m) => m?.name));
-    let llmDecoyNames = null;
-    try {
-      llmDecoyNames = await generateFaceNameDecoys({ patient, realNames });
-    } catch (error) {
-      console.warn("[game-content] Face-name decoy generation failed:", error.message);
+    // Every person shown is a real family member on file, and every wrong-answer
+    // name is another real relative. We never pad the round with generic
+    // strangers - so the number of questions is simply however many family
+    // members were uploaded. Only the game *structure* changes with difficulty.
+    const personalItems = buildFaceNameItems(patient, staticConfig.optionsCount, {
+      distractorStyle: staticConfig.distractorStyle,
+    });
+
+    if (personalItems.length > 0) {
+      logTier("rule-based (face-name)", { gameId, difficulty, patientId, personalized: true });
+      return {
+        config: {
+          ...staticConfig,
+          questionCount: personalItems.length,
+          questions: personalItems,
+        },
+        personalized: true,
+      };
     }
 
-    const requiredCount = staticConfig.questionCount;
-    const personalItems = buildFaceNameItems(patient, staticConfig.optionsCount, llmDecoyNames);
-    const remaining = requiredCount - personalItems.length;
-    const genericPeople = FALLBACK_FACES.filter(
-      (face) => !realNames.some((name) => normalizeKey(name) === normalizeKey(face.name))
+    // No family members on file at all - fall back to generic practice faces so
+    // the game still works (there is nothing real to preserve here).
+    const fallbackItems = buildFaceQuestions(
+      FALLBACK_FACES,
+      Math.min(staticConfig.questionCount, FALLBACK_FACES.length),
+      staticConfig.optionsCount
     );
-    const fallbackItems =
-      remaining > 0 ? buildFaceQuestions(genericPeople, remaining, staticConfig.optionsCount) : [];
-
-    logTier(
-      llmDecoyNames ? "rule-based + groq decoys (face-name)" : "rule-based (face-name)",
-      { gameId, difficulty, patientId, personalized: personalItems.length > 0 }
-    );
+    logTier("static (face-name, no family on file)", {
+      gameId, difficulty, patientId, personalized: false,
+    });
     return {
-      config: { ...staticConfig, questions: [...personalItems, ...fallbackItems].slice(0, requiredCount) },
-      personalized: personalItems.length > 0,
+      config: { ...staticConfig, questionCount: fallbackItems.length, questions: fallbackItems },
+      personalized: false,
     };
+  }
+
+  if (gameId === "story_recall") {
+    // Build a short narrative from the patient's own life events (plus family,
+    // places, hobbies) with questions drawn from the same facts, so answers are
+    // always verifiable. Any failure falls back to the generic static story.
+    try {
+      const generated = await generateStoryRecall({ patient, staticConfig });
+      if (generated) {
+        logTier("llm (story-recall)", { gameId, difficulty, patientId, personalized: true });
+        return {
+          config: { ...staticConfig, ...generated, questionCount: generated.questions.length },
+          personalized: true,
+        };
+      }
+    } catch (error) {
+      console.warn("[game-content] Story Recall generation failed:", error.message);
+    }
+    logTier("static (story-recall)", { gameId, difficulty, patientId, personalized: false });
+    return { config: staticConfig, personalized: false };
+  }
+
+  if (gameId === "sentence_completion") {
+    // LLM writes cloze sentences about the patient's own life/preferences, with
+    // the blank being a personal fact. Falls back to the generic sentence pool.
+    try {
+      const generated = await generateSentenceCompletion({ patient, staticConfig });
+      if (generated) {
+        logTier("llm (sentence-completion)", { gameId, difficulty, patientId, personalized: true });
+        return {
+          config: { ...staticConfig, ...generated, blankCount: generated.items.length },
+          personalized: true,
+        };
+      }
+    } catch (error) {
+      console.warn("[game-content] Sentence Completion generation failed:", error.message);
+    }
+    logTier("static (sentence-completion)", { gameId, difficulty, patientId, personalized: false });
+    return { config: staticConfig, personalized: false };
+  }
+
+  if (gameId === "calendar_find") {
+    // Deterministic date-logic game - prompts and the calendar are computed on
+    // the client from the real current date, so the config is just the knobs.
+    logTier("static (calendar-find)", { gameId, difficulty, patientId, personalized: false });
+    return { config: staticConfig, personalized: false };
   }
 
   try {
@@ -665,9 +875,11 @@ async function getPersonalizedGameContent({ gameId, patientId, difficulty, reque
         personalizedContent.objects = attachFamilyPhotos(personalizedContent.objects, familyPhotoMap);
       }
 
+      const config = { ...staticConfig, ...personalizedContent };
+      await persistRotation(gameId, patientId, staticConfig, config);
       logTier("llm (groq)", { gameId, difficulty, patientId, personalized: true });
       return {
-        config: { ...staticConfig, ...personalizedContent },
+        config,
         personalized: true,
       };
     }
@@ -684,52 +896,65 @@ async function getPersonalizedGameContent({ gameId, patientId, difficulty, reque
     );
   }
 
-  if (gameId === "memory_recall") {
-    const requiredCount = staticConfig.sequenceLength;
+  // memory_recall, grid_flash and listen_repeat all present a set of `items`
+  // drawn from the patient's world (family / foods / places) padded with the
+  // rotated generic pool - so they share one build path.
+  if (
+    gameId === "memory_recall" ||
+    gameId === "grid_flash" ||
+    gameId === "listen_repeat" ||
+    gameId === "memory_match" ||
+    gameId === "spot_difference" ||
+    gameId === "go_no_go" ||
+    gameId === "name_picture"
+  ) {
+    const requiredCount = roundSize(gameId, staticConfig);
+    // Personal items are kept first and never rotated away; the generic filler
+    // that pads the round is drawn fresh, skipping recently-seen items.
+    const rotatedFallback = rotatedStaticList(gameId, staticConfig, recentKeys);
     const { items, personalized } = takeWithFallback(
       buildMemoryItems(patient),
-      staticConfig.items,
+      rotatedFallback,
       requiredCount
     );
+    const config = { ...staticConfig, items };
+    await persistRotation(gameId, patientId, staticConfig, config);
     logTier(personalized ? "rule-based (groq fallback)" : "static (groq fallback)", {
       gameId, difficulty, patientId, personalized,
     });
-    return {
-      config: { ...staticConfig, items },
-      personalized,
-    };
+    return { config, personalized };
   }
 
   if (gameId === "object_recall") {
     const requiredCount = staticConfig.objectCount;
+    const rotatedFallback = rotatedStaticList(gameId, staticConfig, recentKeys);
     const { items, personalized } = takeWithFallback(
       buildObjectItems(patient),
-      staticConfig.objects,
+      rotatedFallback,
       requiredCount
     );
+    const config = { ...staticConfig, objects: items };
+    await persistRotation(gameId, patientId, staticConfig, config);
     logTier(personalized ? "rule-based (groq fallback)" : "static (groq fallback)", {
       gameId, difficulty, patientId, personalized,
     });
-    return {
-      config: { ...staticConfig, objects: items },
-      personalized,
-    };
+    return { config, personalized };
   }
 
   const requiredCount = staticConfig.words.length;
+  const rotatedFallback = rotatedStaticList(gameId, staticConfig, recentKeys);
   const { items, personalized } = takeWithFallback(
     buildWordCandidates(patient, staticConfig.wordLength),
-    staticConfig.words,
+    rotatedFallback,
     requiredCount
   );
 
+  const config = { ...staticConfig, words: items };
+  await persistRotation(gameId, patientId, staticConfig, config);
   logTier(personalized ? "rule-based (groq fallback)" : "static (groq fallback)", {
     gameId, difficulty, patientId, personalized,
   });
-  return {
-    config: { ...staticConfig, words: items },
-    personalized,
-  };
+  return { config, personalized };
 }
 
 module.exports = {
