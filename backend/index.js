@@ -25,6 +25,7 @@ const reportRoutes = require("./src/routes/caregiver/Reportroutes");
 
 const memoryRoutes = require("./src/routes/family/memoryRoutes");
 const familyProfileRoutes = require("./src/routes/family/profileRoutes");
+const emotionRoutes = require("./src/routes/family/emotionRoutes");
 
 // Routes from HEAD
 const lifeLoggingRoutes = require('./src/routes/life-logging-memory-vault');
@@ -92,6 +93,7 @@ app.use("/api", protectedRoutes);
 // Family Memory Story routes
 app.use("/api/family/memories", memoryRoutes);
 app.use("/api/family/profile", familyProfileRoutes);
+app.use("/api/family/emotion", emotionRoutes);
 
 // Health check
 app.get("/health", (req, res) => {

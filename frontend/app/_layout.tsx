@@ -12,9 +12,7 @@ export default function RootLayout() {
           screenOptions={{
             headerTitle: "MemoCare",
           }}
-        >
-          <Stack.Screen name="patient" options={{ headerShown: false }} />
-        </Stack>
+        />
         <NotificationToastHost />
       </NotificationToastProvider>
     </GestureHandlerRootView>

@@ -8,7 +8,8 @@
     "start": "node index.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "seed:questions": "node src/seeder/seedQuestions.js",
-    "seed:images": "node src/seeder/seedGameImages.js"
+    "seed:images": "node src/seeder/seedGameImages.js",
+    "seed:demo-patient": "node src/seeder/seedDemoPatientIdentity.js"
   },
   "keywords": [],
   "author": "",
@@ -26,7 +27,7 @@
     "dotenv": "^17.4.1",
     "express": "^5.2.1",
     "express-validator": "^7.3.2",
-    "form-data": "^4.0.5",
+    "form-data": "^4.0.6",
     "jsonwebtoken": "^9.0.3",
     "mongodb": "^7.1.1",
     "mongoose": "^9.4.1",
