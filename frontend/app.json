@@ -58,7 +58,8 @@
           "locationAlwaysAndWhenInUsePermission": "MemoCare needs background location access to ensure patient safety and track lost items even when the app is closed.",
           "isAndroidBackgroundLocationEnabled": true
         }
-      ]
+      ],
+      "expo-background-task"
     ],
     "experiments": {
       "typedRoutes": true,

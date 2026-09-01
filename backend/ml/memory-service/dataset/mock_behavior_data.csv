@@ -1,0 +1,305 @@
+patientId,date,time,activity,duration_minutes,location,notes
+PAT-2026-001,2026-07-28,06:29,bathing,18,Bathroom,Morning shower
+PAT-2026-001,2026-07-28,07:28,eating,26,Dining Room,Breakfast
+PAT-2026-001,2026-07-28,08:47,sitting,52,Living Room,Watching TV or reading
+PAT-2026-001,2026-07-28,10:33,medication,10,Kitchen,Morning pills
+PAT-2026-001,2026-07-28,12:08,eating,37,Dining Room,Lunch
+PAT-2026-001,2026-07-28,14:05,socializing,54,Living Room,Family time or phone call
+PAT-2026-001,2026-07-28,16:02,exercise,24,Garden,Light walk outside
+PAT-2026-001,2026-07-28,18:39,eating,45,Dining Room,Dinner
+PAT-2026-001,2026-07-28,19:33,medication,5,Kitchen,Evening pills
+PAT-2026-001,2026-07-28,21:04,sleeping,445,Bedroom,Night sleep
+PAT-2026-001,2026-07-29,06:37,bathing,26,Bathroom,Morning shower
+PAT-2026-001,2026-07-29,07:37,eating,29,Dining Room,Breakfast
+PAT-2026-001,2026-07-29,08:54,sitting,42,Living Room,Watching TV or reading
+PAT-2026-001,2026-07-29,10:46,medication,10,Kitchen,Morning pills
+PAT-2026-001,2026-07-29,11:36,eating,47,Dining Room,Lunch
+PAT-2026-001,2026-07-29,13:59,socializing,67,Living Room,Family time or phone call
+PAT-2026-001,2026-07-29,16:05,exercise,33,Garden,Light walk outside
+PAT-2026-001,2026-07-29,18:11,eating,32,Dining Room,Dinner
+PAT-2026-001,2026-07-29,20:14,medication,9,Kitchen,Evening pills
+PAT-2026-001,2026-07-29,21:05,sleeping,444,Bedroom,Night sleep
+PAT-2026-001,2026-07-30,06:07,bathing,28,Bathroom,Morning shower
+PAT-2026-001,2026-07-30,07:38,eating,26,Dining Room,Breakfast
+PAT-2026-001,2026-07-30,08:33,sitting,51,Living Room,Watching TV or reading
+PAT-2026-001,2026-07-30,11:03,medication,8,Kitchen,Morning pills
+PAT-2026-001,2026-07-30,12:06,eating,38,Dining Room,Lunch
+PAT-2026-001,2026-07-30,14:25,socializing,70,Living Room,Family time or phone call
+PAT-2026-001,2026-07-30,16:31,exercise,21,Garden,Light walk outside
+PAT-2026-001,2026-07-30,18:42,eating,41,Dining Room,Dinner
+PAT-2026-001,2026-07-30,19:49,medication,10,Kitchen,Evening pills
+PAT-2026-001,2026-07-30,21:11,sleeping,449,Bedroom,Night sleep
+PAT-2026-001,2026-07-31,06:11,bathing,19,Bathroom,Morning shower
+PAT-2026-001,2026-07-31,07:20,eating,41,Dining Room,Breakfast
+PAT-2026-001,2026-07-31,09:08,sitting,49,Living Room,Watching TV or reading
+PAT-2026-001,2026-07-31,11:30,medication,5,Kitchen,Morning pills
+PAT-2026-001,2026-07-31,12:27,eating,36,Dining Room,Lunch
+PAT-2026-001,2026-07-31,13:33,socializing,70,Living Room,Family time or phone call
+PAT-2026-001,2026-07-31,16:54,exercise,26,Garden,Light walk outside
+PAT-2026-001,2026-07-31,18:52,eating,44,Dining Room,Dinner
+PAT-2026-001,2026-07-31,19:47,medication,7,Kitchen,Evening pills
+PAT-2026-001,2026-07-31,21:08,sleeping,487,Bedroom,Night sleep
+PAT-2026-001,2026-08-01,06:26,bathing,21,Bathroom,Morning shower
+PAT-2026-001,2026-08-01,07:22,eating,23,Dining Room,Breakfast
+PAT-2026-001,2026-08-01,08:38,sitting,50,Living Room,Watching TV or reading
+PAT-2026-001,2026-08-01,11:27,medication,8,Kitchen,Morning pills
+PAT-2026-001,2026-08-01,12:24,eating,33,Dining Room,Lunch
+PAT-2026-001,2026-08-01,13:36,socializing,64,Living Room,Family time or phone call
+PAT-2026-001,2026-08-01,16:50,exercise,35,Garden,Light walk outside
+PAT-2026-001,2026-08-01,18:22,eating,39,Dining Room,Dinner
+PAT-2026-001,2026-08-01,20:20,medication,10,Kitchen,Evening pills
+PAT-2026-001,2026-08-01,22:00,sleeping,425,Bedroom,Night sleep
+PAT-2026-001,2026-08-02,06:46,bathing,30,Bathroom,Morning shower
+PAT-2026-001,2026-08-02,07:04,eating,36,Dining Room,Breakfast
+PAT-2026-001,2026-08-02,08:44,sitting,60,Living Room,Watching TV or reading
+PAT-2026-001,2026-08-02,11:13,medication,10,Kitchen,Morning pills
+PAT-2026-001,2026-08-02,11:57,eating,30,Dining Room,Lunch
+PAT-2026-001,2026-08-02,13:56,socializing,81,Living Room,Family time or phone call
+PAT-2026-001,2026-08-02,16:54,exercise,40,Garden,Light walk outside
+PAT-2026-001,2026-08-02,18:30,eating,31,Dining Room,Dinner
+PAT-2026-001,2026-08-02,19:58,medication,10,Kitchen,Evening pills
+PAT-2026-001,2026-08-02,21:32,sleeping,481,Bedroom,Night sleep
+PAT-2026-001,2026-08-03,06:33,bathing,27,Bathroom,Morning shower
+PAT-2026-001,2026-08-03,07:20,eating,32,Dining Room,Breakfast
+PAT-2026-001,2026-08-03,09:03,sitting,50,Living Room,Watching TV or reading
+PAT-2026-001,2026-08-03,11:13,medication,6,Kitchen,Morning pills
+PAT-2026-001,2026-08-03,11:39,eating,41,Dining Room,Lunch
+PAT-2026-001,2026-08-03,14:21,socializing,66,Living Room,Family time or phone call
+PAT-2026-001,2026-08-03,16:06,exercise,32,Garden,Light walk outside
+PAT-2026-001,2026-08-03,18:11,eating,48,Dining Room,Dinner
+PAT-2026-001,2026-08-03,19:51,medication,6,Kitchen,Evening pills
+PAT-2026-001,2026-08-03,21:24,sleeping,487,Bedroom,Night sleep
+PAT-2026-001,2026-08-04,06:01,bathing,28,Bathroom,Morning shower
+PAT-2026-001,2026-08-04,07:56,eating,45,Dining Room,Breakfast
+PAT-2026-001,2026-08-04,09:26,sitting,32,Living Room,Watching TV or reading
+PAT-2026-001,2026-08-04,11:26,medication,9,Kitchen,Morning pills
+PAT-2026-001,2026-08-04,12:08,eating,30,Dining Room,Lunch
+PAT-2026-001,2026-08-04,14:27,socializing,57,Living Room,Family time or phone call
+PAT-2026-001,2026-08-04,16:45,exercise,31,Garden,Light walk outside
+PAT-2026-001,2026-08-04,18:49,eating,40,Dining Room,Dinner
+PAT-2026-001,2026-08-04,19:40,medication,7,Kitchen,Evening pills
+PAT-2026-001,2026-08-04,21:29,sleeping,409,Bedroom,Night sleep
+PAT-2026-001,2026-08-05,06:03,bathing,27,Bathroom,Morning shower
+PAT-2026-001,2026-08-05,07:12,eating,33,Dining Room,Breakfast
+PAT-2026-001,2026-08-05,08:44,sitting,56,Living Room,Watching TV or reading
+PAT-2026-001,2026-08-05,11:13,medication,7,Kitchen,Morning pills
+PAT-2026-001,2026-08-05,12:03,eating,37,Dining Room,Lunch
+PAT-2026-001,2026-08-05,13:31,socializing,49,Living Room,Family time or phone call
+PAT-2026-001,2026-08-05,16:25,exercise,26,Garden,Light walk outside
+PAT-2026-001,2026-08-05,18:44,eating,43,Dining Room,Dinner
+PAT-2026-001,2026-08-05,20:13,medication,5,Kitchen,Evening pills
+PAT-2026-001,2026-08-05,21:36,sleeping,417,Bedroom,Night sleep
+PAT-2026-001,2026-08-06,06:20,bathing,17,Bathroom,Morning shower
+PAT-2026-001,2026-08-06,07:27,eating,24,Dining Room,Breakfast
+PAT-2026-001,2026-08-06,09:30,sitting,52,Living Room,Watching TV or reading
+PAT-2026-001,2026-08-06,11:18,medication,8,Kitchen,Morning pills
+PAT-2026-001,2026-08-06,12:19,eating,40,Dining Room,Lunch
+PAT-2026-001,2026-08-06,13:41,socializing,79,Living Room,Family time or phone call
+PAT-2026-001,2026-08-06,16:08,exercise,34,Garden,Light walk outside
+PAT-2026-001,2026-08-06,18:48,eating,32,Dining Room,Dinner
+PAT-2026-001,2026-08-06,19:43,medication,7,Kitchen,Evening pills
+PAT-2026-001,2026-08-06,21:55,sleeping,462,Bedroom,Night sleep
+PAT-2026-001,2026-08-07,06:25,bathing,17,Bathroom,Morning shower
+PAT-2026-001,2026-08-07,07:44,eating,37,Dining Room,Breakfast
+PAT-2026-001,2026-08-07,09:02,sitting,40,Living Room,Watching TV or reading
+PAT-2026-001,2026-08-07,10:34,medication,6,Kitchen,Morning pills
+PAT-2026-001,2026-08-07,11:37,eating,37,Dining Room,Lunch
+PAT-2026-001,2026-08-07,13:49,socializing,59,Living Room,Family time or phone call
+PAT-2026-001,2026-08-07,16:13,exercise,23,Garden,Light walk outside
+PAT-2026-001,2026-08-07,18:52,eating,41,Dining Room,Dinner
+PAT-2026-001,2026-08-07,19:32,medication,9,Kitchen,Evening pills
+PAT-2026-001,2026-08-07,21:59,sleeping,482,Bedroom,Night sleep
+PAT-2026-001,2026-08-08,06:35,bathing,22,Bathroom,Morning shower
+PAT-2026-001,2026-08-08,07:22,eating,29,Dining Room,Breakfast
+PAT-2026-001,2026-08-08,09:29,sitting,39,Living Room,Watching TV or reading
+PAT-2026-001,2026-08-08,10:39,medication,5,Kitchen,Morning pills
+PAT-2026-001,2026-08-08,11:47,eating,32,Dining Room,Lunch
+PAT-2026-001,2026-08-08,13:59,socializing,70,Living Room,Family time or phone call
+PAT-2026-001,2026-08-08,16:12,exercise,39,Garden,Light walk outside
+PAT-2026-001,2026-08-08,18:34,eating,39,Dining Room,Dinner
+PAT-2026-001,2026-08-08,19:31,medication,6,Kitchen,Evening pills
+PAT-2026-001,2026-08-08,21:47,sleeping,490,Bedroom,Night sleep
+PAT-2026-001,2026-08-08,16:57,walking,29,Garden,Pacing
+PAT-2026-001,2026-08-09,06:36,bathing,16,Bathroom,Morning shower
+PAT-2026-001,2026-08-09,07:01,eating,32,Dining Room,Breakfast
+PAT-2026-001,2026-08-09,08:44,sitting,35,Living Room,Watching TV or reading
+PAT-2026-001,2026-08-09,10:57,medication,6,Kitchen,Morning pills
+PAT-2026-001,2026-08-09,12:22,eating,33,Dining Room,Lunch
+PAT-2026-001,2026-08-09,13:54,socializing,49,Living Room,Family time or phone call
+PAT-2026-001,2026-08-09,16:33,exercise,36,Garden,Light walk outside
+PAT-2026-001,2026-08-09,18:23,eating,41,Dining Room,Dinner
+PAT-2026-001,2026-08-09,19:49,medication,5,Kitchen,Evening pills
+PAT-2026-001,2026-08-09,21:29,sleeping,432,Bedroom,Night sleep
+PAT-2026-001,2026-08-09,13:12,wandering,22,Hallway,Seemed confused
+PAT-2026-001,2026-08-10,06:10,bathing,29,Bathroom,Morning shower
+PAT-2026-001,2026-08-10,07:11,eating,26,Dining Room,Breakfast
+PAT-2026-001,2026-08-10,08:49,sitting,53,Living Room,Watching TV or reading
+PAT-2026-001,2026-08-10,11:28,medication,5,Kitchen,Morning pills
+PAT-2026-001,2026-08-10,12:27,eating,35,Dining Room,Lunch
+PAT-2026-001,2026-08-10,13:53,socializing,45,Living Room,Family time or phone call
+PAT-2026-001,2026-08-10,16:50,exercise,34,Garden,Light walk outside
+PAT-2026-001,2026-08-10,18:52,eating,32,Dining Room,Dinner
+PAT-2026-001,2026-08-10,19:48,medication,7,Kitchen,Evening pills
+PAT-2026-001,2026-08-10,21:44,sleeping,464,Bedroom,Night sleep
+PAT-2026-001,2026-08-11,06:52,bathing,21,Bathroom,Morning shower
+PAT-2026-001,2026-08-11,07:00,eating,41,Dining Room,Breakfast
+PAT-2026-001,2026-08-11,08:31,sitting,52,Living Room,Watching TV or reading
+PAT-2026-001,2026-08-11,10:40,medication,7,Kitchen,Morning pills
+PAT-2026-001,2026-08-11,11:45,eating,38,Dining Room,Lunch
+PAT-2026-001,2026-08-11,13:38,socializing,84,Living Room,Family time or phone call
+PAT-2026-001,2026-08-11,16:42,exercise,23,Garden,Light walk outside
+PAT-2026-001,2026-08-11,18:34,eating,35,Dining Room,Dinner
+PAT-2026-001,2026-08-11,19:42,medication,8,Kitchen,Evening pills
+PAT-2026-001,2026-08-11,21:41,sleeping,434,Bedroom,Night sleep
+PAT-2026-001,2026-08-12,06:51,bathing,20,Bathroom,Morning shower
+PAT-2026-001,2026-08-12,07:30,eating,35,Dining Room,Breakfast
+PAT-2026-001,2026-08-12,09:12,sitting,53,Living Room,Watching TV or reading
+PAT-2026-001,2026-08-12,10:41,medication,10,Kitchen,Morning pills
+PAT-2026-001,2026-08-12,12:18,eating,43,Dining Room,Lunch
+PAT-2026-001,2026-08-12,14:10,socializing,66,Living Room,Family time or phone call
+PAT-2026-001,2026-08-12,16:30,exercise,24,Garden,Light walk outside
+PAT-2026-001,2026-08-12,18:25,eating,50,Dining Room,Dinner
+PAT-2026-001,2026-08-12,19:39,medication,7,Kitchen,Evening pills
+PAT-2026-001,2026-08-12,21:35,sleeping,473,Bedroom,Night sleep
+PAT-2026-001,2026-08-13,06:20,bathing,24,Bathroom,Morning shower
+PAT-2026-001,2026-08-13,07:00,eating,37,Dining Room,Breakfast
+PAT-2026-001,2026-08-13,08:53,sitting,33,Living Room,Watching TV or reading
+PAT-2026-001,2026-08-13,10:33,medication,6,Kitchen,Morning pills
+PAT-2026-001,2026-08-13,12:04,eating,40,Dining Room,Lunch
+PAT-2026-001,2026-08-13,14:21,socializing,52,Living Room,Family time or phone call
+PAT-2026-001,2026-08-13,16:39,exercise,22,Garden,Light walk outside
+PAT-2026-001,2026-08-13,18:29,eating,31,Dining Room,Dinner
+PAT-2026-001,2026-08-13,20:04,medication,9,Kitchen,Evening pills
+PAT-2026-001,2026-08-13,21:29,sleeping,494,Bedroom,Night sleep
+PAT-2026-001,2026-08-14,06:51,bathing,30,Bathroom,Morning shower
+PAT-2026-001,2026-08-14,07:12,eating,45,Dining Room,Breakfast
+PAT-2026-001,2026-08-14,08:42,sitting,45,Living Room,Watching TV or reading
+PAT-2026-001,2026-08-14,10:45,medication,10,Kitchen,Morning pills
+PAT-2026-001,2026-08-14,11:55,eating,41,Dining Room,Lunch
+PAT-2026-001,2026-08-14,13:32,socializing,85,Living Room,Family time or phone call
+PAT-2026-001,2026-08-14,16:38,exercise,27,Garden,Light walk outside
+PAT-2026-001,2026-08-14,18:31,eating,34,Dining Room,Dinner
+PAT-2026-001,2026-08-14,19:49,medication,5,Kitchen,Evening pills
+PAT-2026-001,2026-08-14,21:25,sleeping,481,Bedroom,Night sleep
+PAT-2026-001,2026-08-15,06:39,bathing,23,Bathroom,Morning shower
+PAT-2026-001,2026-08-15,07:53,eating,44,Dining Room,Breakfast
+PAT-2026-001,2026-08-15,08:41,sitting,53,Living Room,Watching TV or reading
+PAT-2026-001,2026-08-15,11:16,medication,6,Kitchen,Morning pills
+PAT-2026-001,2026-08-15,11:59,eating,46,Dining Room,Lunch
+PAT-2026-001,2026-08-15,14:05,socializing,58,Living Room,Family time or phone call
+PAT-2026-001,2026-08-15,16:50,exercise,40,Garden,Light walk outside
+PAT-2026-001,2026-08-15,18:09,eating,38,Dining Room,Dinner
+PAT-2026-001,2026-08-15,20:05,medication,8,Kitchen,Evening pills
+PAT-2026-001,2026-08-15,21:25,sleeping,445,Bedroom,Night sleep
+PAT-2026-001,2026-08-16,06:18,bathing,29,Bathroom,Morning shower
+PAT-2026-001,2026-08-16,07:19,eating,37,Dining Room,Breakfast
+PAT-2026-001,2026-08-16,08:42,sitting,44,Living Room,Watching TV or reading
+PAT-2026-001,2026-08-16,11:24,medication,8,Kitchen,Morning pills
+PAT-2026-001,2026-08-16,12:16,eating,42,Dining Room,Lunch
+PAT-2026-001,2026-08-16,14:21,socializing,80,Living Room,Family time or phone call
+PAT-2026-001,2026-08-16,16:02,exercise,35,Garden,Light walk outside
+PAT-2026-001,2026-08-16,18:25,eating,38,Dining Room,Dinner
+PAT-2026-001,2026-08-16,19:35,medication,9,Kitchen,Evening pills
+PAT-2026-001,2026-08-16,21:32,sleeping,430,Bedroom,Night sleep
+PAT-2026-001,2026-08-17,06:00,bathing,25,Bathroom,Morning shower
+PAT-2026-001,2026-08-17,07:37,eating,23,Dining Room,Breakfast
+PAT-2026-001,2026-08-17,09:28,sitting,30,Living Room,Watching TV or reading
+PAT-2026-001,2026-08-17,11:07,medication,5,Kitchen,Morning pills
+PAT-2026-001,2026-08-17,12:30,eating,37,Dining Room,Lunch
+PAT-2026-001,2026-08-17,14:05,socializing,59,Living Room,Family time or phone call
+PAT-2026-001,2026-08-17,16:34,exercise,38,Garden,Light walk outside
+PAT-2026-001,2026-08-17,18:27,eating,43,Dining Room,Dinner
+PAT-2026-001,2026-08-17,20:22,medication,8,Kitchen,Evening pills
+PAT-2026-001,2026-08-17,21:36,sleeping,486,Bedroom,Night sleep
+PAT-2026-001,2026-08-18,06:56,bathing,29,Bathroom,Morning shower
+PAT-2026-001,2026-08-18,07:16,eating,20,Dining Room,Breakfast
+PAT-2026-001,2026-08-18,08:42,sitting,46,Living Room,Watching TV or reading
+PAT-2026-001,2026-08-18,10:50,medication,7,Kitchen,Morning pills
+PAT-2026-001,2026-08-18,12:18,eating,39,Dining Room,Lunch
+PAT-2026-001,2026-08-18,13:49,socializing,71,Living Room,Family time or phone call
+PAT-2026-001,2026-08-18,16:44,exercise,25,Garden,Light walk outside
+PAT-2026-001,2026-08-18,18:18,eating,39,Dining Room,Dinner
+PAT-2026-001,2026-08-18,19:56,medication,10,Kitchen,Evening pills
+PAT-2026-001,2026-08-18,21:28,sleeping,418,Bedroom,Night sleep
+PAT-2026-001,2026-08-19,06:13,bathing,27,Bathroom,Morning shower
+PAT-2026-001,2026-08-19,07:37,eating,44,Dining Room,Breakfast
+PAT-2026-001,2026-08-19,08:37,sitting,55,Living Room,Watching TV or reading
+PAT-2026-001,2026-08-19,10:31,medication,7,Kitchen,Morning pills
+PAT-2026-001,2026-08-19,11:56,eating,34,Dining Room,Lunch
+PAT-2026-001,2026-08-19,13:44,socializing,48,Living Room,Family time or phone call
+PAT-2026-001,2026-08-19,16:24,exercise,36,Garden,Light walk outside
+PAT-2026-001,2026-08-19,18:45,eating,43,Dining Room,Dinner
+PAT-2026-001,2026-08-19,20:19,medication,9,Kitchen,Evening pills
+PAT-2026-001,2026-08-19,21:19,sleeping,468,Bedroom,Night sleep
+PAT-2026-001,2026-08-20,06:50,bathing,20,Bathroom,Morning shower
+PAT-2026-001,2026-08-20,07:54,eating,30,Dining Room,Breakfast
+PAT-2026-001,2026-08-20,09:04,sitting,46,Living Room,Watching TV or reading
+PAT-2026-001,2026-08-20,11:29,medication,9,Kitchen,Morning pills
+PAT-2026-001,2026-08-20,12:30,eating,49,Dining Room,Lunch
+PAT-2026-001,2026-08-20,13:41,socializing,87,Living Room,Family time or phone call
+PAT-2026-001,2026-08-20,16:09,exercise,24,Garden,Light walk outside
+PAT-2026-001,2026-08-20,18:49,eating,44,Dining Room,Dinner
+PAT-2026-001,2026-08-20,19:44,medication,9,Kitchen,Evening pills
+PAT-2026-001,2026-08-20,21:29,sleeping,411,Bedroom,Night sleep
+PAT-2026-001,2026-08-20,16:53,walking,16,Garden,Pacing
+PAT-2026-001,2026-08-21,06:52,bathing,17,Bathroom,Morning shower
+PAT-2026-001,2026-08-21,07:11,eating,20,Dining Room,Breakfast
+PAT-2026-001,2026-08-21,08:51,sitting,49,Living Room,Watching TV or reading
+PAT-2026-001,2026-08-21,10:56,medication,10,Kitchen,Morning pills
+PAT-2026-001,2026-08-21,11:57,eating,45,Dining Room,Lunch
+PAT-2026-001,2026-08-21,13:50,socializing,55,Living Room,Family time or phone call
+PAT-2026-001,2026-08-21,16:46,exercise,26,Garden,Light walk outside
+PAT-2026-001,2026-08-21,18:57,eating,44,Dining Room,Dinner
+PAT-2026-001,2026-08-21,20:01,medication,6,Kitchen,Evening pills
+PAT-2026-001,2026-08-21,21:03,sleeping,401,Bedroom,Night sleep
+PAT-2026-001,2026-08-22,06:40,bathing,29,Bathroom,Morning shower
+PAT-2026-001,2026-08-22,07:01,eating,43,Dining Room,Breakfast
+PAT-2026-001,2026-08-22,09:30,sitting,36,Living Room,Watching TV or reading
+PAT-2026-001,2026-08-22,10:50,medication,7,Kitchen,Morning pills
+PAT-2026-001,2026-08-22,12:03,eating,32,Dining Room,Lunch
+PAT-2026-001,2026-08-22,14:26,socializing,85,Living Room,Family time or phone call
+PAT-2026-001,2026-08-22,16:41,exercise,40,Garden,Light walk outside
+PAT-2026-001,2026-08-22,18:38,eating,39,Dining Room,Dinner
+PAT-2026-001,2026-08-22,19:59,medication,5,Kitchen,Evening pills
+PAT-2026-001,2026-08-22,21:46,sleeping,429,Bedroom,Night sleep
+PAT-2026-001,2026-08-22,16:16,wandering,20,Hallway,Seemed confused
+PAT-2026-001,2026-08-23,06:40,bathing,25,Bathroom,Morning shower
+PAT-2026-001,2026-08-23,07:49,eating,35,Dining Room,Breakfast
+PAT-2026-001,2026-08-23,09:29,sitting,49,Living Room,Watching TV or reading
+PAT-2026-001,2026-08-23,11:15,medication,5,Kitchen,Morning pills
+PAT-2026-001,2026-08-23,11:39,eating,37,Dining Room,Lunch
+PAT-2026-001,2026-08-23,13:56,socializing,70,Living Room,Family time or phone call
+PAT-2026-001,2026-08-23,16:53,exercise,36,Garden,Light walk outside
+PAT-2026-001,2026-08-23,18:48,eating,50,Dining Room,Dinner
+PAT-2026-001,2026-08-23,20:21,medication,6,Kitchen,Evening pills
+PAT-2026-001,2026-08-23,21:08,sleeping,494,Bedroom,Night sleep
+PAT-2026-001,2026-08-24,06:19,bathing,21,Bathroom,Morning shower
+PAT-2026-001,2026-08-24,07:15,eating,39,Dining Room,Breakfast
+PAT-2026-001,2026-08-24,08:56,sitting,51,Living Room,Watching TV or reading
+PAT-2026-001,2026-08-24,11:24,medication,8,Kitchen,Morning pills
+PAT-2026-001,2026-08-24,12:08,eating,40,Dining Room,Lunch
+PAT-2026-001,2026-08-24,13:47,socializing,76,Living Room,Family time or phone call
+PAT-2026-001,2026-08-24,16:08,exercise,20,Garden,Light walk outside
+PAT-2026-001,2026-08-24,18:38,eating,47,Dining Room,Dinner
+PAT-2026-001,2026-08-24,19:59,medication,5,Kitchen,Evening pills
+PAT-2026-001,2026-08-24,21:03,sleeping,410,Bedroom,Night sleep
+PAT-2026-001,2026-08-25,06:42,bathing,26,Bathroom,Morning shower
+PAT-2026-001,2026-08-25,07:13,eating,31,Dining Room,Breakfast
+PAT-2026-001,2026-08-25,08:46,sitting,45,Living Room,Watching TV or reading
+PAT-2026-001,2026-08-25,11:07,medication,10,Kitchen,Morning pills
+PAT-2026-001,2026-08-25,12:15,eating,43,Dining Room,Lunch
+PAT-2026-001,2026-08-25,13:53,socializing,66,Living Room,Family time or phone call
+PAT-2026-001,2026-08-25,16:10,exercise,39,Garden,Light walk outside
+PAT-2026-001,2026-08-25,18:13,eating,35,Dining Room,Dinner
+PAT-2026-001,2026-08-25,20:12,medication,9,Kitchen,Evening pills
+PAT-2026-001,2026-08-25,21:09,sleeping,452,Bedroom,Night sleep
+PAT-2026-001,2026-08-26,06:29,bathing,24,Bathroom,Morning shower
+PAT-2026-001,2026-08-26,08:00,eating,27,Dining Room,Breakfast
+PAT-2026-001,2026-08-26,08:53,sitting,57,Living Room,Watching TV or reading
+PAT-2026-001,2026-08-26,10:52,medication,9,Kitchen,Morning pills
+PAT-2026-001,2026-08-26,12:14,eating,44,Dining Room,Lunch
+PAT-2026-001,2026-08-26,14:29,socializing,48,Living Room,Family time or phone call
+PAT-2026-001,2026-08-26,16:21,exercise,35,Garden,Light walk outside
+PAT-2026-001,2026-08-26,18:10,eating,42,Dining Room,Dinner
+PAT-2026-001,2026-08-26,19:40,medication,5,Kitchen,Evening pills
+PAT-2026-001,2026-08-26,21:04,sleeping,442,Bedroom,Night sleep

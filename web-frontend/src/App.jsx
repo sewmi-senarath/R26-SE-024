@@ -9,6 +9,8 @@ import BehavioralPatterns from './pages/BehavioralPatterns';
 import ObjectTracker from './pages/ObjectTracker';
 import PersonalizedObjectUpload from './pages/PersonalizedObjectUpload';
 import PersonalizedAnalytics from './pages/PersonalizedAnalytics';
+import BehaviorAnomalyReports from './pages/BehaviorAnomalyReports';
+import GeofenceSettings from './pages/GeofenceSettings';
 import Layout from './components/Layout';
 
 function App() {
@@ -27,6 +29,8 @@ function App() {
           <Route path="tracker" element={<ObjectTracker />} />
           <Route path="personal-vault" element={<PersonalizedObjectUpload />} />
           <Route path="intelligence" element={<PersonalizedAnalytics />} />
+          <Route path="anomaly-reports" element={<BehaviorAnomalyReports />} />
+          <Route path="geofence" element={<GeofenceSettings />} />
           <Route path="bulk-upload" element={<PatientBulkUpload />} />
         </Route>
 
