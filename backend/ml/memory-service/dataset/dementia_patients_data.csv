@@ -1,0 +1,16 @@
+Patient_ID,Name,Age,Years_in_Home,Behaviors_Sinhala,Behaviors_English,Key_Categories
+1,Ambala Kodikarage Karalayin,82,4,ඇවිදීමට නොහැක. බෙහෙත් නිසා පාලනය වී ඇත,Cannot walk. Controlled due to medicine,Mobility
+2,Dona Leelawathi Gunasekara,78,1,"ඩිමෙන්ශියා, පාකින්සන් සඳහා බෙහෙත් ලබාගනී. ඇවිදීම, වාඩි වීම අපහසුයි","Takes medicine for Dementia and Parkinson's. Difficulty walking and sitting","Mobility, Parkinson's"
+3,Udugam Yatatha Budiyanselage Rathnawathi,81,2,ඇවිදිය හැක. කල්පනාව නැත. මුත්‍රා පිටකරගනී,Can walk. No memory/awareness. Incontinent,"Incontinence, Memory"
+4,Athukoralalage Vini Padmini Perera,73,1,මතකය නැත. අමාරුවෙන් ඇවිදිය හැක,No memory. Can walk with difficulty,"Memory, Mobility"
+5,Jayasinghe Arachchige Anula,77,8,ඇවිදීමට අපහසුයි රෝද පුටුවේ ගමන් කරයි. අනුන්ගේ උදව් අවශ්‍යයි,Difficult to walk and travels in a wheelchair. Needs others' help,Mobility
+6,Bilinduge Priyadarshani de Silva,71,13,ඇවිදීමට හැක. මතකය නැත. මානසික රෝගී තත්වයක් ඇත,Can walk. No memory. Has a psychiatric condition,"Memory, Psychiatric"
+7,Thalpavila Pathiranage Karunawathi,71,3,මතකය නැත,No memory,Memory
+8,Makehelwala Vithanage Lalitha Premasiri,80,3,මතකය නැත. නිවසින් පිටව යාමට උත්සහ කරයි,No memory. Tries to leave the house,"Memory, Wandering"
+9,K. Somawathi,75,11,මතකය නැත. නිතරම කෑගසයි. ගොඩක් අය සමග රණ්ඩු වෙයි,No memory. Always shouts. Fights with many people,"Memory, Aggression, Vocalization"
+10,Godagal Bokkuge Nalini,88,13,"නිතර රණ්ඩු කරයි, පරුෂ වචන කියයි","Often fights, uses harsh words","Aggression, Verbal Abuse"
+11,H. P. Anulawathi,72,6,නිතර රණ්ඩු කරයි අනුන්ට පහර දෙයි,Often fights. Hits others,"Aggression, Physical"
+12,Wiyalagama Hettiarachchi,77,24,බෙහෙත් වලින් පාලනය වී ඇත,Controlled by medicine,Controlled
+13,R. A. D. Padmini Perera,94,Unknown,"අමතක වීම, නිතර රණ්ඩු වීම, ගෙදර යන්න හදනවා","Forgetfulness, often fights, tries to go home","Memory, Aggression, Wandering"
+14,Prema,72,4,"පාකින්සන් ඇත. අත් පා වෙව්ලයි, කේන්තිය, අමතක වීම","Has Parkinson's. Trembling limbs, anger, forgetfulness","Parkinson's, Anger, Memory"
+15,Hettiarachchige Nandawathi,80,7,අමතක වීම ඇත,Has forgetfulness,Memory

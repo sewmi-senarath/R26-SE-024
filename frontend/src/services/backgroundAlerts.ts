@@ -8,7 +8,8 @@
  * removed from Expo Go). Lazy-loading + the Expo Go guard keeps the app usable
  * in Expo Go; full notification support still requires a development build.
  */
-import * as BackgroundFetch from 'expo-background-fetch';
+import * as BackgroundTask from 'expo-background-task';
+import * as Notifications from 'expo-notifications';
 import * as Speech from 'expo-speech';
 import Constants from 'expo-constants';
 import axios from 'axios';
@@ -27,12 +28,8 @@ function getNotifications() {
 export async function registerBackgroundAlerts(): Promise<boolean> {
   if (isExpoGo) return false; // background fetch + notifications unreliable in Expo Go
   try {
-    const Notifications = getNotifications();
-    const { status } = await Notifications.requestPermissionsAsync();
-    if (status !== 'granted') return false;
-
-    await BackgroundFetch.getStatusAsync();
-    await BackgroundFetch.registerTaskAsync(ALERT_TASK, {
+    const registered = await BackgroundTask.getStatusAsync();
+    await BackgroundTask.registerTaskAsync(ALERT_TASK, {
       minimumInterval: 30 * 60,
       stopOnTerminate: false,
       startOnBoot: false,
@@ -44,7 +41,7 @@ export async function registerBackgroundAlerts(): Promise<boolean> {
 }
 
 export async function unregisterBackgroundAlerts(): Promise<void> {
-  try { await BackgroundFetch.unregisterTaskAsync(ALERT_TASK); } catch {}
+  try { await BackgroundTask.unregisterTaskAsync(ALERT_TASK); } catch {}
 }
 
 export async function triggerAlertNow(patientId: string): Promise<string | null> {

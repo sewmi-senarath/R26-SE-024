@@ -58,7 +58,11 @@ const BehavioralPatterns = () => {
         axios.get(`${API_URL}/admin/behavior/pattern/${patient._id}`)
       ]);
       setLogs(logsRes.data.data || []);
-      if (patternRes.data.status === 'success') setRoutine(patternRes.data.routine);
+      if (patternRes.data.success && patternRes.data.data?.status === 'success') {
+        setRoutine(patternRes.data.data.routine);
+      } else if (patternRes.data.status === 'success') {
+        setRoutine(patternRes.data.routine);
+      }
     } catch (e) { console.error(e); }
     setLoadingLogs(false);
   };
@@ -72,7 +76,11 @@ const BehavioralPatterns = () => {
       setTrainResult(res.data);
       // Reload routine
       const pr = await axios.get(`${API_URL}/admin/behavior/pattern/${selectedPatient._id}`);
-      if (pr.data.status === 'success') setRoutine(pr.data.routine);
+      if (pr.data.success && pr.data.data?.status === 'success') {
+        setRoutine(pr.data.data.routine);
+      } else if (pr.data.status === 'success') {
+        setRoutine(pr.data.routine);
+      }
     } catch (e) {
       setTrainResult({ success: false, message: e.response?.data?.message || 'Training failed' });
     }
