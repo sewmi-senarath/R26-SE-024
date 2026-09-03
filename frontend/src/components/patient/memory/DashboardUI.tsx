@@ -807,7 +807,14 @@ export default function DashboardUI() {
           <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
             <View style={{ backgroundColor: '#0f172a', borderRadius: 32, padding: 30, alignItems: 'center', width: '100%', borderWidth: 2, borderColor: '#3b82f6', elevation: 20, shadowColor: '#3b82f6', shadowOpacity: 0.5, shadowRadius: 30 }}>
               
-              <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(59, 130, 246, 0.2)', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+              <TouchableOpacity 
+                style={{ position: 'absolute', top: 20, right: 20, padding: 8, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 20 }}
+                onPress={() => setAnomalyAlert({ active: false, message: '' })}
+              >
+                <Ionicons name="close" size={24} color="#94a3b8" />
+              </TouchableOpacity>
+
+              <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(59, 130, 246, 0.2)', alignItems: 'center', justifyContent: 'center', marginBottom: 20, marginTop: 10 }}>
                 <Ionicons name="moon" size={40} color="#60a5fa" />
               </View>
               

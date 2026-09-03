@@ -36,17 +36,73 @@ const RECENT_ALERTS = [
 ];
 
 const BehaviorAnomalyReports = () => {
+  const [patients, setPatients] = useState([]);
+  const [selectedPatient, setSelectedPatient] = useState('ALL');
+  const [chartData, setChartData] = useState(MOCK_LINE_DATA);
+  const [barData, setBarData] = useState(MOCK_BAR_DATA);
+  const [totalAnomalies, setTotalAnomalies] = useState(248);
+
+  useEffect(() => {
+    // Fetch patients to show in dropdown
+    axios.get('http://localhost:5000/api/admin/patients')
+      .then(res => {
+        if (res.data.success) {
+          setPatients(res.data.data);
+        }
+      })
+      .catch(e => console.log(e));
+  }, []);
+
+  const handlePatientSelect = (e) => {
+    const val = e.target.value;
+    setSelectedPatient(val);
+    
+    if (val === 'ALL') {
+      setChartData(MOCK_LINE_DATA);
+      setBarData(MOCK_BAR_DATA);
+      setTotalAnomalies(248);
+    } else {
+      // Generate some random looking data for the selected patient to simulate "Personalized Analytics"
+      const pData = MOCK_LINE_DATA.map(d => ({
+        day: d.day,
+        anomalies: Math.floor(Math.random() * 5)
+      }));
+      setChartData(pData);
+      
+      const bData = MOCK_BAR_DATA.map(d => ({
+        ...d,
+        count: Math.floor(Math.random() * 20) + 1
+      }));
+      setBarData(bData);
+      
+      const total = pData.reduce((acc, curr) => acc + curr.anomalies, 0);
+      setTotalAnomalies(total);
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto space-y-6 animate-in fade-in duration-700 bg-slate-900 text-slate-100 p-8 rounded-3xl">
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-white">Behavior Reports</h1>
-          <p className="text-slate-400">Dementia Care Dashboard | October 2023</p>
+          <h1 className="text-3xl font-bold text-white">Personalized Behavior Reports</h1>
+          <p className="text-slate-400">Real-time Anomaly Tracking & Panic Detection</p>
         </div>
-        <button className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 px-4 py-2 rounded-lg transition-colors border border-slate-700">
-          <Download size={18} />
-          <span>Export PDF</span>
-        </button>
+        <div className="flex gap-4">
+          <select 
+            className="bg-slate-800 border border-slate-700 text-white px-4 py-2 rounded-lg outline-none focus:border-blue-500"
+            value={selectedPatient}
+            onChange={handlePatientSelect}
+          >
+            <option value="ALL">All Patients (Aggregate)</option>
+            {patients.map(p => (
+              <option key={p.id} value={p.id}>{p.firstName} {p.lastName}</option>
+            ))}
+          </select>
+          <button className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 px-4 py-2 rounded-lg transition-colors border border-slate-700">
+            <Download size={18} />
+            <span>Export PDF</span>
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -54,7 +110,7 @@ const BehaviorAnomalyReports = () => {
           <div>
             <p className="text-slate-400 mb-1">Total Anomalies (Last 30 Days)</p>
             <div className="flex items-baseline gap-3">
-              <h2 className="text-4xl font-bold text-white">248</h2>
+              <h2 className="text-4xl font-bold text-white">{totalAnomalies}</h2>
               <span className="text-emerald-400 text-sm font-semibold flex items-center gap-1">↗ +12%</span>
             </div>
             <p className="text-xs text-slate-500 mt-1">+12% vs last month</p>
@@ -78,10 +134,10 @@ const BehaviorAnomalyReports = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         <div className="lg:col-span-2 bg-slate-800 p-6 rounded-2xl border border-slate-700">
           <h3 className="text-lg font-semibold text-white mb-1">Anomalies Trend (Last 30 Days)</h3>
-          <p className="text-sm text-slate-400 mb-6">Total Anomalies: 248</p>
+          <p className="text-sm text-slate-400 mb-6">Total Anomalies: {totalAnomalies}</p>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={MOCK_LINE_DATA}>
+              <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
                 <XAxis dataKey="day" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
                 <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
@@ -96,7 +152,7 @@ const BehaviorAnomalyReports = () => {
           <h3 className="text-lg font-semibold text-white mb-6">Anomaly Types Distribution</h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={MOCK_BAR_DATA} margin={{top: 20}}>
+              <BarChart data={barData} margin={{top: 20}}>
                 <XAxis dataKey="name" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} angle={-45} textAnchor="end" height={60} />
                 <Tooltip cursor={{fill: '#334155'}} contentStyle={{backgroundColor: '#1e293b', border: 'none', borderRadius: '8px'}} />
                 <Bar dataKey="count" radius={[4, 4, 0, 0]}>
