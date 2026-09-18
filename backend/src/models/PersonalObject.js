@@ -6,6 +6,8 @@ const PersonalObjectSchema = new mongoose.Schema({
     ref: 'PatientRegistry',
     required: true
   },
+  itemType: { type: String, enum: ['object', 'person'], default: 'object' },
+  relationship: { type: String },
   objectName: {
     type: String,
     required: true
@@ -29,6 +31,7 @@ const PersonalObjectSchema = new mongoose.Schema({
     enum: ['pending', 'trained'],
     default: 'pending'
   },
+  embedding: [{ type: Number }],
   createdAt: {
     type: Date,
     default: Date.now

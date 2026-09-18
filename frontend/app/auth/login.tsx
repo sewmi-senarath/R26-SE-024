@@ -1,4 +1,4 @@
-import { loginUser } from '@/src/api/authApi';
+import { loginUser, storage } from '@/src/api/authApi';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -31,39 +31,33 @@ export default function Login() {
       if (result.success) {
         const role = result.data.user.role;
 
-        // ── Save caregiverId for web + mobile ──────────────────────────────
-        const userId = result.data.user._id || result.data.user.id;
-        const token  = result.data.token;
+        // Tokens, user data and caregiverId are already persisted by
+        // loginUser() in authApi. Nothing else to store here.
 
-        // Web (browser)
-        if (typeof localStorage !== 'undefined') {
-          try {
-            localStorage.setItem('caregiverId', userId);
-            localStorage.setItem('token', token);
-          } catch (e) {
-            console.error('Error saving to localStorage', e);
+        // Drop every pre-login screen from the stack so a swipe-back / hardware
+        // back from the dashboard can't return to the login/landing screens.
+        const goHome = (path: string) => {
+          if (Platform.OS === 'web') {
+            window.location.href = path;
+            return;
           }
-        }
-
-        // Mobile (AsyncStorage)
-        try {
-          const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-          await AsyncStorage.setItem('caregiverId', userId);
-          await AsyncStorage.setItem('token', token);
-        } catch (e) {
-          console.error('Error saving to AsyncStorage', e);
-        }
-        // ──────────────────────────────────────────────────────────────────
+          try {
+            if (router.canDismiss()) router.dismissAll();
+          } catch {
+            // no dismissable screens - replace() below is enough
+          }
+          router.replace(path as never);
+        };
 
         if (role === 'patient') {
-          if (Platform.OS === 'web') window.location.href = '/patient/activity-selector';
-          else router.replace('/patient/activity-selector');
+          // One-shot flag: the landing screen shows the screening-test prompt
+          // once per login, then clears this.
+          await storage.setItem('pendingScreeningPrompt', '1');
+          goHome('/patient/activity-selector');
         } else if (role === 'caregiver') {
-          if (Platform.OS === 'web') window.location.href = '/caregiver';
-          else router.replace('/caregiver');
+          goHome('/caregiver');
         } else if (role === 'family') {
-          if (Platform.OS === 'web') window.location.href = '/family';
-          else router.replace('/family');
+          goHome('/family');
         }
       } else {
         Alert.alert('Login Failed', result.message);

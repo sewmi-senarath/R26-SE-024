@@ -195,11 +195,16 @@ export const loginUser = async (email: string, password: string) => {
     const data = await response.json();
 
     if (data.success) {
-      await storage.setItem("accessToken", data.data.accessToken);
-      await storage.setItem("refreshToken", data.data.refreshToken);
-      await storage.setItem("userRole", data.data.user.role);
-      await storage.setItem("userData", JSON.stringify(data.data.user));
-      await storage.setItem("caregiverId", data.data.user._id);
+      const user = data.data.user ?? {};
+      const userId = user._id ?? user.id;
+
+      if (data.data.accessToken)
+        await storage.setItem("accessToken", data.data.accessToken);
+      if (data.data.refreshToken)
+        await storage.setItem("refreshToken", data.data.refreshToken);
+      if (user.role) await storage.setItem("userRole", user.role);
+      await storage.setItem("userData", JSON.stringify(user));
+      if (userId) await storage.setItem("caregiverId", String(userId));
     }
     return data;
   } catch (error) {
@@ -315,6 +320,29 @@ export const logoutUser = async () => {
 
 export const getMe = async () => {
   return await authFetch("/auth/me", { method: "GET" });
+};
+
+// ✅ Update the logged-in patient's own registration details.
+export const updateMe = async (update: Record<string, any>) => {
+  const result = await authFetch("/auth/me", {
+    method: "PUT",
+    body: JSON.stringify(update),
+  });
+
+  // Keep the locally cached user in sync so the profile reflects edits.
+  if (result?.success) {
+    try {
+      const stored = await getStoredUser();
+      await storage.setItem(
+        "userData",
+        JSON.stringify({ ...(stored || {}), ...update }),
+      );
+    } catch {
+      // Non-fatal — the server remains the source of truth.
+    }
+  }
+
+  return result;
 };
 
 export const getMePhotos = async () => {

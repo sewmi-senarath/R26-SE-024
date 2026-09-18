@@ -2,9 +2,9 @@ import { getMe, getStoredUser } from "@/src/api/authApi";
 import { getPatientAssessmentHistory } from "@/src/api/assessmentApi";
 import { GameSessionHistoryItem, getPatientGameSessions } from "@/src/api/gameSessionApi";
 import { GAME_CONFIGS, GAME_ORDER } from "@/src/constants/games";
-import { getSeverityHistory } from "@/src/services/patient/cognitive/dementiaService";
+import { getTriageHistory } from "@/src/services/patient/cognitive/dementiaService";
 import { MMSESession, SectionName, Severity } from "@/src/types/assessment.types";
-import { SeverityHistoryItem } from "@/src/types/dementia.types";
+import { TriageHistoryItem } from "@/src/types/dementia.types";
 import { GameId } from "@/src/types/games.types";
 import { useCallback, useEffect, useState } from "react";
 
@@ -102,7 +102,7 @@ export function usePatientReport(explicitPatientId?: string) {
 
   const [assessments, setAssessments] = useState<MMSESession[]>([]);
   const [gameSessions, setGameSessions] = useState<GameSessionHistoryItem[]>([]);
-  const [severityHistory, setSeverityHistory] = useState<SeverityHistoryItem[]>([]);
+  const [triageHistory, setTriageHistory] = useState<TriageHistoryItem[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -122,10 +122,10 @@ export function usePatientReport(explicitPatientId?: string) {
       }
       setPatientId(id);
 
-      const [assessmentRes, gamesRes, severityRes] = await Promise.all([
+      const [assessmentRes, gamesRes, triageRes] = await Promise.all([
         getPatientAssessmentHistory(id).catch(() => []),
         getPatientGameSessions(id).catch(() => []),
-        getSeverityHistory(id),
+        getTriageHistory(id),
       ]);
 
       const doneAssessments = (assessmentRes || [])
@@ -138,7 +138,7 @@ export function usePatientReport(explicitPatientId?: string) {
           (a, b) => new Date(a.completedAt).getTime() - new Date(b.completedAt).getTime()
         )
       );
-      setSeverityHistory([...severityRes].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()));
+      setTriageHistory([...triageRes].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()));
     } catch (e: any) {
       setError(e?.message || "Could not load report data.");
     } finally {
@@ -360,12 +360,12 @@ export function usePatientReport(explicitPatientId?: string) {
 
     assessments,
     gameSessions,
-    severityHistory,
+    triageHistory,
 
     assessmentStats,
     gameStats,
     progress,
 
-    latestSeverityPrediction: severityHistory[severityHistory.length - 1] ?? null,
+    latestTriagePrediction: triageHistory[triageHistory.length - 1] ?? null,
   };
 }

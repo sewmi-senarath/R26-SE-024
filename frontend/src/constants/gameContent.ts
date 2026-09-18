@@ -4,7 +4,16 @@ import {
   FaceNameMatchConfig,
   FaceNameQuestion,
   GameId,
+  GoNoGoConfig,
+  GridFlashConfig,
+  ListenRepeatConfig,
+  CalendarFindConfig,
+  MemoryMatchConfig,
   MemoryRecallConfig,
+  NamePictureConfig,
+  SentenceCompletionConfig,
+  SpotDifferenceConfig,
+  StoryRecallConfig,
   ObjectRecallConfig,
   OrientationGameConfig,
   OrientationQuestion,
@@ -14,6 +23,8 @@ import {
 import { SEQUENCE_ITEMS } from "./game-content/sequence_items";
 import { PUZZLE_WORDS } from "./game-content/puzzle_words";
 import { RECALL_OBJECTS } from "./game-content/recall_objects";
+import { STORY_POOL } from "./game-content/story_content";
+import { SENTENCE_POOL } from "./game-content/sentence_content";
 
 function sampleItems<T>(items: T[], count: number): T[] {
   const shuffled = [...items];
@@ -28,6 +39,25 @@ function sampleItems<T>(items: T[], count: number): T[] {
 
 function matchesWordLength(word: string, wordLength: number): boolean {
   return wordLength === 8 ? word.length >= 8 : word.length === wordLength;
+}
+
+// How many decoy options pad the Memory Recall grid beyond the correct items.
+const MEMORY_RECALL_DISTRACTOR_COUNT = 3;
+
+// Pick decoys from the shared pool, excluding anything already chosen as a
+// correct item, so the recall grid never shows the same object twice.
+function sampleMemoryDistractors(
+  chosen: { label: string }[],
+  count: number,
+): (typeof SEQUENCE_ITEMS)[number][] {
+  const used = new Set(chosen.map((i) => i.label.trim().toLowerCase()));
+  const pool = SEQUENCE_ITEMS.filter(
+    (i) => !used.has(i.label.trim().toLowerCase()),
+  );
+  return sampleItems(pool, count).map((item, idx) => ({
+    ...item,
+    id: `distractor_${idx}_${item.id}`,
+  }));
 }
 
 function pickDistractors<T>(pool: T[], exclude: T[], count: number): T[] {
@@ -386,6 +416,198 @@ const WORD_PUZZLE: Record<Difficulty, WordPuzzleConfig> = {
   hard: buildWordPuzzleConfig(8, false, 45, true),
 };
 
+// Grid Flash: a spatial sequence over an N×N grid. Flash speed is deliberately
+// constant across levels - only the grid size and sequence length grow.
+function buildGridFlashConfig(
+  gridSize: number,
+  sequenceLength: number,
+  showLabels: boolean,
+): GridFlashConfig {
+  return {
+    gridSize,
+    sequenceLength,
+    flashTimeMs: 750,
+    showLabels,
+    items: sampleItems(SEQUENCE_ITEMS, sequenceLength),
+  };
+}
+
+const GRID_FLASH: Record<Difficulty, GridFlashConfig> = {
+  easy: buildGridFlashConfig(3, 3, true),
+  medium: buildGridFlashConfig(4, 5, false),
+  hard: buildGridFlashConfig(5, 7, false),
+};
+
+// Listen & Repeat: words are spoken, then recognised (choice) or typed (input).
+function buildListenRepeatConfig(
+  wordCount: number,
+  allowReplay: boolean,
+  answerMode: "choice" | "input",
+): ListenRepeatConfig {
+  const items = sampleItems(SEQUENCE_ITEMS, wordCount);
+  return {
+    wordCount,
+    allowReplay,
+    answerMode,
+    items,
+    distractors: sampleMemoryDistractors(items, wordCount),
+  };
+}
+
+const LISTEN_REPEAT: Record<Difficulty, ListenRepeatConfig> = {
+  easy: buildListenRepeatConfig(3, true, "choice"),
+  medium: buildListenRepeatConfig(5, false, "choice"),
+  hard: buildListenRepeatConfig(7, false, "input"),
+};
+
+// Memory Match: pairs of personalized items over a flip-card grid.
+function buildMemoryMatchConfig(
+  pairCount: number,
+  columns: number,
+  peekMs: number,
+  moveLimit: number | null,
+): MemoryMatchConfig {
+  return {
+    pairCount,
+    columns,
+    peekMs,
+    moveLimit,
+    items: sampleItems(SEQUENCE_ITEMS, pairCount),
+  };
+}
+
+const MEMORY_MATCH: Record<Difficulty, MemoryMatchConfig> = {
+  easy: buildMemoryMatchConfig(3, 3, 3500, null),
+  medium: buildMemoryMatchConfig(6, 4, 1800, null),
+  hard: buildMemoryMatchConfig(8, 4, 1200, 24),
+};
+
+// Story Recall: pick a generic story and slice it to the level's question count.
+// (Personalized stories come from the backend LLM; this is the offline fallback.)
+function buildStoryRecallConfig(
+  questionCount: number,
+  answerMode: "choice" | "mixed",
+  delayMs: number,
+): StoryRecallConfig {
+  const story = STORY_POOL[Math.floor(Math.random() * STORY_POOL.length)];
+  const chosen = sampleItems(story.questions, Math.min(questionCount, story.questions.length));
+  return {
+    questionCount: chosen.length,
+    answerMode,
+    delayMs,
+    story: story.text,
+    questions: chosen.map((q, i) => ({
+      id: `sq${i}`,
+      question: q.question,
+      correctAnswer: q.correctAnswer,
+      options: sampleItems(q.options, q.options.length),
+    })),
+  };
+}
+
+const STORY_RECALL: Record<Difficulty, StoryRecallConfig> = {
+  easy: buildStoryRecallConfig(2, "choice", 0),
+  medium: buildStoryRecallConfig(4, "choice", 0),
+  hard: buildStoryRecallConfig(6, "choice", 4000),
+};
+
+// Spot the Difference: two grids of the same items where some tiles change.
+function buildSpotDifferenceConfig(
+  rows: number,
+  columns: number,
+  differenceCount: number,
+  timeLimitSeconds: number | null,
+): SpotDifferenceConfig {
+  const items = sampleItems(SEQUENCE_ITEMS, rows * columns);
+  return {
+    rows,
+    columns,
+    differenceCount,
+    timeLimitSeconds,
+    items,
+    distractors: sampleMemoryDistractors(items, differenceCount),
+  };
+}
+
+const SPOT_DIFFERENCE: Record<Difficulty, SpotDifferenceConfig> = {
+  easy: buildSpotDifferenceConfig(2, 4, 3, null),
+  medium: buildSpotDifferenceConfig(3, 4, 5, 60),
+  hard: buildSpotDifferenceConfig(4, 4, 7, 45),
+};
+
+// Go / No-Go: items[0] is the target; the rest are lures.
+function buildGoNoGoConfig(
+  targetCount: number,
+  lureCount: number,
+  intervalMs: number,
+): GoNoGoConfig {
+  return {
+    targetCount,
+    lureCount,
+    intervalMs,
+    items: sampleItems(SEQUENCE_ITEMS, 6),
+  };
+}
+
+const GO_NO_GO: Record<Difficulty, GoNoGoConfig> = {
+  easy: buildGoNoGoConfig(5, 5, 1600),
+  medium: buildGoNoGoConfig(6, 8, 1100),
+  hard: buildGoNoGoConfig(7, 11, 800),
+};
+
+// Name the Picture: pictures to name + a decoy-name pool.
+function buildNamePictureConfig(
+  itemCount: number,
+  optionsCount: number,
+  answerMode: "choice" | "type",
+): NamePictureConfig {
+  const items = sampleItems(SEQUENCE_ITEMS, itemCount);
+  return {
+    itemCount,
+    optionsCount,
+    answerMode,
+    items,
+    distractors: sampleMemoryDistractors(items, itemCount + 4),
+  };
+}
+
+const NAME_PICTURE: Record<Difficulty, NamePictureConfig> = {
+  easy: buildNamePictureConfig(5, 3, "choice"),
+  medium: buildNamePictureConfig(5, 4, "choice"),
+  hard: buildNamePictureConfig(5, 4, "type"),
+};
+
+// Sentence Completion: pick sentences from the generic pool (personalized
+// sentences come from the backend LLM; this is the offline fallback).
+function buildSentenceCompletionConfig(
+  blankCount: number,
+  answerMode: "choice" | "type",
+): SentenceCompletionConfig {
+  const picked = sampleItems(SENTENCE_POOL, Math.min(blankCount, SENTENCE_POOL.length));
+  return {
+    blankCount: picked.length,
+    answerMode,
+    items: picked.map((s, i) => ({
+      id: `sc${i}`,
+      text: s.text,
+      answer: s.answer,
+      options: sampleItems(s.options, s.options.length),
+    })),
+  };
+}
+
+const CALENDAR_FIND: Record<Difficulty, CalendarFindConfig> = {
+  easy: { promptCount: 3, showTodayHint: true, relativeReasoning: false },
+  medium: { promptCount: 4, showTodayHint: false, relativeReasoning: false },
+  hard: { promptCount: 5, showTodayHint: false, relativeReasoning: true },
+};
+
+const SENTENCE_COMPLETION: Record<Difficulty, SentenceCompletionConfig> = {
+  easy: buildSentenceCompletionConfig(3, "choice"),
+  medium: buildSentenceCompletionConfig(4, "choice"),
+  hard: buildSentenceCompletionConfig(5, "type"),
+};
+
 // orientation_game and face_name_match are always regenerated fresh in
 // getGameContent() below (they depend on the real clock / need reshuffling
 // each play), so there is no eagerly-built module-level config for them -
@@ -434,14 +656,25 @@ export const GAME_CONTENT: Record<Exclude<GameId, "orientation_game" | "face_nam
   attention_game: ATTENTION_GAME,
   photo_puzzle: PHOTO_PUZZLE,
   word_puzzle: WORD_PUZZLE,
+  grid_flash: GRID_FLASH,
+  listen_repeat: LISTEN_REPEAT,
+  memory_match: MEMORY_MATCH,
+  story_recall: STORY_RECALL,
+  spot_difference: SPOT_DIFFERENCE,
+  go_no_go: GO_NO_GO,
+  name_picture: NAME_PICTURE,
+  sentence_completion: SENTENCE_COMPLETION,
+  calendar_find: CALENDAR_FIND,
 };
 
 export function getGameContent<T>(gameId: GameId, difficulty: Difficulty): T {
   if (gameId === "memory_recall") {
     const config = GAME_CONTENT[gameId][difficulty] as MemoryRecallConfig;
+    const items = sampleItems(SEQUENCE_ITEMS, config.sequenceLength);
     return {
       ...config,
-      items: sampleItems(SEQUENCE_ITEMS, config.sequenceLength),
+      items,
+      distractors: sampleMemoryDistractors(items, MEMORY_RECALL_DISTRACTOR_COUNT),
     } as T;
   }
 
@@ -462,6 +695,74 @@ export function getGameContent<T>(gameId: GameId, difficulty: Difficulty): T {
       ...config,
       words: sampleItems(matchingWords, config.words.length),
     } as T;
+  }
+
+  if (gameId === "grid_flash") {
+    const config = GAME_CONTENT[gameId][difficulty] as GridFlashConfig;
+    return {
+      ...config,
+      items: sampleItems(SEQUENCE_ITEMS, config.sequenceLength),
+    } as T;
+  }
+
+  if (gameId === "listen_repeat") {
+    const config = GAME_CONTENT[gameId][difficulty] as ListenRepeatConfig;
+    const items = sampleItems(SEQUENCE_ITEMS, config.wordCount);
+    return {
+      ...config,
+      items,
+      distractors: sampleMemoryDistractors(items, config.wordCount),
+    } as T;
+  }
+
+  if (gameId === "memory_match") {
+    const config = GAME_CONTENT[gameId][difficulty] as MemoryMatchConfig;
+    return {
+      ...config,
+      items: sampleItems(SEQUENCE_ITEMS, config.pairCount),
+    } as T;
+  }
+
+  if (gameId === "story_recall") {
+    const config = GAME_CONTENT[gameId][difficulty] as StoryRecallConfig;
+    return buildStoryRecallConfig(
+      config.questionCount,
+      config.answerMode,
+      config.delayMs,
+    ) as T;
+  }
+
+  if (gameId === "spot_difference") {
+    const config = GAME_CONTENT[gameId][difficulty] as SpotDifferenceConfig;
+    const items = sampleItems(SEQUENCE_ITEMS, config.rows * config.columns);
+    return {
+      ...config,
+      items,
+      distractors: sampleMemoryDistractors(items, config.differenceCount),
+    } as T;
+  }
+
+  if (gameId === "go_no_go") {
+    const config = GAME_CONTENT[gameId][difficulty] as GoNoGoConfig;
+    return {
+      ...config,
+      items: sampleItems(SEQUENCE_ITEMS, 6),
+    } as T;
+  }
+
+  if (gameId === "name_picture") {
+    const config = GAME_CONTENT[gameId][difficulty] as NamePictureConfig;
+    const items = sampleItems(SEQUENCE_ITEMS, config.itemCount);
+    return {
+      ...config,
+      items,
+      distractors: sampleMemoryDistractors(items, config.itemCount + 4),
+    } as T;
+  }
+
+  if (gameId === "sentence_completion") {
+    const config = GAME_CONTENT[gameId][difficulty] as SentenceCompletionConfig;
+    return buildSentenceCompletionConfig(config.blankCount, config.answerMode) as T;
   }
 
   if (gameId === "orientation_game") {

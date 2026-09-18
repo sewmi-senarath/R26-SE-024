@@ -8,6 +8,15 @@ const GAME_IDS = [
   "word_puzzle",
   "orientation_game",
   "face_name_match",
+  "grid_flash",
+  "listen_repeat",
+  "memory_match",
+  "story_recall",
+  "spot_difference",
+  "go_no_go",
+  "name_picture",
+  "sentence_completion",
+  "calendar_find",
 ];
 
 const DIFFICULTIES = ["easy", "medium", "hard"];

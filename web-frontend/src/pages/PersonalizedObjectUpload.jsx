@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { Package, Upload, Search, User, CheckCircle2, Box, Sparkles, Loader2, Trash2, Gauge } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Package, Upload, Search, User, CheckCircle2, Box, Sparkles, Loader2, Trash2, Gauge, Camera } from 'lucide-react';
 import axios from 'axios';
 import { io } from 'socket.io-client';
+import Webcam from 'react-webcam';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
@@ -49,12 +50,16 @@ const ObjectCard = ({ name, image, labels, onDelete }) => {
 const PersonalizedObjectUpload = () => {
   const [patients, setPatients] = useState([]);
   const [selectedPatient, setSelectedPatient] = useState(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isVerifying, setIsVerifying] = useState(false);
   const [objects, setObjects] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [trainingStatus, setTrainingStatus] = useState('idle');
   const [progress, setProgress] = useState(0);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState('object');
+  const [customName, setCustomName] = useState('');
+  const [relationship, setRelationship] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [showWebcam, setShowWebcam] = useState(false);
 
   useEffect(() => {
     fetchPatients();
@@ -116,16 +121,27 @@ const PersonalizedObjectUpload = () => {
     }, 1000);
   };
 
-  const handleFileUpload = async (e) => {
+  const processFiles = async (files) => {
     if (!selectedPatient) return;
-    const files = Array.from(e.target.files);
+    
+    if (activeTab === 'person' && (!customName || !relationship)) {
+      alert("Please enter the Person's Name and Relationship before uploading!");
+      return;
+    }
+    if (activeTab === 'object' && !customName) {
+      alert("Camera Upload Error: Please enter the Object Name before capturing!");
+      return;
+    }
+
     setUploading(true);
     
     for (const file of files) {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('patientId', selectedPatient._id);
-      formData.append('objectName', file.name.split('.')[0]);
+      formData.append('objectName', customName || (file.name ? file.name.split('.')[0] : 'captured'));
+      formData.append('itemType', activeTab);
+      if (activeTab === 'person') formData.append('relationship', relationship);
 
       try {
         const res = await axios.post(`${API_URL}/admin/personal-objects/upload`, formData, {
@@ -134,7 +150,7 @@ const PersonalizedObjectUpload = () => {
         
         if (res.data.success) {
           const detections = res.data.data.detections || [];
-          const primaryName = detections.length > 0 ? detections[0].class_name : (file.name.split('.')[0]);
+          const primaryName = customName || (detections.length > 0 ? detections[0].class_name : 'captured');
           setObjects(prev => [...prev, {
             id: res.data.data._id,
             name: primaryName,
@@ -142,14 +158,37 @@ const PersonalizedObjectUpload = () => {
             labels: detections.map(d => d.class_name),
             metadata: detections 
           }]);
+          setCustomName('');
+          setRelationship('');
+        } else {
+          alert(`Error: ${res.data.message}`);
         }
       } catch (err) {
         console.error("Upload failed", err);
+        alert("Upload failed. Ensure backend AI service is running.");
       }
     }
-    
     setUploading(false);
   };
+
+  const handleFileUpload = (e) => {
+    const files = Array.from(e.target.files);
+    processFiles(files);
+  };
+
+  const webcamRef = useRef(null);
+  const capture = useCallback(() => {
+    const imageSrc = webcamRef.current.getScreenshot();
+    if (imageSrc) {
+      fetch(imageSrc)
+        .then(res => res.blob())
+        .then(blob => {
+          const file = new File([blob], "webcam-capture.jpg", { type: "image/jpeg" });
+          processFiles([file]);
+          setShowWebcam(false);
+        });
+    }
+  }, [webcamRef, activeTab, customName, relationship, selectedPatient]);
 
   const startTraining = async () => {
     if (!selectedPatient) return;
@@ -170,8 +209,12 @@ const PersonalizedObjectUpload = () => {
     <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-700">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h2 className="text-4xl font-black text-slate-800 tracking-tight">Personalized Item Vault</h2>
-          <p className="text-slate-500 font-medium text-lg">Teach MemoCare to recognize unique daily essentials for each patient.</p>
+          <h2 className="text-4xl font-black text-slate-800 tracking-tight">Add Personal Item / Family Face</h2>
+          <p className="text-slate-500 font-medium text-lg">Teach MemoCare to recognize unique objects and family members.</p>
+          <div className="flex bg-slate-100 p-1 rounded-xl w-fit mt-4">
+            <button onClick={() => setActiveTab("object")} className={`px-6 py-2 rounded-lg font-bold transition-all ${activeTab === "object" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500"}`}>Personal Items</button>
+            <button onClick={() => setActiveTab("person")} className={`px-6 py-2 rounded-lg font-bold transition-all ${activeTab === "person" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500"}`}>Family Members (Faces)</button>
+          </div>
         </div>
         <div className="flex items-center gap-3 bg-blue-50 px-6 py-3 rounded-2xl border border-blue-100">
           <Sparkles className="text-blue-600 w-5 h-5" />
@@ -243,12 +286,36 @@ const PersonalizedObjectUpload = () => {
                     <p className="text-sm text-slate-500 font-bold uppercase tracking-widest">ID: {selectedPatient.customerCode}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-4">
-                  <input type="file" id="object-upload" multiple className="hidden" onChange={handleFileUpload} />
-                  <label htmlFor="object-upload" className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-2xl text-sm font-black hover:bg-blue-700 transition-all cursor-pointer shadow-lg shadow-blue-200">
-                    <Upload size={18} />
-                    Upload Objects
-                  </label>
+                <div className="flex flex-col gap-2 items-end">
+                  <div className="flex gap-2">
+                    <input 
+                      type="text" 
+                      placeholder={activeTab === 'person' ? "Person's Name (e.g. Sarah)" : "Item Name (e.g. Red Mug)"} 
+                      className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold w-48"
+                      value={customName}
+                      onChange={(e) => setCustomName(e.target.value)}
+                    />
+                    {activeTab === 'person' && (
+                      <input 
+                        type="text" 
+                        placeholder="Relationship (e.g. Daughter)" 
+                        className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold w-48"
+                        value={relationship}
+                        onChange={(e) => setRelationship(e.target.value)}
+                      />
+                    )}
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <input type="file" id="object-upload" multiple className="hidden" onChange={handleFileUpload} />
+                    <label htmlFor="object-upload" className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-2xl text-sm font-black hover:bg-blue-700 transition-all cursor-pointer shadow-lg shadow-blue-200">
+                      <Upload size={18} />
+                      {activeTab === 'person' ? 'Upload Face' : 'Upload Objects'}
+                    </label>
+                    <button onClick={() => setShowWebcam(true)} className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-2xl text-sm font-black hover:bg-indigo-700 transition-all cursor-pointer shadow-lg shadow-indigo-200">
+                      <Camera size={18} />
+                      Camera
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -332,6 +399,33 @@ const PersonalizedObjectUpload = () => {
               <Loader2 className="w-16 h-16 text-blue-600 animate-spin mx-auto mb-4" />
               <p className="font-black text-slate-800 text-xl">Verifying Patient Credentials...</p>
            </div>
+        </div>
+      )}
+
+      {showWebcam && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[60] flex items-center justify-center">
+          <div className="bg-white p-6 rounded-3xl max-w-xl w-full mx-4 shadow-2xl relative">
+            <h3 className="text-xl font-black mb-4">Capture {activeTab === 'person' ? 'Face' : 'Object'}</h3>
+            <div className="rounded-2xl overflow-hidden bg-black aspect-video mb-4">
+              <Webcam
+                audio={false}
+                ref={webcamRef}
+                screenshotFormat="image/jpeg"
+                className="w-full h-full object-cover"
+                onUserMediaError={(err) => {
+                  console.error(err);
+                  alert("Camera could not be started! Please check if your browser has camera permissions allowed, or if another app is using the camera.");
+                }}
+              />
+            </div>
+            <div className="flex gap-4 justify-end">
+              <button onClick={() => setShowWebcam(false)} className="px-6 py-2 rounded-xl font-bold text-slate-500 hover:bg-slate-100">Cancel</button>
+              <button onClick={capture} className="bg-blue-600 text-white px-8 py-2 rounded-xl font-black hover:bg-blue-700 flex items-center gap-2">
+                <Camera size={18} />
+                Capture & Upload
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

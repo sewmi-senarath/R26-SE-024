@@ -60,16 +60,28 @@ const PatientBulkUpload = () => {
       const text = await selectedFile.text();
       const lines = text.split('\n');
       const parsed = lines.slice(1).filter(line => line.trim()).map((line, i) => {
-        const v = line.split(',').map(item => item?.trim() || '');
+        // Regex to split by comma but ignore commas inside quotes
+        const v = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(item => item?.replace(/(^"|"$)/g, '').trim() || '');
         
         if (ingestionType === 'Patients') {
+          // dementia_patients_data.csv format: Patient_ID,Name,Age,Years_in_Home,Behaviors_Sinhala,Behaviors_English,Key_Categories
+          const [id, name, age, years, bSin, bEng, categories] = v;
           return {
             id: i,
-            title: v[0], firstName: v[1], lastName: v[2], customerCode: v[3],
-            gender: v[4], nic: v[5], dob: v[6], joiningDate: v[7],
-            registrationNumber: v[8] || `REG-${Date.now()}-${i}`,
-            mobile: v[9], addressLine1: v[10] || 'Not Provided',
-            isActive: true
+            customerCode: `PAT-2026-${String(id).padStart(3, '0')}`,
+            title: 'Mr/Ms',
+            firstName: name?.split(' ')[0] || 'Unknown',
+            lastName: name?.split(' ').slice(1).join(' ') || '',
+            gender: 'Not Specified', 
+            nic: `NIC-${id}`,
+            dob: new Date(new Date().getFullYear() - parseInt(age || 70), 0, 1),
+            joiningDate: new Date(),
+            registrationNumber: `REG-${id}`,
+            mobile: 'Not Provided',
+            addressLine1: 'Not Provided',
+            isActive: true,
+            behaviorNotes: bEng,
+            keyCategories: categories
           };
         } else {
           // CSV format: patientId,date,time,activity,duration_minutes,location,notes

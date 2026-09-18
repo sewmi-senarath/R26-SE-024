@@ -81,7 +81,7 @@ export default function AlertsScreen() {
       <View style={{ backgroundColor: Colors.background, paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 4 }}>
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => router.replace('/caregiver/more')}
             style={{ width: 38, height: 38, borderRadius: 13, backgroundColor: Colors.white, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.borderLight }}
           >
             <Ionicons name="arrow-back" size={18} color={Colors.textPrimary} />

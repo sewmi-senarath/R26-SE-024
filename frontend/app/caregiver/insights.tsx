@@ -1,4 +1,3 @@
-
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -186,9 +185,6 @@ const ResultBanner: React.FC<{
           </Text>
           <Text style={{ fontSize: 24, fontWeight: '900', color: config.color }}>
             {result.stressLevel}
-          </Text>
-          <Text style={{ fontSize: 11, color: Colors.textSecondary }}>
-            Score: {result.stressScore}/10 · Confidence: {Math.round(result.confidence * 100)}%
           </Text>
         </View>
         <TouchableOpacity

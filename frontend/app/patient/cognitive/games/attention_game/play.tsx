@@ -93,7 +93,8 @@ function AttentionCell({
 }
 
 export default function AttentionGame() {
-  const { difficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
+  const { difficulty: routeDifficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
+  const [difficulty, setDifficulty] = useState<Difficulty>(routeDifficulty);
   const { playSound } = useSoundEffects();
   const saveGameSession = useSaveGameSession();
   const baseConfig = getGameContent<AttentionGameConfig>('attention_game', difficulty);
@@ -103,14 +104,29 @@ export default function AttentionGame() {
   // preserved: only which emojis are used changes, never the grid, speed, or
   // counts. `theme` is picked fresh on mount and whenever a new game starts.
   const [theme, setTheme] = useState<{ targetEmoji: string; distractorEmojis: string[] } | null>(null);
+  const [themeLoading, setThemeLoading] = useState(true);
+  const themeRequestRef = useRef(0);
 
-  const loadTheme = useCallback(() => {
-    pickAttentionTheme(baseConfig.distractorEmojis.length)
-      .then((t) => setTheme({ targetEmoji: t.targetEmoji, distractorEmojis: t.distractorEmojis }))
-      .catch(() => setTheme(null));
-  }, [baseConfig.distractorEmojis.length]);
+  const loadTheme = useCallback((distractorCount: number) => {
+    themeRequestRef.current += 1;
+    const requestId = themeRequestRef.current;
+    setThemeLoading(true);
+    pickAttentionTheme(distractorCount)
+      .then((t) => {
+        if (themeRequestRef.current !== requestId) return;
+        setTheme({ targetEmoji: t.targetEmoji, distractorEmojis: t.distractorEmojis });
+      })
+      .catch(() => {
+        if (themeRequestRef.current === requestId) setTheme(null);
+      })
+      .finally(() => {
+        if (themeRequestRef.current === requestId) setThemeLoading(false);
+      });
+  }, []);
 
-  useEffect(() => { loadTheme(); }, [loadTheme]);
+  useEffect(() => {
+    loadTheme(baseConfig.distractorEmojis.length);
+  }, [baseConfig.distractorEmojis.length, loadTheme]);
 
   const config = useMemo<AttentionGameConfig>(
     () => (theme ? { ...baseConfig, targetEmoji: theme.targetEmoji, distractorEmojis: theme.distractorEmojis } : baseConfig),
@@ -223,7 +239,11 @@ export default function AttentionGame() {
 
   const handleReset = () => {
     playSound('click');
-    loadTheme(); // fresh target/distractors for the next game
+    const nextDifficulty = progress?.difficulty ?? difficulty;
+    const nextConfig = getGameContent<AttentionGameConfig>('attention_game', nextDifficulty);
+    setDifficulty(nextDifficulty);
+    setTheme(null);
+    loadTheme(nextConfig.distractorEmojis.length);
     setPhase('instruction');
     setScore(0);
     scoreRef.current = 0;
@@ -265,6 +285,8 @@ export default function AttentionGame() {
           startTimeRef.current = now;
           setPhase('playing');
         }}
+        startDisabled={themeLoading}
+        startLabel={themeLoading ? 'Preparing your game…' : 'Start Game'}
       />
     );
   }

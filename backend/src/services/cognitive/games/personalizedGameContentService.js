@@ -20,6 +20,8 @@ const {
 const {
   generateLlmGameContent,
   generateOrientationDistractors,
+  generateStoryRecall,
+  generateSentenceCompletion,
 } = require("./llmGameContentService");
 
 const VALID_GAMES = new Set([
@@ -28,6 +30,15 @@ const VALID_GAMES = new Set([
   "word_puzzle",
   "orientation_game",
   "face_name_match",
+  "grid_flash",
+  "listen_repeat",
+  "memory_match",
+  "story_recall",
+  "spot_difference",
+  "go_no_go",
+  "name_picture",
+  "sentence_completion",
+  "calendar_find",
 ]);
 // Games whose entire content the LLM is trusted to generate directly.
 const LLM_FULL_CONTENT_GAMES = new Set(["memory_recall", "object_recall", "word_puzzle"]);
@@ -618,27 +629,36 @@ function matchesWordLength(word, wordLength) {
 
 // How many items a single round of each rotation game shows.
 function roundSize(gameId, staticConfig) {
-  if (gameId === "memory_recall") return staticConfig.sequenceLength;
+  if (gameId === "memory_recall" || gameId === "grid_flash") return staticConfig.sequenceLength;
+  if (gameId === "listen_repeat") return staticConfig.wordCount;
+  if (gameId === "memory_match") return staticConfig.pairCount;
+  if (gameId === "spot_difference") return staticConfig.rows * staticConfig.columns;
+  if (gameId === "go_no_go") return (staticConfig.items || []).length || 6;
+  if (gameId === "name_picture") return staticConfig.itemCount;
   if (gameId === "object_recall") return staticConfig.objectCount;
   return (staticConfig.words || []).length; // word_puzzle
 }
 
 // The stable rotation keys (labels / words) of whatever a config will show.
 function servedKeysOf(gameId, config) {
-  if (gameId === "memory_recall") return (config.items || []).map((it) => it.label);
   if (gameId === "object_recall") return (config.objects || []).map((it) => it.label);
-  return (config.words || []).map((it) => it.word); // word_puzzle
+  if (gameId === "word_puzzle") return (config.words || []).map((it) => it.word);
+  // memory_recall, grid_flash, listen_repeat all key on item labels.
+  return (config.items || []).map((it) => it.label);
 }
 
 // The full shared pool a rotation game draws its generic (non-personal) items
 // from, so we can re-sample it while avoiding recently-seen items.
 function poolFor(gameId, staticConfig) {
-  if (gameId === "memory_recall") return { pool: SEQUENCE_ITEMS, keyOf: (it) => it.label };
   if (gameId === "object_recall") return { pool: RECALL_OBJECTS, keyOf: (it) => it.label };
-  return {
-    pool: PUZZLE_WORDS.filter((w) => matchesWordLength(w.word, staticConfig.wordLength)),
-    keyOf: (it) => it.word,
-  };
+  if (gameId === "word_puzzle") {
+    return {
+      pool: PUZZLE_WORDS.filter((w) => matchesWordLength(w.word, staticConfig.wordLength)),
+      keyOf: (it) => it.word,
+    };
+  }
+  // memory_recall, grid_flash, listen_repeat all draw from the sequence pool.
+  return { pool: SEQUENCE_ITEMS, keyOf: (it) => it.label };
 }
 
 // Re-sample the generic pool for a rotation game, skipping recently-seen items.
@@ -790,6 +810,52 @@ async function getPersonalizedGameContent({ gameId, patientId, difficulty, reque
     };
   }
 
+  if (gameId === "story_recall") {
+    // Build a short narrative from the patient's own life events (plus family,
+    // places, hobbies) with questions drawn from the same facts, so answers are
+    // always verifiable. Any failure falls back to the generic static story.
+    try {
+      const generated = await generateStoryRecall({ patient, staticConfig });
+      if (generated) {
+        logTier("llm (story-recall)", { gameId, difficulty, patientId, personalized: true });
+        return {
+          config: { ...staticConfig, ...generated, questionCount: generated.questions.length },
+          personalized: true,
+        };
+      }
+    } catch (error) {
+      console.warn("[game-content] Story Recall generation failed:", error.message);
+    }
+    logTier("static (story-recall)", { gameId, difficulty, patientId, personalized: false });
+    return { config: staticConfig, personalized: false };
+  }
+
+  if (gameId === "sentence_completion") {
+    // LLM writes cloze sentences about the patient's own life/preferences, with
+    // the blank being a personal fact. Falls back to the generic sentence pool.
+    try {
+      const generated = await generateSentenceCompletion({ patient, staticConfig });
+      if (generated) {
+        logTier("llm (sentence-completion)", { gameId, difficulty, patientId, personalized: true });
+        return {
+          config: { ...staticConfig, ...generated, blankCount: generated.items.length },
+          personalized: true,
+        };
+      }
+    } catch (error) {
+      console.warn("[game-content] Sentence Completion generation failed:", error.message);
+    }
+    logTier("static (sentence-completion)", { gameId, difficulty, patientId, personalized: false });
+    return { config: staticConfig, personalized: false };
+  }
+
+  if (gameId === "calendar_find") {
+    // Deterministic date-logic game - prompts and the calendar are computed on
+    // the client from the real current date, so the config is just the knobs.
+    logTier("static (calendar-find)", { gameId, difficulty, patientId, personalized: false });
+    return { config: staticConfig, personalized: false };
+  }
+
   try {
     const llmContent = await generateLlmGameContent({
       gameId,
@@ -830,8 +896,19 @@ async function getPersonalizedGameContent({ gameId, patientId, difficulty, reque
     );
   }
 
-  if (gameId === "memory_recall") {
-    const requiredCount = staticConfig.sequenceLength;
+  // memory_recall, grid_flash and listen_repeat all present a set of `items`
+  // drawn from the patient's world (family / foods / places) padded with the
+  // rotated generic pool - so they share one build path.
+  if (
+    gameId === "memory_recall" ||
+    gameId === "grid_flash" ||
+    gameId === "listen_repeat" ||
+    gameId === "memory_match" ||
+    gameId === "spot_difference" ||
+    gameId === "go_no_go" ||
+    gameId === "name_picture"
+  ) {
+    const requiredCount = roundSize(gameId, staticConfig);
     // Personal items are kept first and never rotated away; the generic filler
     // that pads the round is drawn fresh, skipping recently-seen items.
     const rotatedFallback = rotatedStaticList(gameId, staticConfig, recentKeys);

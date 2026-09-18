@@ -8,9 +8,12 @@ import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 interface PatientHeroProps {
   user: UserProfile;
+  // True when a caregiver is viewing another patient's profile - hides the
+  // logout button (logging out isn't the caregiver's account to act on).
+  readOnly?: boolean;
 }
 
-export function PatientHero({ user }: PatientHeroProps) {
+export function PatientHero({ user, readOnly = false }: PatientHeroProps) {
   const router = useRouter();
 
   const handleLogout = async () => {
@@ -28,13 +31,17 @@ export function PatientHero({ user }: PatientHeroProps) {
         <Text style={styles.heroName} numberOfLines={2}>
           {user.fullName || "Patient"}
         </Text>
-        <Text style={styles.heroEmail} numberOfLines={1}>
-          {user.email || "Not available"}
-        </Text>
+        {!readOnly && (
+          <Text style={styles.heroEmail} numberOfLines={1}>
+            {user.email || "Not available"}
+          </Text>
+        )}
       </View>
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <Text style={styles.logoutButtonText}>Logout</Text>
-      </TouchableOpacity>
+      {!readOnly && (
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <Text style={styles.logoutButtonText}>Logout</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }

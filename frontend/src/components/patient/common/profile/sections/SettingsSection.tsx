@@ -1,51 +1,36 @@
 import { Colors } from "@/src/constants/colors";
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
-import { StyleSheet, Switch, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Switch, Text, View } from "react-native";
 import { SectionHeader } from "../components/SectionHeader";
-import { settingRows } from "@/src/constants/profileConstants";
-import { SettingKey } from "../../../../../hooks/useSettings";
 
 interface SettingsSectionProps {
-  settings: Record<SettingKey, boolean>;
-  onToggleSetting: (key: SettingKey) => void;
+  soundEnabled: boolean;
+  onToggleSound: () => void;
 }
 
-export function SettingsSection({ settings, onToggleSetting }: SettingsSectionProps) {
+export function SettingsSection({ soundEnabled, onToggleSound }: SettingsSectionProps) {
   return (
     <View style={styles.panel}>
       <SectionHeader title="Settings" icon="settings-outline" />
       <View style={styles.settingsList}>
-        {settingRows.map((item) => (
-          <View key={item.key} style={styles.settingRow}>
-            <View style={styles.settingIcon}>
-              <Ionicons name={item.icon} size={20} color={Colors.primary} />
-            </View>
-            <View style={styles.settingText}>
-              <Text style={styles.settingTitle}>{item.title}</Text>
-              <Text style={styles.settingDescription}>{item.description}</Text>
-            </View>
-            <Switch
-              value={settings[item.key]}
-              onValueChange={() => onToggleSetting(item.key)}
-              trackColor={{ false: "#CBD5E1", true: "#BFDBFE" }}
-              thumbColor={settings[item.key] ? Colors.primary : "#F8FAFC"}
-            />
-          </View>
-        ))}
-
-        <TouchableOpacity activeOpacity={0.75} style={styles.passwordRow}>
+        <View style={styles.settingRow}>
           <View style={styles.settingIcon}>
-            <Ionicons name="key-outline" size={20} color={Colors.primary} />
+            <Ionicons name="volume-high-outline" size={20} color={Colors.primary} />
           </View>
           <View style={styles.settingText}>
-            <Text style={styles.settingTitle}>Change Password</Text>
-            <Text style={styles.settingDescription}>
-              Update account password and security details.
-            </Text>
+            <Text style={styles.settingTitle}>Sound Effects</Text>
+            <Text style={styles.settingDescription}>Turn game and button sounds on or off.</Text>
           </View>
-          <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
-        </TouchableOpacity>
+          <Switch
+            accessibilityLabel="Sound effects"
+            accessibilityRole="switch"
+            value={soundEnabled}
+            onValueChange={onToggleSound}
+            trackColor={{ false: "#CBD5E1", true: "#BFDBFE" }}
+            thumbColor={soundEnabled ? Colors.primary : "#F8FAFC"}
+          />
+        </View>
       </View>
     </View>
   );
@@ -66,13 +51,6 @@ const styles = StyleSheet.create({
   settingRow: {
     alignItems: "center",
     backgroundColor: "#F8FAFC",
-    borderRadius: 16,
-    flexDirection: "row",
-    padding: 14,
-  },
-  passwordRow: {
-    alignItems: "center",
-    backgroundColor: Colors.primaryLight,
     borderRadius: 16,
     flexDirection: "row",
     padding: 14,

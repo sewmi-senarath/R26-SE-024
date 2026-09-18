@@ -1,0 +1,101 @@
+Patient_ID,Name,Age,Years_in_Home,Behaviors_Sinhala,Behaviors_English,Key_Categories
+101,Yatabaddheniyage Padmini,76,4,,"Calm, Mobile","Memory,Mobility"
+102,De Silva Rathnawathi,90,11,,"Wandering, Uses Walker","Memory,Mobility"
+103,Mudiyanselage Jinadasa,73,14,,"Calm, Wheelchair-bound",Memory
+104,Liyanage Gunadasa,72,3,,"Forgetful, Uses Walker","Memory,Mobility"
+105,Kodikarage Anulawathi,79,14,,"Forgetful, Uses Walker","Memory,Mobility"
+106,Perera Somasiri,70,2,,"Wandering, Bedridden",Memory
+107,Kodikarage Piyadasa,75,6,,"Forgetful, Uses Walker","Memory,Mobility"
+108,Jayasinghe Karunaratne,71,13,,"Hallucinating, Bedridden",Memory
+109,Yakandawala Nalini,92,2,,"Aggressive/Fighting, Bedridden",Memory
+110,Perera Kusumawathi,77,10,,"Hallucinating, Wheelchair-bound",Memory
+111,Bopege Jinadasa,74,7,,"Medicine Side-effects, Bedridden","Memory,Medicine"
+112,Mudiyanselage Gunadasa,93,7,,"Medicine Side-effects, Wheelchair-bound","Memory,Medicine"
+113,Gunasekara Gunadasa,86,4,,"Hallucinating, Wheelchair-bound",Memory
+114,Jayasinghe Prema,82,8,,"Calm, Bedridden",Memory
+115,Wijesinghe Prema,80,15,,"Forgetful, Mobile","Memory,Mobility"
+116,Rajapaksha Jinadasa,82,5,,"Forgetful, Mobile","Memory,Mobility"
+117,Mohottalalage Gunawathi,73,3,,"Wandering, Wheelchair-bound","Memory,Parkinson's"
+118,Mudiyanselage Anulawathi,74,13,,"Anxious, Uses Walker","Memory,Parkinson's,Mobility"
+119,Yatabaddheniyage Bisomenike,86,3,,"Wandering, Uses Walker","Memory,Mobility"
+120,Rajapaksha Gunawathi,88,13,,"Hallucinating, Wheelchair-bound",Memory
+121,Bopege Padmini,95,10,,"Medicine Side-effects, Mobile","Memory,Medicine,Mobility"
+122,De Silva Sirisena,72,10,,"Aggressive/Fighting, Bedridden",Memory
+123,Amarasiri Karunawathi,84,10,,"Wandering, Bedridden","Memory,Parkinson's"
+124,Mohottalalage Somalatha,92,15,,"Aggressive/Fighting, Mobile","Memory,Mobility"
+125,Dissanayake Prema,74,9,,"Medicine Side-effects, Bedridden","Memory,Parkinson's,Medicine"
+126,Ranaweera Somasiri,83,5,,"Wandering, Bedridden",Memory
+127,De Silva Gunadasa,75,1,,"Anxious, Wheelchair-bound",Memory
+128,Mohottalalage Nandawathi,74,8,,"Calm, Wheelchair-bound",Memory
+129,Yatabaddheniyage Sirisena,75,7,,"Hallucinating, Uses Walker","Memory,Mobility"
+130,Mudiyanselage Jinadasa,87,3,,"Aggressive/Fighting, Mobile","Memory,Parkinson's,Mobility"
+131,Mohottalalage Nandawathi,90,13,,"Hallucinating, Mobile","Memory,Parkinson's,Mobility"
+132,Hettiarachchige Karunaratne,95,6,,"Forgetful, Mobile","Memory,Mobility"
+133,Senanayake Sumanawathi,79,14,,"Hallucinating, Uses Walker","Memory,Mobility"
+134,Hettiarachchige Gunawathi,75,14,,"Anxious, Uses Walker","Memory,Parkinson's,Mobility"
+135,Gunasekara Nalini,80,9,,"Wandering, Uses Walker","Memory,Mobility"
+136,Ranaweera Nandawathi,79,15,,"Wandering, Mobile","Memory,Parkinson's,Mobility"
+137,Liyanage Gunawathi,70,14,,"Calm, Bedridden","Memory,Parkinson's"
+138,Mudiyanselage Rathnawathi,86,9,,"Hallucinating, Uses Walker","Memory,Mobility"
+139,Perera Somalatha,87,8,,"Hallucinating, Mobile","Memory,Mobility"
+140,Rajapaksha Gunawathi,77,1,,"Medicine Side-effects, Wheelchair-bound","Memory,Medicine"
+141,Dissanayake Nalini,77,15,,"Hallucinating, Wheelchair-bound",Memory
+142,Yakandawala Leelawathi,71,10,,"Aggressive/Fighting, Mobile","Memory,Mobility"
+143,Jayasinghe Leelawathi,80,6,,"Aggressive/Fighting, Uses Walker","Memory,Parkinson's,Mobility"
+144,Mohottalalage Dharmadasa,90,11,,"Forgetful, Mobile","Memory,Parkinson's,Mobility"
+145,Hettiarachchige Karunaratne,79,5,,"Wandering, Uses Walker","Memory,Mobility"
+146,Mudiyanselage Jinadasa,70,12,,"Aggressive/Fighting, Wheelchair-bound",Memory
+147,Dissanayake Anulawathi,74,1,,"Medicine Side-effects, Bedridden","Memory,Parkinson's,Medicine"
+148,Mohottalalage Upali,92,8,,"Hallucinating, Mobile","Memory,Mobility"
+149,Perera Somalatha,92,8,,"Medicine Side-effects, Uses Walker","Memory,Medicine,Mobility"
+150,Hettiarachchige Seelawathi,85,14,,"Medicine Side-effects, Uses Walker","Memory,Medicine,Mobility"
+151,Yakandawala Somasiri,86,9,,"Anxious, Bedridden",Memory
+152,Gunasekara Nalini,78,11,,"Hallucinating, Bedridden",Memory
+153,Jayasinghe Wimaladasa,92,12,,"Anxious, Wheelchair-bound","Memory,Parkinson's"
+154,Kodikarage Somalatha,92,5,,"Wandering, Wheelchair-bound",Memory
+155,Bopege Sirisena,82,10,,"Calm, Wheelchair-bound",Memory
+156,Hettiarachchige Padmini,80,9,,"Forgetful, Wheelchair-bound",Memory
+157,Fernando Somalatha,93,10,,"Medicine Side-effects, Wheelchair-bound","Memory,Medicine"
+158,Bopege Hemawathi,83,15,,"Calm, Bedridden","Memory,Parkinson's"
+159,Jayasinghe Bisomenike,81,2,,"Aggressive/Fighting, Wheelchair-bound",Memory
+160,Yakandawala Somasiri,88,4,,"Anxious, Wheelchair-bound",Memory
+161,Hettiarachchige Anulawathi,74,4,,"Anxious, Uses Walker","Memory,Mobility"
+162,Senanayake Somasiri,70,7,,"Aggressive/Fighting, Bedridden",Memory
+163,Ranaweera Nalini,85,11,,"Aggressive/Fighting, Mobile","Memory,Mobility"
+164,Bandara Padmini,77,9,,"Hallucinating, Uses Walker","Memory,Mobility"
+165,Rajapaksha Prema,92,6,,"Hallucinating, Bedridden",Memory
+166,Ranaweera Anulawathi,94,7,,"Aggressive/Fighting, Bedridden",Memory
+167,Mohottalalage Ariyadasa,95,3,,"Aggressive/Fighting, Wheelchair-bound",Memory
+168,Liyanage Kusumawathi,89,8,,"Wandering, Mobile","Memory,Mobility"
+169,Ranaweera Nandawathi,93,14,,"Medicine Side-effects, Uses Walker","Memory,Parkinson's,Medicine,Mobility"
+170,Bopege Anulawathi,83,7,,"Medicine Side-effects, Bedridden","Memory,Medicine"
+171,Rajapaksha Somasiri,72,10,,"Calm, Bedridden",Memory
+172,Yatabaddheniyage Nandawathi,75,10,,"Hallucinating, Mobile","Memory,Mobility"
+173,Hettiarachchige Upali,72,3,,"Aggressive/Fighting, Wheelchair-bound",Memory
+174,Senanayake Somalatha,90,4,,"Anxious, Mobile","Memory,Mobility"
+175,Yatabaddheniyage Jinadasa,88,9,,"Forgetful, Uses Walker","Memory,Mobility"
+176,Mudiyanselage Gunawathi,73,14,,"Anxious, Wheelchair-bound","Memory,Parkinson's"
+177,Senanayake Prema,95,10,,"Medicine Side-effects, Wheelchair-bound","Memory,Parkinson's,Medicine"
+178,Senanayake Hemawathi,92,11,,"Aggressive/Fighting, Bedridden",Memory
+179,Rajapaksha Seelawathi,92,11,,"Medicine Side-effects, Mobile","Memory,Medicine,Mobility"
+180,Mudiyanselage Somalatha,72,12,,"Anxious, Wheelchair-bound",Memory
+181,Senanayake Somalatha,77,10,,"Anxious, Mobile","Memory,Parkinson's,Mobility"
+182,Kodikarage Wimaladasa,77,7,,"Medicine Side-effects, Bedridden","Memory,Medicine"
+183,Amarasiri Jinadasa,78,13,,"Anxious, Mobile","Memory,Mobility"
+184,Kodikarage Sirisena,83,7,,"Anxious, Wheelchair-bound",Memory
+185,Mohottalalage Kusumawathi,90,15,,"Medicine Side-effects, Mobile","Memory,Medicine,Mobility"
+186,Mohottalalage Prema,90,8,,"Wandering, Wheelchair-bound",Memory
+187,Liyanage Hemawathi,91,12,,"Anxious, Uses Walker","Memory,Mobility"
+188,Kodikarage Hemawathi,76,13,,"Hallucinating, Uses Walker","Memory,Mobility"
+189,Jayasinghe Sirisena,86,15,,"Calm, Mobile","Memory,Parkinson's,Mobility"
+190,Amarasiri Padmini,81,12,,"Calm, Bedridden",Memory
+191,Rajapaksha Sirisena,70,1,,"Forgetful, Uses Walker","Memory,Mobility"
+192,Liyanage Kusumawathi,95,5,,"Calm, Bedridden",Memory
+193,Mohottalalage Padmini,83,3,,"Anxious, Bedridden",Memory
+194,Dissanayake Ariyadasa,94,6,,"Wandering, Mobile","Memory,Mobility"
+195,Yakandawala Hemawathi,74,3,,"Medicine Side-effects, Wheelchair-bound","Memory,Parkinson's,Medicine"
+196,Senanayake Gunawathi,86,12,,"Anxious, Wheelchair-bound","Memory,Parkinson's"
+197,Amarasiri Nandawathi,80,3,,"Wandering, Uses Walker","Memory,Parkinson's,Mobility"
+198,Ranaweera Piyadasa,80,11,,"Wandering, Uses Walker","Memory,Mobility"
+199,Bandara Hemawathi,79,1,,"Anxious, Wheelchair-bound",Memory
+200,Hettiarachchige Karunaratne,88,2,,"Forgetful, Uses Walker","Memory,Mobility"

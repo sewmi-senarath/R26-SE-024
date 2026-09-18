@@ -17,18 +17,6 @@ export const BurnoutCard: React.FC<Props> = ({ burnout }) => {
     High:     { color: Colors.danger,  bg: Colors.dangerSoft,  emoji: '🔴', label: 'High Risk' },
   }[burnout.riskLevel] || { color: Colors.warning, bg: Colors.warningSoft, emoji: '🟡', label: 'Moderate Risk' };
 
-  const trendIcon = {
-    worsening: 'trending-up-outline',
-    stable:    'remove-outline',
-    improving: 'trending-down-outline',
-  }[burnout.trend] as any;
-
-  const trendColor = {
-    worsening: Colors.danger,
-    stable:    Colors.warning,
-    improving: Colors.success,
-  }[burnout.trend] || Colors.warning;
-
   const severityColor = (s: string) => ({
     high:     Colors.danger,
     moderate: Colors.warning,
@@ -97,24 +85,6 @@ export const BurnoutCard: React.FC<Props> = ({ burnout }) => {
           size={16} color={Colors.textMuted}
         />
       </TouchableOpacity>
-
-      {/* ── Trend row ── */}
-      <View style={{
-        flexDirection: 'row', alignItems: 'center', gap: 8,
-        paddingHorizontal: 16, paddingVertical: 10,
-        borderBottomWidth: 1, borderBottomColor: Colors.borderLight,
-      }}>
-        <Ionicons name={trendIcon} size={16} color={trendColor} />
-        <Text style={{
-          fontSize: 12, color: trendColor,
-          fontWeight: '600', textTransform: 'capitalize',
-        }}>
-          {burnout.trend}
-        </Text>
-        <Text style={{ fontSize: 12, color: Colors.textSecondary, flex: 1 }}>
-          - {burnout.forecast}
-        </Text>
-      </View>
 
       {/* ── Progress bar ── */}
       <View style={{ paddingHorizontal: 16, paddingVertical: 12 }}>

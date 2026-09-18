@@ -25,6 +25,8 @@ const Layout = () => {
     { name: 'Object Tracker', path: '/admin/tracker', icon: MapPin },
     { name: 'Personal Vault', path: '/admin/personal-vault', icon: Box },
     { name: 'Reports and Analytics', path: '/admin/intelligence', icon: TrendingUp },
+    { name: 'Anomaly Reports', path: '/admin/anomaly-reports', icon: Activity },
+    { name: 'Geofence Rules', path: '/admin/geofence', icon: MapPin },
     { name: 'Data Ingestion', path: '/admin/bulk-upload', icon: FileSpreadsheet },
     { name: 'System Settings', path: '/admin/settings', icon: Settings },
   ];

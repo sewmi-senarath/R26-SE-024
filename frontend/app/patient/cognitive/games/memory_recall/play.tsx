@@ -57,14 +57,14 @@ function SelectableOption({
 }
 
 export default function MemoryRecallGame() {
-  const { difficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
+  const { difficulty: routeDifficulty = 'easy' } = useLocalSearchParams<{ difficulty: Difficulty }>();
   const router = useRouter();
   const { playSound } = useSoundEffects();
   const saveGameSession = useSaveGameSession();
   const { patientId } = useAssessment();
-  const { config: liveConfig, loading } = usePersonalizedGameContent<MemoryRecallConfig>(
+  const { config: liveConfig, loading, refresh: refreshContent, difficulty } = usePersonalizedGameContent<MemoryRecallConfig>(
     'memory_recall',
-    difficulty,
+    routeDifficulty,
     patientId,
   );
 
@@ -116,18 +116,25 @@ export default function MemoryRecallGame() {
   };
 
   const ALL_OPTIONS = useMemo(() => {
-    const extras: typeof config.items = [
-      { id: 'd1', emoji: '🎸', label: 'Guitar', category: 'Music' },
-      { id: 'd2', emoji: '🚂', label: 'Train', category: 'Vehicle' },
-      { id: 'd3', emoji: '🍕', label: 'Pizza', category: 'Food' },
-    ];
-    const base = [...config.items, ...extras];
+    // Distractors come from the same content pipeline as the correct items, so
+    // they carry generated images too (no emoji-vs-image "tell"). Dedupe by
+    // label as a safety net so the grid can never show the same object twice.
+    const usedLabels = new Set(
+      config.items.map(item => item.label.trim().toLowerCase()),
+    );
+    const distractors = (config.distractors ?? []).filter(d => {
+      const key = d.label.trim().toLowerCase();
+      if (usedLabels.has(key)) return false;
+      usedLabels.add(key);
+      return true;
+    });
+    const base = [...config.items, ...distractors];
     for (let i = base.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [base[i], base[j]] = [base[j], base[i]];
     }
     return base;
-  }, [config.items]);
+  }, [config.items, config.distractors]);
 
   const toggleSelect = useCallback((id: string) => {
     playSound('click');
@@ -179,6 +186,7 @@ export default function MemoryRecallGame() {
 
   const handleReset = () => {
     playSound('click');
+    refreshContent(progress?.difficulty);
     setFrozenConfig(null);
     setPhase('instruction');
     setCurrentShowIndex(0);

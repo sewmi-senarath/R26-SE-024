@@ -1,4 +1,39 @@
-const Patient = require('../models/Patient'); // This exports PatientRegistry
+const Patient = require('../models/Patient');
+
+const generateRoutine = (categoriesStr) => {
+  if (!categoriesStr) return [];
+  const cats = categoriesStr.toLowerCase();
+  const routine = [];
+  routine.push({ time: "07:00 AM", task: "Wake up & Morning Tea" });
+  
+  if (cats.includes("medicine") || cats.includes("parkinson")) {
+    routine.push({ time: "08:00 AM", task: "Take Morning Medicine" });
+    routine.push({ time: "02:00 PM", task: "Take Afternoon Medicine" });
+  }
+  if (cats.includes("mobility")) {
+    routine.push({ time: "09:00 AM", task: "Assisted Physiotherapy" });
+  } else {
+    routine.push({ time: "09:00 AM", task: "Garden Walk" });
+  }
+  if (cats.includes("memory")) {
+    routine.push({ time: "10:30 AM", task: "Cognitive Puzzle / Memory Game" });
+    routine.push({ time: "05:00 PM", task: "Family Video Call (Reminiscing)" });
+  }
+  if (cats.includes("incontinence")) {
+    routine.push({ time: "10:00 AM", task: "Washroom Break" });
+    routine.push({ time: "01:00 PM", task: "Washroom Break" });
+    routine.push({ time: "04:00 PM", task: "Washroom Break" });
+    routine.push({ time: "08:00 PM", task: "Washroom Break" });
+  }
+  routine.push({ time: "01:00 PM", task: "Lunch" });
+  routine.push({ time: "09:00 PM", task: "Sleep" });
+  
+  return routine.sort((a,b) => {
+    const tA = new Date('1970/01/01 ' + a.time);
+    const tB = new Date('1970/01/01 ' + b.time);
+    return tA - tB;
+  });
+}; // This exports PatientRegistry
 
 // @desc    Register a new patient
 // @route   POST /api/patients
@@ -29,27 +64,19 @@ const registerPatient = async (req, res) => {
 // @route   POST /api/patients/bulk
 const bulkUploadPatients = async (req, res) => {
   try {
-    const patients = req.body; // Expecting an array of patient objects
-    
-    if (!Array.isArray(patients)) {
-      return res.status(400).json({ message: 'Invalid data format. Expected an array.' });
-    }
+    const patients = req.body;
+    if (!Array.isArray(patients)) return res.status(400).json({ message: 'Invalid data format.' });
 
-    // This is a simple implementation. In a real scenario, you'd handle duplicates properly.
-    const result = await Patient.insertMany(patients, { ordered: false });
-    
-    res.status(201).json({
-      success: true,
-      message: `${result.length} patients uploaded successfully`,
-      data: result
-    });
+    // Generate routines for each patient before saving
+    const processedPatients = patients.map(p => ({
+      ...p,
+      routines: p.keyCategories ? generateRoutine(p.keyCategories) : []
+    }));
+
+    const result = await Patient.insertMany(processedPatients, { ordered: false });
+    res.status(201).json({ success: true, message: 'patients uploaded successfully', data: result });
   } catch (error) {
-    res.status(500).json({ 
-      success: false, 
-      message: error.message,
-      // If some inserted successfully despite others failing (due to ordered: false)
-      insertedCount: error.insertedDocs ? error.insertedDocs.length : 0
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -121,3 +148,4 @@ module.exports = {
   getPatientById,
   updatePatient
 };
+
