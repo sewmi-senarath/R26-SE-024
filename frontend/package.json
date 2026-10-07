@@ -34,7 +34,7 @@
     "base64-js": "^1.5.1",
     "expo": "^57.0.27",
     "expo-asset": "~57.0.19",
-    "expo-av": "~16.0.8",
+    "expo-audio": "~57.0.5",
     "expo-background-task": "~57.0.21",
     "expo-camera": "~57.0.6",
     "expo-constants": "~57.0.21",
