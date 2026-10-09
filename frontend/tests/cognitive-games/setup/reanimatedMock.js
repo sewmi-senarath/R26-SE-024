@@ -30,6 +30,7 @@ module.exports = {
   FadeIn: chain,
   FadeInUp: chain,
   FadeInDown: chain,
+  FadeInRight: chain,
   FadeOut: chain,
   ZoomIn: chain,
 };
