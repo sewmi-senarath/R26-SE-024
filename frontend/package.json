@@ -16,7 +16,8 @@
     "test:coverage": "jest --coverage",
     "test:cg": "jest --config jest.cg.config.js",
     "test:cg:component": "jest --config jest.cg.config.js tests/caregiver/component",
-    "test:cg:unit": "jest --config jest.cg.config.js tests/caregiver/unit"
+    "test:cg:unit": "jest --config jest.cg.config.js tests/caregiver/unit",
+    "test:games": "jest --config jest.cognitive-games.config.js"
   },
   "dependencies": {
     "@0no-co/graphql.web": "^1.3.3",

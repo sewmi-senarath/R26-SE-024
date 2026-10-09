@@ -18,7 +18,11 @@
   "test:cg:unit": "jest --config jest.caregiver.config.js tests/caregiver/unit",
   "test:cg:integration": "jest --config jest.caregiver.config.js tests/caregiver/integration",
   "test:cg:system": "jest --config jest.caregiver.config.js tests/caregiver/system",
-  "test:cg:coverage": "jest --config jest.caregiver.config.js --coverage"
+  "test:cg:coverage": "jest --config jest.caregiver.config.js --coverage",
+    "test:games": "jest --config jest.cognitive-games.config.js",
+    "test:games:unit": "jest --config jest.cognitive-games.config.js tests/cognitive-games/unit",
+    "test:games:integration": "jest --config jest.cognitive-games.config.js tests/cognitive-games/integration --runInBand",
+    "test:games:coverage": "jest --config jest.cognitive-games.config.js --coverage"
   },
   "keywords": [],
   "author": "",
