@@ -5,7 +5,7 @@ const CheckIn = require('../../models/caregiver/CheckIn');
 const { calculateBurnoutRisk } = require('../../utils/burnoutCalculator');
 const { createNotification } = require('../../controllers/caregiver/Notificationcontroller');
 
-const ML_URL = 'http://localhost:5001';
+const ML_URL = process.env.CAREGIVER_ML_URL;
 
 // POST /api/caregiver/insights/checkin 
 router.post('/checkin', async (req, res) => {

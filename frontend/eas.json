@@ -1,0 +1,16 @@
+{
+  "cli": {
+    "version": ">= 12.0.0",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "preview": {
+      "distribution": "internal",
+      "android": { "buildType": "apk" },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://RENDER-NAME.onrender.com",
+        "EXPO_PUBLIC_AI_URL": "https://pasiboi-memocare-ai.hf.space"
+      }
+    }
+  }
+}

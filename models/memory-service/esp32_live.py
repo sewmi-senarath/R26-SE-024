@@ -32,13 +32,13 @@ router = APIRouter()
 
 CONFIG_FILE = "esp32_passive.json"
 FRESH_S = 1.5             # a buffered frame older than this is treated as stale
-MAX_FPS = 10              # passive analysis cap - plenty for 30s dwell logic
-DWELL_S = 30
-PERSON_DWELL_S = 30
+MAX_FPS = 10              # passive analysis cap - plenty for the dwell logic
+DWELL_S = 5                # same as the phone camera (RememberLiveUI DWELL_MS)
+PERSON_DWELL_S = 5
 QUICK_CHECK_S = 3
 PERSON_GONE_S = 3
 OBJECT_GONE_S = 2.5
-RESAVE_COOLDOWN_S = 120
+RESAVE_COOLDOWN_S = 60     # the same scene is saved at most once a minute
 CLIENT_ACTIVE_S = 5
 MIN_CONF = 0.5
 FIXED = rm.FIXED_ANCHORS

@@ -23,6 +23,7 @@ export interface SeenThing {
   label: string;
   label_si: string;
   photo_url: string;
+  clip_url?: string; // short clip of an essential thing (medicine, glasses, keys ...)
   lat?: number | null;
   lng?: number | null;
   room?: string | null;

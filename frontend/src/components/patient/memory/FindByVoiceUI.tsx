@@ -14,6 +14,7 @@ import {
   startListening, stopAndUnderstand, stopSpeaking, timeAgo,
 } from '../../../services/memoryAI';
 import { EmptyBoxArt, VoiceArt } from './findThings/Illustrations';
+import ClipPlayer from './findThings/ClipPlayer';
 
 const LISTEN_SECONDS = 5;
 const NEAR_METRES = 15; // below this, GPS can't tell rooms apart - guide by room/anchor instead
@@ -241,6 +242,7 @@ export default function FindByVoiceUI() {
                     {!!item.room_si && <Text style={s.cardMeta}>📍 {item.room_si}{item.anchors?.length ? ` · ${item.anchors.join(', ')}` : ''}</Text>}
                   </View>
                 </View>
+                {!!item.clip_url && <ClipPlayer url={item.clip_url} />}
                 {dist != null && (
                   <View style={s.distRow}>
                     <View style={s.distBadge}>
@@ -254,17 +256,19 @@ export default function FindByVoiceUI() {
                 )}
                 {!hasMap && <Text style={s.noGps}>මේ වෙලාවේ GPS තිබුණේ නැහැ - ඡායාරූපය සහ කාමරය බලන්න.</Text>}
                 <View style={s.btnRow}>
-                  {hasMap && (
-                    <TouchableOpacity style={[s.btn, { backgroundColor: '#7c3aed' }]}
-                      onPress={() => {
-                        stopSpeaking();
-                        setResult(null);
-                        router.push({ pathname: '/patient/ar-navigate', params: { objectName: item.label_si, objLat: String(item.lat), objLng: String(item.lng) } } as any);
-                      }}>
-                      <Ionicons name="compass" size={20} color="#fff" />
-                      <Text style={s.btnText}>AR මඟ පෙන්වීම</Text>
-                    </TouchableOpacity>
-                  )}
+                  {/* The camera finds it even without GPS (indoors), so this is always offered. */}
+                  <TouchableOpacity style={[s.btn, { backgroundColor: '#7c3aed' }]}
+                    onPress={() => {
+                      stopSpeaking();
+                      setResult(null);
+                      router.push({ pathname: '/patient/ar-navigate', params: {
+                        objectName: item.label_si, objLabel: item.label, roomLabel: item.room_si || '',
+                        objLat: hasMap ? String(item.lat) : '', objLng: hasMap ? String(item.lng) : '',
+                      } } as any);
+                    }}>
+                    <Ionicons name="compass" size={20} color="#fff" />
+                    <Text style={s.btnText}>AR මඟ පෙන්වීම</Text>
+                  </TouchableOpacity>
                   <TouchableOpacity style={[s.btn, { backgroundColor: '#0f172a' }]}
                     onPress={async () => { await speak(item.say_si || ''); const g = guidanceFor(item, userLoc, heading); if (g) speak(g); }}>
                     <Ionicons name="volume-high" size={20} color="#fff" />

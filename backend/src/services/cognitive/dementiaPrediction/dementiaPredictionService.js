@@ -5,7 +5,7 @@ const { createHttpError } = require('../validationService');
 
 // Dementia Flask API - own port so it starts/restarts independently of the
 // caregiver stress model. Mirrors backend/ml/caregiver -> insightRoutes.js.
-const ML_URL = 'http://localhost:5002';
+const ML_URL = process.env.DEMENTIA_ML_URL;
 
 const { FAQ_ITEMS } = FunctionalAssessment; // 10 keys: bills..travel
 

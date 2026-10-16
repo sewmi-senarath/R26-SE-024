@@ -140,16 +140,27 @@ def _promise_date(p, conv_day):
 def visits(pid):
     by_id = {p["id"]: p for p in rm.PEOPLE.get(pid, [])}
     out, today = [], rm._today()
+    def who_of(p):
+        return (f"ඔයාගේ {p['relation_si']}" + (f" {p['name']}" if p.get("name") and p["name"] != p["relation_si"] else "")) \
+            if p else "ඔයාව බලන්න ආපු කෙනා"
+
+    def add(rid, day, p, si):
+        who = who_of(p)
+        out.append({"id": rid, "date": day, "who_si": who, "promise_si": si, "photo_url": (p or {}).get("photo_url"),
+                    "say_si": f"සුභ උදෑසනක්! අද {who} ඔයාව බලන්න එනවා කිව්වා. {si}"})
+
+    # Dates the visitor confirmed when the app asked "which day?" during the visit.
+    confirmed = set()
+    for pr in visit_talk.PROMISES.get(pid, []):
+        if pr["date"] >= today:
+            add(f"promise:{pr['id']}", pr["date"], by_id.get(pr["person_id"]), pr.get("si", ""))
+            confirmed.add((pr["person_id"], pr["date"]))
     for c in visit_talk.CONVERSATIONS.get(pid, []):
         p = by_id.get(c["person_id"])
-        who = (f"ඔයාගේ {p['relation_si']}" + (f" {p['name']}" if p.get("name") and p["name"] != p["relation_si"] else "")) \
-            if p else "ඔයාව බලන්න ආපු කෙනා"
         for i, pr in enumerate(c.get("promises") or []):
             day = _promise_date(pr, c["day"])
-            if day and day >= today:
-                out.append({"id": f"visit:{c['id']}:{i}", "date": day, "who_si": who, "promise_si": pr.get("si", ""),
-                            "photo_url": (p or {}).get("photo_url"),
-                            "say_si": f"සුභ උදෑසනක්! අද {who} ඔයාව බලන්න එනවා කිව්වා. {pr.get('si', '')}"})
+            if day and day >= today and (c["person_id"], day) not in confirmed:
+                add(f"visit:{c['id']}:{i}", day, p, pr.get("si", ""))
     return sorted(out, key=lambda x: x["date"])
 
 

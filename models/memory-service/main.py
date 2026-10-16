@@ -16,10 +16,11 @@ import cloudinary
 import cloudinary.uploader
 import cloudinary.api
 
+# Keys come from the environment (models/.env locally, Space secrets on Hugging Face), never from the code.
 cloudinary.config(
-  cloud_name = "dc1x4qpjp",
-  api_key = "223333656458116",
-  api_secret = "eJgs0d77ubYRTTZgK_G6Y62Ic2U"
+  cloud_name = os.environ.get("CLOUDINARY_NAME", ""),
+  api_key = os.environ.get("CLOUDINARY_API_KEY", ""),
+  api_secret = os.environ.get("CLOUDINARY_SECRET_KEY", "")
 )
 
 from PIL import Image
@@ -1415,6 +1416,8 @@ import memory_video  # video diary of the day (story narration + Sinhala cards)
 app.include_router(memory_video.router)
 import reminders  # adaptive reminders learned from routines and visit promises
 app.include_router(reminders.router)
+import memory_recap  # weekly / monthly / yearly memory
+app.include_router(memory_recap.router)
 
 
 if __name__ == "__main__":

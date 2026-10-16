@@ -12,10 +12,18 @@ __pycache__
 hardware/
 
 # Runtime data written by the AI memory service
-backend/ml/memory-service/moments_db.json
-backend/ml/memory-service/memory_quiz_db.json
-backend/ml/memory-service/visit_talk_db.json
-backend/ml/memory-service/reminders_db.json
-backend/ml/memory-service/esp32_passive.json
-backend/ml/memory-service/tts_cache/
-backend/ml/memory-service/videos/
+models/memory-service/moments_db.json
+models/memory-service/memory_quiz_db.json
+models/memory-service/visit_talk_db.json
+models/memory-service/reminders_db.json
+models/memory-service/esp32_passive.json
+models/memory-service/tts_cache/
+models/memory-service/videos/
+
+# Elder-home user testing: patient logins and care profiles stay local
+backend/scripts/home_patients_logins.csv
+models/memory-service/care_profiles.json
+
+# AI services: server secrets
+models/.env
+models/.clip-cache/

@@ -4,7 +4,7 @@ const router = express.Router();
 const axios = require('axios');
 const { protect, authorize } = require('../../middleware/auth');
 
-const ML_URL = 'http://localhost:5001';
+const ML_URL = process.env.CAREGIVER_ML_URL;
 
 // ✅ POST /api/caregiver/insights/checkin
 router.post('/checkin', protect, authorize('caregiver'), async (req, res) => {

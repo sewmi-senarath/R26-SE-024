@@ -112,7 +112,7 @@ export default function ThingsMapUI() {
               </View>
               {it.lat && it.lng ? (
                 <TouchableOpacity style={s.navBtn}
-                  onPress={() => router.push({ pathname: '/patient/ar-navigate', params: { objectName: it.label_si, objLat: String(it.lat), objLng: String(it.lng) } } as any)}>
+                  onPress={() => router.push({ pathname: '/patient/ar-navigate', params: { objectName: it.label_si, objLabel: it.label, roomLabel: it.room_si || '', objLat: String(it.lat), objLng: String(it.lng) } } as any)}>
                   <Ionicons name="navigate" size={20} color="#fff" />
                 </TouchableOpacity>
               ) : null}
