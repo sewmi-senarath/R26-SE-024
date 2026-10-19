@@ -3,7 +3,7 @@ import { Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useIsFocused, useLocalSearchParams, useRouter } from 'expo-router';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import * as Location from 'expo-location';
 import axios from 'axios';
@@ -118,7 +118,20 @@ export default function RememberLiveUI() {
 
   // Small frames are the biggest speed win: a full 12MP photo is slow to take
   // and to upload, and the detector only looks at ~640px anyway.
+  // A camera that never started (black preview) is not a server problem: the loop
+  // waits for it and shows its own message instead of "cannot reach the AI service".
+  const camReady = useRef(false);
+  const [camIssue, setCamIssue] = useState(false);
+  // iOS sometimes leaves a new camera black (e.g. another screen still held it):
+  // restart the preview a few times before telling the user.
+  const [camKey, setCamKey] = useState(0);
+  const camTries = useRef(0);
+  // Only the screen in front uses the camera; screens behind it in the stack let go.
+  const focused = useIsFocused();
   const onCameraReady = useCallback(async () => {
+    camReady.current = true;
+    camTries.current = 0;
+    setCamIssue(false);
     try {
       const sizes = (await cameraRef.current?.getAvailablePictureSizesAsync()) || [];
       const pick = ['640x480', '1280x720', 'Medium', 'Low'].find((s) => sizes.includes(s));
@@ -543,6 +556,22 @@ export default function RememberLiveUI() {
     }
   }, [checkPerson, saveMoment, endVisit]);
 
+  useEffect(() => {
+    if (cam?.source !== 'phone' || !permission?.granted || !focused) return;
+    camReady.current = false;
+    const t = setTimeout(() => {
+      if (camReady.current) return;
+      if (camTries.current < 3) {
+        camTries.current += 1;
+        console.log('[camera] not ready, restarting preview', camTries.current);
+        setCamKey((k) => k + 1);
+      } else {
+        setCamIssue(true);
+      }
+    }, 5000);
+    return () => clearTimeout(t);
+  }, [cam?.source, permission?.granted, focused, camKey]);
+
   // The loop below reads the latest handler through a ref, so re-renders never
   // restart it (a restart would briefly run two loops against the server).
   const onFrameRef = useRef(onFrame);
@@ -561,8 +590,14 @@ export default function RememberLiveUI() {
       if (cam.source === 'esp32') {
         form.append('esp32_url', `http://${cam.esp32Ip}/capture`);
       } else {
+        if (!camReady.current) throw Object.assign(new Error('camera not ready'), { camera: true });
         // skipProcessing is safe because the server applies the EXIF rotation itself.
-        const shot = await cameraRef.current?.takePictureAsync({ quality: 0.5, shutterSound: false, skipProcessing: true });
+        let shot;
+        try {
+          shot = await cameraRef.current?.takePictureAsync({ quality: 0.5, shutterSound: false, skipProcessing: true });
+        } catch (e) {
+          throw Object.assign(e instanceof Error ? e : new Error(String(e)), { camera: true });
+        }
         if (!shot?.uri) return;
         form.append('file', { uri: shot.uri, name: 'frame.jpg', type: 'image/jpeg' } as any);
       }
@@ -572,6 +607,7 @@ export default function RememberLiveUI() {
       if (res.data.status !== 'success') throw new Error(res.data.message);
       if (!alive) return;
       setOffline(false);
+      setCamIssue(false);
       setDetections(res.data.detections);
       if (res.data.width && res.data.height) setAspect(res.data.width / res.data.height);
       if (res.data.frame_b64) setEspFrame(`data:image/jpeg;base64,${res.data.frame_b64}`);
@@ -588,8 +624,16 @@ export default function RememberLiveUI() {
         }
         try {
           await tick(); // next frame goes as soon as this one is answered
-        } catch {
-          if (alive) setOffline(true);
+        } catch (e: any) {
+          if (alive) {
+            if (e?.camera) {
+              console.log('[camera]', e?.message);
+              setCamIssue(true);
+            } else {
+              console.log('[detect-live]', e?.message);
+              setOffline(true);
+            }
+          }
           await sleep(2000);
         }
       }
@@ -675,8 +719,9 @@ export default function RememberLiveUI() {
 
       <View style={[s.viewport, { height: viewH }]}>
         {cam.source === 'phone' ? (
-          <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="back" animateShutter={false}
-            pictureSize={pictureSize} onCameraReady={onCameraReady} />
+          <CameraView key={camKey} active={focused} ref={cameraRef} style={StyleSheet.absoluteFill} facing="back" mode="picture" mute animateShutter={false}
+            pictureSize={pictureSize} onCameraReady={onCameraReady}
+            onMountError={(e) => { console.log('[camera mount]', e?.message); setCamIssue(true); }} />
         ) : espFrame ? (
           <Image source={{ uri: espFrame }} style={StyleSheet.absoluteFill} />
         ) : (
@@ -743,7 +788,13 @@ export default function RememberLiveUI() {
       {offline && (
         <View style={s.offline}>
           <Ionicons name="cloud-offline" size={18} color="#fecaca" />
-          <Text style={s.offlineText}>AI සේවාවට සම්බන්ධ වෙන්න බැහැ ({AI_URL})</Text>
+          <Text style={s.offlineText}>AI සේවාවට සම්බන්ධ වෙන්න බැහැ. ඉන්ටර්නෙට් එක බලලා ටිකකින් ආයෙත් උත්සාහ කරන්න.</Text>
+        </View>
+      )}
+      {camIssue && !offline && (
+        <View style={s.offline}>
+          <Ionicons name="camera-outline" size={18} color="#fecaca" />
+          <Text style={s.offlineText}>කැමරාව පටන් ගන්න බැහැ. App එක වහලා ආයෙත් අරින්න, නැත්නම් කැමරා අවසරය බලන්න.</Text>
         </View>
       )}
 
