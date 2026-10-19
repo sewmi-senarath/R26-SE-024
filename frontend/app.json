@@ -43,7 +43,12 @@
         "android.permission.FOREGROUND_SERVICE_LOCATION"
       ],
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.MemoCare"
+      "package": "com.anonymous.MemoCare",
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyDPlayYuwbxUOs_8sePIJ0ggul2MqxwhZw"
+        }
+      }
     },
     "web": {
       "output": "static",

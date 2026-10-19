@@ -7,10 +7,7 @@
     "preview": {
       "distribution": "internal",
       "android": { "buildType": "apk" },
-      "env": {
-        "EXPO_PUBLIC_API_URL": "https://RENDER-NAME.onrender.com",
-        "EXPO_PUBLIC_AI_URL": "https://memocare-ai.duckdns.org"
-      }
+      "environment": "preview"
     }
   }
 }
