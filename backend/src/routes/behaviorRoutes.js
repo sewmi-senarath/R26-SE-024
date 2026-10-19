@@ -14,7 +14,8 @@ const uploadDir = path.join(__dirname, '../../uploads/csv');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
 const upload = multer({ dest: uploadDir });
-const AI_SERVICE_URL = process.env.MEMORY_AI_URL;
+// Memory AI service (ml-service/memory-service). Set MEMORY_AI_URL when it runs elsewhere.
+const AI_SERVICE_URL = process.env.MEMORY_AI_URL || 'http://localhost:8000';
 
 
 // ─── Object Detection Proxy (mobile → backend:5000 → AI:8000) ─────────────────

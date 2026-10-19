@@ -1,0 +1,9 @@
+flask
+flask-cors
+pandas
+numpy
+scikit-learn==1.9.0
+imbalanced-learn
+joblib
+openpyxl
+gunicorn

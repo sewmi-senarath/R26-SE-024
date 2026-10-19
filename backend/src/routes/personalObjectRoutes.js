@@ -24,7 +24,8 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 // AI Service URL
-const AI_SERVICE_URL = process.env.MEMORY_AI_URL;
+// Memory AI service (ml-service/memory-service). Set MEMORY_AI_URL when it runs elsewhere.
+const AI_SERVICE_URL = process.env.MEMORY_AI_URL || 'http://localhost:8000';
 
 router.post('/upload', upload.single('file'), async (req, res) => {
   try {
