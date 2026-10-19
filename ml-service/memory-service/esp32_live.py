@@ -19,7 +19,7 @@ import io
 import json
 import time
 import threading
-import datetime
+import sltime as datetime  # Sri Lanka time whatever the host timezone (see sltime.py)
 from collections import deque
 from urllib.parse import urlparse
 

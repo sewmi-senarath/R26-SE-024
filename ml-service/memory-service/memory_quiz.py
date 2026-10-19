@@ -30,7 +30,7 @@ import re
 import json
 import uuid
 import random
-import datetime
+import sltime as datetime  # Sri Lanka time whatever the host timezone (see sltime.py)
 import threading
 
 import requests

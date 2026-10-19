@@ -236,7 +236,7 @@ try:
 except Exception as e:
     print(f"Warning: Could not load dataset/expected_locations.csv - {e}")
 
-import datetime
+import sltime as datetime  # Sri Lanka time whatever the host timezone (see sltime.py)
 from fastapi import Form, File, UploadFile
 from pydantic import BaseModel
 import shutil

@@ -10,7 +10,7 @@ sentences into a short story in the patient's language (Sinhala or English).
 
 GET /memory-recap/{patient_id}?period=week|month|year&lang=si|en[&date=YYYY-MM-DD][&refresh=1]
 """
-import datetime
+import sltime as datetime  # Sri Lanka time whatever the host timezone (see sltime.py)
 from collections import Counter, defaultdict
 
 from fastapi import APIRouter

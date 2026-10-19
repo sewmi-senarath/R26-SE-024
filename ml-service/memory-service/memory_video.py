@@ -19,7 +19,7 @@ import os
 import html
 import uuid
 import shutil
-import datetime
+import sltime as datetime  # Sri Lanka time whatever the host timezone (see sltime.py)
 import pathlib
 import subprocess
 

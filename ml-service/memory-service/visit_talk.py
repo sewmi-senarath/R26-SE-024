@@ -22,7 +22,7 @@ import os
 import json
 import time
 import uuid
-import datetime
+import sltime as datetime  # Sri Lanka time whatever the host timezone (see sltime.py)
 import threading
 
 import requests

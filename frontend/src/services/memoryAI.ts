@@ -291,8 +291,18 @@ export function relativeDirection(bearing: number, heading: number | null, lang:
   return lang === 'si' ? 'වම් පැත්තට' : 'to your left';
 }
 
+// The AI service sends Sri Lanka times without a timezone ("2026-10-19T15:58:00.123456").
+// JS engines disagree on such strings (Hermes in a release APK reads them as UTC = 5.5 h off),
+// so read the parts ourselves as phone-local time. Times with Z / +05:30 are left to Date.
+export function parseServerTime(iso: string): Date {
+  const m = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d+))?)?$/.exec(iso || '');
+  if (!m) return new Date(iso);
+  const ms = m[7] ? Number(m[7].slice(0, 3).padEnd(3, '0')) : 0;
+  return new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0), ms);
+}
+
 export function timeAgo(iso: string, lang: Lang = 'si') {
-  const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  const mins = Math.max(0, Math.round((Date.now() - parseServerTime(iso).getTime()) / 60000));
   if (lang === 'en') {
     if (mins < 1) return 'just now';
     if (mins < 60) return `${mins} min ago`;

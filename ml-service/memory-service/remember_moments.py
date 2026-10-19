@@ -25,7 +25,7 @@ import json
 import uuid
 import math
 import hashlib
-import datetime
+import sltime as datetime  # Sri Lanka time whatever the host timezone (see sltime.py)
 import threading
 from collections import deque
 

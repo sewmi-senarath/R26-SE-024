@@ -18,7 +18,7 @@ typed in by a caregiver.
 """
 import os
 import json
-import datetime
+import sltime as datetime  # Sri Lanka time whatever the host timezone (see sltime.py)
 import statistics
 import threading
 
