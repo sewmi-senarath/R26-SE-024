@@ -70,7 +70,7 @@ def _heal_face_galleries():
         return
     changed = {}
     for pid, people in PEOPLE.items():
-        todo = [p for p in people if p.get("embeddings") and not p.get("anchors")]
+        todo = [p for p in people if _needs_anchors(p)]
         if not todo:
             continue
         for p in todo:
@@ -1314,7 +1314,7 @@ async def enroll_family(
     now = datetime.datetime.now().isoformat()
     person = {
         "id": f"per-{uuid.uuid4().hex[:8]}", "name": name.strip() or rel_si, "relation": relation,
-        "relation_si": rel_si, "embeddings": list(consistent), "anchors": list(consistent),
+        "relation_si": rel_si, "embeddings": list(consistent), "anchors": list(consistent), "anchor_source": "enrolled",
         "photo_url": _upload(first_jpeg, "memocare_family"),
         "created": now, "last_seen": None, "times_met": 0, "status": "verified", "enrolled": True,
         # The family member's consent for visit conversations to be summarised (visit_talk.py).
@@ -1377,22 +1377,35 @@ def _rebuild_anchors(person):
     the truth; otherwise the densest group of views. Views that disagree with it
     are removed. -> number of views removed."""
     gallery = person.get("embeddings", [])
-    if person.get("anchors") or len(gallery) < 2:
+    if not _needs_anchors(person) or len(gallery) < 2:
         return 0
     ref = None
     if person.get("photo_url"):
         try:
-            import urllib.request
-            raw = urllib.request.urlopen(person["photo_url"], timeout=15).read()
-            ref, _j, _p = _face_from_upload(raw)
+            # requests (certifi) - urllib fails certificate checks on a bare Windows Python
+            r = requests.get(person["photo_url"], timeout=15)
+            r.raise_for_status()
+            ref, _j, _p = _face_from_upload(r.content)
         except Exception as e:
             print("anchor photo download failed:", e)
+    source = "photo" if ref is not None else "cluster"
     if ref is None:
         ref = max(gallery, key=lambda g: sum(_cos(g, h) >= FAMILY_MATCH for h in gallery))
     keep = [g for g in gallery if _cos(g, ref) >= ANCHOR_AGREE] or [ref]
     person["anchors"] = keep[:5]
     person["embeddings"] = keep
+    person["anchor_source"] = source   # "cluster" is retried at the next start-up
     return len(gallery) - len(keep)
+
+
+def _needs_anchors(person):
+    """No anchors yet, or anchors only guessed from the densest group of views
+    (the enrolment photo could not be downloaded) - the photo is the truth."""
+    if not person.get("embeddings"):
+        return False
+    if not person.get("anchors"):
+        return True
+    return person.get("anchor_source") not in ("enrolled", "photo") and bool(person.get("photo_url"))
 
 
 @router.post("/family/add-photos")
@@ -1412,6 +1425,7 @@ async def add_family_photos(patient_id: str = Form(...), pin: str = Form(...), p
     if np.mean([_anchor_sim(e, person) for e in consistent]) < FACE_MAYBE:
         return {"status": "error", "message": f"මේ photos '{person['name']}' ගේ වගේ පේන්නේ නැහැ.", "problems": problems}
     person["anchors"] = ((person.get("anchors") or []) + consistent)[-10:]
+    person["anchor_source"] = "enrolled"
     for e in consistent:
         _add_view(person, e)
     _save()
