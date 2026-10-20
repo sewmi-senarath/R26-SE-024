@@ -1,0 +1,39 @@
+{
+  "old": {
+    "known_faces": {
+      "correct": 22,
+      "ask": 0,
+      "wrong": 0
+    },
+    "unregistered_faces": {
+      "ask": 22,
+      "wrong": 0
+    },
+    "accuracy_known": 1.0,
+    "wrong_name_rate_known": 0.0,
+    "false_accept_rate_strangers": 0.0
+  },
+  "new": {
+    "known_faces": {
+      "correct": 21,
+      "ask": 1,
+      "wrong": 0
+    },
+    "unregistered_faces": {
+      "ask": 22,
+      "wrong": 0
+    },
+    "accuracy_known": 0.955,
+    "wrong_name_rate_known": 0.0,
+    "false_accept_rate_strangers": 0.0
+  },
+  "similarity": {
+    "genuine_mean": 0.85,
+    "genuine_min": 0.623,
+    "impostor_mean": 0.225,
+    "impostor_max": 0.522
+  },
+  "families": 2,
+  "people": 5,
+  "photos": 22
+}

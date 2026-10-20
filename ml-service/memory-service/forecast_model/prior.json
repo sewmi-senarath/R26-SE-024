@@ -1,0 +1,23 @@
+{
+  "prior": {
+    "mu": -1.124,
+    "tau2": 1.764,
+    "n": 630
+  },
+  "metrics": {
+    "mae_4w": {
+      "baseline_avg7_plus_slope": 7.9,
+      "partial_pooling": 4.42
+    },
+    "mae_8w": {
+      "baseline_avg7_plus_slope": 12.22,
+      "partial_pooling": 6.52
+    },
+    "auroc_decline_4w": {
+      "baseline_raw_slope": 0.86,
+      "pooled_slope": 0.963,
+      "gradient_boosting": 0.971
+    }
+  },
+  "trained_on": "simulated cohort (300 x 120 days)"
+}

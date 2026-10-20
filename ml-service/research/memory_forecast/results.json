@@ -1,0 +1,56 @@
+{
+  "data": {
+    "simulated_patients": 300,
+    "days": 120,
+    "train_patients": 210,
+    "test_patients": 90,
+    "train_samples": 630,
+    "test_samples": 270,
+    "decline_rate_test": 0.378,
+    "note": "simulated cohort - no real patient data"
+  },
+  "mae_4w": {
+    "baseline_avg7_plus_slope": 7.9,
+    "partial_pooling": 4.42
+  },
+  "mae_8w": {
+    "baseline_avg7_plus_slope": 12.22,
+    "partial_pooling": 6.52
+  },
+  "auroc_decline_4w": {
+    "baseline_raw_slope": 0.86,
+    "pooled_slope": 0.963,
+    "gradient_boosting": 0.971
+  },
+  "brier_gradient_boosting": 0.065,
+  "prior": {
+    "mu": -1.124,
+    "tau2": 1.764,
+    "n": 630
+  },
+  "feature_importance": {
+    "pooled_slope": 0.319,
+    "own_slope": 0.191,
+    "games_slope": 0.147,
+    "mmse_slope": 0.109,
+    "resid_sd": 0.068,
+    "level": 0.062,
+    "mmse_last": 0.03,
+    "n_days_30": 0.027,
+    "slope_se": 0.023,
+    "adherence_30": 0.019,
+    "pool_weight": 0.005,
+    "has_mmse": 0.0,
+    "has_games": 0.0
+  },
+  "real_mmse_check": {
+    "status": "ok",
+    "patients": 4,
+    "mae_mmse_points": {
+      "last_value": 12.5,
+      "linear_trend": 14.07,
+      "partial_pooling": 11.5
+    },
+    "note": "real MMSE, leave-last-out; small n - indicative only"
+  }
+}

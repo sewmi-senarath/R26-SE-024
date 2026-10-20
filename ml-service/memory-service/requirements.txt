@@ -16,3 +16,4 @@ cloudinary
 pillow
 edge-tts
 google-genai
+pymongo

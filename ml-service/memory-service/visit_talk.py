@@ -432,7 +432,10 @@ def _conv_fields(out):
 def _new_conv(patient_id, p, buf, seconds, out, source):
     conv = {"id": f"talk-{uuid.uuid4().hex[:8]}", "person_id": p["id"] if p else "visitor",
             "day": datetime.date.today().isoformat(), "time": buf["started"],
-            "seconds": seconds or buf["clip_seconds"], **_conv_fields(out), "source": source}
+            "seconds": seconds or buf["clip_seconds"], **_conv_fields(out), "source": source,
+            # How much clear speech the summary was made from - the memory game skips
+            # questions about a talk it barely heard (memory_quiz._talk_ok).
+            "speech_chars": buf.get("chars", 0), "clear": out.get("clear")}
     CONVERSATIONS.setdefault(patient_id, []).append(conv)
     CONVERSATIONS[patient_id] = CONVERSATIONS[patient_id][-300:]
     _save()
@@ -481,7 +484,7 @@ async def visit_end(patient_id: str = Form(...), visit_id: str = Form(...), seco
     p = _person(patient_id, buf["person_id"])  # None = a visitor who is not registered
     audio = buf.pop("audio", None) or []      # for Gemini (empty without GEMINI_API_KEY)
     texts = buf["texts"]
-    chars = sum(len(t) for t in texts)
+    chars = buf["chars"] = sum(len(t) for t in texts)
     print(f"[visit] {visit_id} end: {len(texts)} clips, {chars} chars of speech"
           + (f", {len(audio)} clips for Gemini" if audio else ""))
     if chars < 15:

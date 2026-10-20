@@ -30,6 +30,7 @@ import re
 import json
 import uuid
 import random
+import difflib
 import sltime as datetime  # Sri Lanka time whatever the host timezone (see sltime.py)
 import threading
 
@@ -38,6 +39,8 @@ from fastapi import APIRouter, UploadFile, File, Form
 
 import remember_moments as rm
 import visit_talk
+import team_data            # read-only: registered patients, MMSE, cognitive games, severity
+import memory_forecast as mf
 
 router = APIRouter()
 
@@ -441,6 +444,158 @@ def q_talk(pid, conv, item, day):
     return q
 
 
+# ─── Visit talk in a fixed, meaningful pattern ───────────────────────────────
+# who came (q_who_came) -> what you talked about -> when they'll come again ->
+# how the visit felt. Built from the summary's structured fields, not free LLM
+# questions, so every question has one clear right answer.
+TOPIC_POOL = [("ගෙදර වැඩ", "housework"), ("කෑම බීම", "food"), ("ඉස්කෝලේ වැඩ", "school"), ("රස්සාව", "work"),
+              ("ලෙඩ සනීප", "health"), ("කාලගුණය", "the weather"), ("ගමේ ආරංචි", "news from the village"),
+              ("ගමනක් යන එක", "a trip"), ("පන්සලේ වැඩ", "the temple"), ("ක්‍රිකට් මැච් එක", "the cricket match"),
+              ("කඩේට යන එක", "going to the shop"), ("ගෙවත්ත", "the garden")]
+PLAN_POOL = [("ලබන සතියේ ආයෙත් එනවා", "come again next week"), ("බෙහෙත් ගෙනත් දෙනවා", "bring the medicine"),
+             ("ඔයාව දොස්තර ළඟට එක්කන් යනවා", "take you to the doctor"), ("කෑම ගෙනත් දෙනවා", "bring food"),
+             ("ඔයාව ඇවිදින්න එක්කන් යනවා", "take you for a walk"), ("ෆෝන් කරනවා", "phone you")]
+TALK_MOODS = {"happy": ("සතුටින්", "happy", "😊"), "calm": ("සන්සුන්ව", "calm", "🙂"),
+         "sad": ("දුකෙන්", "sad", "😢"), "worried": ("කනස්සල්ලෙන්", "worried", "😟")}
+_SINHALA = re.compile(r"[඀-෿]")
+_VAGUE = ("කතාබහ", "කතා කළා", "නොපැහැදිලි", "unclear", "conversation", "noise", "?",
+          "ආයුබෝවන්", "කොහොමද", "හලෝ", "hello", "සුබ උදෑසනක්")   # greetings are not topics
+
+
+def _clean_phrase(t):
+    """A topic / plan worth asking about: short, Sinhala, not a placeholder."""
+    t = (t or "").strip().rstrip(".")
+    if t.split() and t.split()[-1].endswith("ද") and len(t.split()) <= 3:
+        return ""   # "කෑවාද" - a question someone asked, not a topic
+    return t if 2 <= len(t) <= 60 and _SINHALA.search(t) and not any(v in t.lower() for v in _VAGUE) \
+        and len(set(t.replace(" ", ""))) > 2 else ""
+
+
+def _talk_ok(conv):
+    """Skip talks the app barely heard: no questions from a low-quality transcript."""
+    if not conv.get("summary_si") or conv.get("clear") is False:
+        return False
+    if conv.get("source") == "gemini":       # read from the audio itself
+        return True
+    chars = conv.get("speech_chars")
+    return chars is None or chars >= 60      # older records have no count - their topics are still filtered
+
+
+def _overlaps(a, b):
+    """Too close to be a fair wrong option: shares a word, contains it, or is a
+    near-spelling ('රැස්සාව' / 'රස්සාව')."""
+    wa, wb = set(a.split()), set(b.split())
+    near = any(difflib.SequenceMatcher(None, x, y).ratio() >= 0.75 for x in wa for y in wb if len(x) > 2 and len(y) > 2)
+    return bool(wa & wb) or a in b or b in a or near
+
+
+def _talk_person(pid, conv):
+    p = next((x for x in rm.PEOPLE.get(pid, []) if x["id"] == conv["person_id"]), None)
+    if p:
+        label_si, label_en, _ = _person_label(p)
+        return p, label_si, label_en
+    return {}, "ඔයාව බලන්න ආපු අමුත්තා", "your visitor"
+
+
+def _talk_media(p):
+    return {"kind": "photo", "urls": [p["photo_url"]]} if p.get("photo_url") else {"kind": "visit"}
+
+
+def q_talk_topic(pid, conv, day):
+    topics = [(_clean_phrase(t.get("si")), t.get("en", "")) for t in conv.get("topics") or []]
+    topics = [(si, en) for si, en in topics if si]
+    if not topics:
+        return None
+    p, label_si, label_en = _talk_person(pid, conv)
+    dsi, den = _day_word(day)
+    correct = {"si": topics[0][0], "en": topics[0][1]}
+    # Wrong options: topics of OTHER talks first (real but different), then the pool -
+    # never one that shares a word with anything said in this talk.
+    said = [si for si, _ in topics]
+    other = [(_clean_phrase(t.get("si")), t.get("en", "")) for c in visit_talk.CONVERSATIONS.get(pid, [])
+             if c["id"] != conv["id"] for t in c.get("topics") or []]
+    pool = [{"si": si, "en": en} for si, en in other + TOPIC_POOL
+            if si and not any(_overlaps(si, s) for s in said)]
+    if len(pool) < 2:
+        return None
+    choices, idx = _choices(correct, pool, k=3)
+    return _q("talk_topic", "conversation" if dsi == "අද" else "delayed",
+              f"{dsi} {label_si} ඔයා එක්ක කතා කළේ මොකක් ගැනද?", f"What did {label_en} talk with you about {den}?",
+              correct, [topics[0][0], topics[0][1]], "ඒ වෙලාවේ ඔයාලා කතා කරපු දේ මතක් කරලා බලන්න.",
+              "Hint: think of what you talked about.", choices, idx,
+              f"{label_si} කතා කළේ {topics[0][0]} ගැන.", _talk_media(p), day)
+
+
+def q_talk_promise(pid, conv, day):
+    promises = [x for x in conv.get("promises") or [] if _clean_phrase(x.get("si")) or x.get("date")]
+    if not promises:
+        return None
+    pr = next((x for x in promises if x.get("date")), promises[0])
+    p, label_si, label_en = _talk_person(pid, conv)
+    dsi, _den = _day_word(day)
+    domain = "conversation" if dsi == "අද" else "delayed"
+    if pr.get("date"):
+        try:
+            when = datetime.date.fromisoformat(pr["date"])
+        except ValueError:
+            when = None
+        if when:
+            # "When will X come again?" - the answer is a real date, the others are
+            # the days around it, all read the same way.
+            near = [when + datetime.timedelta(days=d) for d in (-2, -1, 1, 2, 3, 7)]
+            mk = lambda d: {"si": visit_talk._day_text(d.isoformat(), "si"), "en": visit_talk._day_text(d.isoformat(), "en"), "icon": "📅"}
+            correct = mk(when)
+            choices, idx = _choices(correct, [mk(d) for d in near], k=3)
+            return _q("talk_promise", domain,
+                      f"{label_si} ආයෙත් එනවා කිව්වේ කවදාද?", f"When did {label_en} say they would come again?",
+                      correct, [correct["si"], correct["en"], pr.get("when_si", "")],
+                      f"{label_si} යන්න කලින් කියපු දේ මතක් කරන්න.", "Hint: what they said before leaving.",
+                      choices, idx, f"{label_si} එනවා කිව්වේ {correct['si']}.", _talk_media(p), day)
+    plan = _clean_phrase(pr.get("si"))
+    if not plan:
+        return None
+    correct = {"si": plan, "en": pr.get("en", "")}
+    pool = [{"si": si, "en": en} for si, en in PLAN_POOL if not _overlaps(si, plan)]
+    choices, idx = _choices(correct, pool, k=3)
+    return _q("talk_promise", domain, f"{label_si} ඔයාට මොකක් කරනවා කියලා පොරොන්දු වුණාද?",
+              f"What did {label_en} promise to do?", correct, [plan, pr.get("en", "")],
+              "යන්න කලින් කියපු දේ මතක් කරන්න.", "Hint: what they said before leaving.", choices, idx,
+              f"{label_si} කිව්වේ '{plan}' කියලා.", _talk_media(p), day)
+
+
+def q_talk_feeling(pid, conv, day):
+    """Reminiscence: the feeling of the visit (emotional memory lasts longest in dementia)."""
+    mood = TALK_MOODS.get(conv.get("mood") or "")
+    if not mood:
+        return None
+    p, label_si, label_en = _talk_person(pid, conv)
+    dsi, den = _day_word(day)
+    correct = {"si": mood[0], "en": mood[1], "icon": mood[2]}
+    choices, idx = _choices(correct, [{"si": m[0], "en": m[1], "icon": m[2]} for m in TALK_MOODS.values()], k=4)
+    q = _q("talk_feeling", "conversation" if dsi == "අද" else "delayed",
+           f"{dsi} {label_si} එක්ක කතා කරද්දී ඔයා හිටියේ කොහොමද?",
+           f"How did you feel while talking with {label_en} {den}?",
+           correct, [mood[0], mood[1]], "ඒ වෙලාවේ ඔයාට දැනුණු විදිහ මතක් කරන්න.", "Hint: how it felt.",
+           choices, idx, f"ඔයා {label_si} එක්ක {mood[0]} කතා කළා. ඒක ලස්සන මතකයක්.", _talk_media(p), day)
+    q["reminiscence"] = True
+    return q
+
+
+def talk_pattern(pid, conv, day):
+    """The questions about one talk, in order. A low-quality talk gives none."""
+    if not _talk_ok(conv):
+        return []
+    qs = [q for q in (q_talk_topic(pid, conv, day), q_talk_promise(pid, conv, day)) if q]
+    if not qs:   # nothing factual was heard clearly - don't ask only about a feeling
+        return []
+    feel = q_talk_feeling(pid, conv, day)
+    p, label_si, _ = _talk_person(pid, conv)
+    dsi, _den = _day_word(day)
+    for q in qs + ([feel] if feel else []):
+        q["talk_id"], q["talk_intro_si"] = conv["id"], f"{dsi} {label_si} ඔයා එක්ක කතා කළා. ඒ කතාව ගැන අහන්නම්."
+    return qs + ([feel] if feel else [])
+
+
 def q_order(pid, events, day):
     """Fun: put three real photos of today in the order they happened."""
     picked = []
@@ -756,13 +911,11 @@ def _collect(pid, day, photos):
             add(q_visit_time(pid, p, rec, day), f"person:{p['id']}")
     if len(met) >= 2:
         add(q_visit_count(pid, met, day), f"count:{day}")
-    talk_qs = []  # what was said during visits - every question is kept, asked one by one
+    talk_qs = []  # what was said during visits: topic -> promise -> feeling, asked one by one
     for conv in visit_talk.for_day(pid, day):
-        for i, item in enumerate(conv.get("questions") or []):
-            q = q_talk(pid, conv, item, day)
-            if q:
-                q["target"] = f"talk:{conv['id']}:{i}"
-                talk_qs.append(q)
+        for q in talk_pattern(pid, conv, day):
+            q["target"] = f"talk:{conv['id']}:{q['type']}"
+            talk_qs.append(q)
     moments = [m for m in rm.MOMENTS.get(pid, []) if m["time"].startswith(day)]
     seen_obj = set()
     for m in reversed(moments):
@@ -812,7 +965,7 @@ def _collect(pid, day, photos):
 # was taken, where things were), never a question that was already asked.
 MIN_QUESTIONS = 5
 RECAP_DAYS = 6
-RECAP_TYPES = ("who_came", "talk", "person_photo", "did_when", "object_place", "visit_time", "replay")
+RECAP_TYPES = ("who_came", "talk", "talk_topic", "talk_feeling", "person_photo", "did_when", "object_place", "visit_time", "replay")
 _SI_TODAY = re.compile(r"(?<![\u0D80-\u0DFF])අද(?![\u0D80-\u0DFF])")
 
 
@@ -942,7 +1095,7 @@ def _add_leads(qs):
             lead = "දැන් පහුගිය දවස් ගැනත් පොඩ්ඩක් මතක් කරමු." if i else "අද දවස ගැන තවම මතක සටහන් අඩුයි. ඒ නිසා පහුගිය දවස් ගැන මතක් කරමු."
             q["lead_si"] = lead
             continue
-        if q["type"] == "talk":
+        if q.get("talk_id"):
             lead = q["talk_intro_si"] if q["talk_id"] not in talk_seen else "ඒ කතාව ගැනම තව එකක්."
             talk_seen.add(q["talk_id"])
         elif i == 0 and q["type"] == "who_came":
@@ -1302,6 +1455,8 @@ def fetch_mmse(pid):
     if prof.get("demo_mmse") is not None:
         return prof["demo_mmse"]
     ids = [i for i in (prof.get("user_id"), pid) if i]
+    if team_data.available():   # straight from the shared DB (read-only) - all ids of this patient
+        return team_data.mmse(*set(ids + team_data.ids_for(pid)))
     key = tuple(ids)
     hit = _mmse_cache.get(key)
     if hit and (datetime.datetime.now() - hit[0]).seconds < 120:
@@ -1444,8 +1599,18 @@ def build_report(pid, days=30):
 
     totals = {k: sum(x[k] for x in daily) for k in ("free", "hint", "choice", "missed")}
     level, _ = _level(pid)
+    reg = team_data.find_patient(pid)
+    ids = team_data.ids_for(pid)
+    games = team_data.games(*ids) if reg else []
+    rel = lambda iso: -(team_data.age_days(iso) or 0)
+    fc = mf.forecast(mf.days_from_daily(daily),
+                     [{"index": rel(m["date"]), "total": m["total"]} for m in mmse],
+                     [{"index": rel(g["date"]), "accuracy": g["accuracy"]} for g in games])
     report = {
-        "status": "success", "patient_id": pid, "name": PROFILE.get(pid, {}).get("name") or "Patient",
+        "status": "success", "patient_id": pid,
+        "name": (reg or {}).get("name") or PROFILE.get(pid, {}).get("name") or "Patient",
+        "registered": reg, "cognitive_games": games[-30:], "severity": team_data.severity(*ids) if reg else None,
+        "forecast": fc,
         "simulated": bool(PROFILE.get(pid, {}).get("simulated")),
         "generated": datetime.datetime.now().isoformat(), "days": days,
         "summary": {
@@ -1551,6 +1716,23 @@ def _insights(r):
         m = r["mmse"][-1]
         sev = f", {m['severity']}" if m.get("severity") else ""
         out.append({"tone": "neutral", "text": f"Latest MMSE (cognitive assessment): {m['total']}/30{sev}, on {m['date']}."})
+    fc = r.get("forecast") or {}
+    if fc.get("status") == "ok":
+        risk = f"; risk of a 5-point drop in 4 weeks: {round(100 * fc['risk'])}% ({fc['risk_level']})" if fc.get("risk") is not None else ""
+        out.append({"tone": "warn" if fc.get("risk_level") == "high" else "neutral",
+                    "text": f"Forecast: about {fc['w4']} in 4 weeks (likely {fc['ci4'][0]}-{fc['ci4'][1]}) and {fc['w8']} in 8 weeks{risk}. "
+                            f"Own trend {fc['own_slope_week']:+}/week, trusted {round(100 * fc['pool_weight'])}% "
+                            "(the rest comes from the population trend)."})
+    elif fc.get("status") == "not_enough_data":
+        out.append({"tone": "muted", "text": f"No forecast yet: it needs {fc['need_days']} game days in the last month "
+                                             f"(has {fc['have_days']})."})
+    if r.get("severity"):
+        sv = r["severity"]
+        out.append({"tone": "warn" if sv["triage"] == "escalate" else "neutral",
+                    "text": f"Severity screening (other component, {sv['date']}): {sv['triage']}."})
+    if len(r.get("cognitive_games") or []) >= 2:
+        g = r["cognitive_games"]
+        out.append({"tone": "neutral", "text": f"Cognitive games (other component): {len(g)} days, latest accuracy {g[-1]['accuracy']}%."})
     c = r["mmse_correlation"]
     if c["r"] is not None:
         strength = "strong" if abs(c["r"]) >= 0.7 else "moderate" if abs(c["r"]) >= 0.4 else "weak"
@@ -1560,23 +1742,88 @@ def _insights(r):
 
 
 @router.get("/memory-report/{patient_id}")
-async def memory_report(patient_id: str, days: int = 30):
+def memory_report(patient_id: str, days: int = 30):
     return build_report(patient_id, max(7, min(days, 120)))
 
 
+def _memory_pid(reg):
+    """The id this registered patient's memory data is stored under (care record
+    id after the caregiver made one, the user id before)."""
+    ids = [reg["care_id"], reg["user_id"]]
+    return next((i for i in ids if _finished(i) or rm.MOMENTS.get(i) or rm.PEOPLE.get(i)), reg["care_id"])
+
+
+def _row(pid, reg=None):
+    fin = _finished(pid)
+    ids = [reg["care_id"], reg["user_id"]] if reg else [pid]
+    mm = team_data.mmse(*ids) if reg else []
+    return {"patient_id": pid, "name": (reg or {}).get("name") or PROFILE.get(pid, {}).get("name") or f"Patient …{pid[-6:]}",
+            "registered": bool(reg), "age": (reg or {}).get("age"), "condition": (reg or {}).get("condition"),
+            "stage": (reg or {}).get("stage"),
+            "simulated": bool(PROFILE.get(pid, {}).get("simulated")),
+            "sessions": len(fin), "last_score": fin[-1]["score"] if fin else None,
+            "last_played": fin[-1]["day"] if fin else None, "moments": len(rm.MOMENTS.get(pid, [])),
+            "mmse_last": mm[-1]["total"] if mm else None, "mmse_date": mm[-1]["date"] if mm else None,
+            "mmse_count": len(mm), "game_days": len(team_data.games(*ids)) if reg else 0,
+            "severity": (team_data.severity(*ids) or {}).get("triage") if reg else None}
+
+
+def _caregiver_ok(patient_id, pin):
+    return bool(patient_id and pin and rm._pin_ok(patient_id, pin))
+
+
 @router.get("/memory-report-patients")
-async def report_patients():
-    pids = set(SESSIONS) | {p for p in rm.MOMENTS if not p.endswith("-TEST")} | set(PROFILE)
+def report_patients(patient_id: str = "", pin: str = ""):
+    """Every registered patient (team DB, read-only) plus any simulated demo patient.
+    Real names only with the caregiver PIN."""
+    named = _caregiver_ok(patient_id, pin)
+    regs = team_data.patients()
+    out = [_row(_memory_pid(r), r) for r in regs]
+    seen = {i for r in regs for i in (r["care_id"], r["user_id"])}
+    for pid in sorted(PROFILE):
+        if PROFILE[pid].get("simulated") and pid not in seen:
+            out.append(_row(pid))
+    if not regs:   # no shared DB here: the memory service's own patients, as before
+        pids = set(SESSIONS) | {p for p in rm.MOMENTS if not p.endswith("-TEST")} | set(PROFILE)
+        out = [_row(p) for p in pids]
+    if not named:
+        for r in out:
+            if not r["simulated"]:
+                r["name"] = f"Patient …{r['patient_id'][-4:]}"
+    out.sort(key=lambda x: (x["simulated"], -(x["sessions"] + x["mmse_count"] + x["game_days"]), x["name"]))
+    return {"status": "success", "patients": out, "named": named, "registry": bool(regs),
+            "generated": datetime.datetime.now().isoformat()}
+
+
+RISK_ORDER = {"high": 0, "medium": 1, "low": 2}
+
+
+@router.get("/memory-report-all")
+def report_all(patient_id: str = "", pin: str = ""):
+    """All patients ranked by risk, for the caregiver's overview and the PDF.
+    Risk = the forecast model's decline risk when there is enough memory-game data;
+    otherwise the latest severity triage / MMSE are shown and the row says
+    'not enough data' - nothing is estimated from too little."""
+    if not _caregiver_ok(patient_id, pin):
+        return {"status": "error", "message": "Caregiver PIN required"}
+    rows = report_patients(patient_id, pin)["patients"]
     out = []
-    for pid in pids:
-        fin = _finished(pid)
-        out.append({"patient_id": pid, "name": PROFILE.get(pid, {}).get("name") or f"Patient …{pid[-6:]}",
-                    "simulated": bool(PROFILE.get(pid, {}).get("simulated")),
-                    "sessions": len(fin), "last_score": fin[-1]["score"] if fin else None,
-                    "last_played": fin[-1]["day"] if fin else None,
-                    "moments": len(rm.MOMENTS.get(pid, []))})
-    out.sort(key=lambda x: (x["simulated"], -(x["sessions"]), x["name"]))
-    return {"status": "success", "patients": out}
+    for r in rows:
+        rep = build_report(r["patient_id"], 60)
+        fc = rep["forecast"]
+        s = rep["summary"]
+        out.append({**r, "avg_7": s["avg_7"], "trend": s["trend"], "slope_per_week": s["slope_per_week"],
+                    "days_played_7": s["days_played_7"], "forecast": fc,
+                    "risk": fc.get("risk"), "risk_level": fc.get("risk_level"),
+                    "weakest": min((d for d in rep["domains"] if d["now"] is not None), key=lambda d: d["now"],
+                                   default=None)})
+    out.sort(key=lambda x: (x["simulated"], RISK_ORDER.get(x["risk_level"], 3),
+                            -(x["risk"] or 0), 0 if x["severity"] == "escalate" else 1,
+                            x["mmse_last"] if x["mmse_last"] is not None else 99))
+    return {"status": "success", "generated": datetime.datetime.now().isoformat(), "patients": out,
+            "model": {"trained_on": "simulated cohort (300 x 120 days)",
+                      "metrics": (mf._model() or {}).get("metrics")},
+            "note": "Monitoring support only - not a diagnosis. Forecasts are shown only with enough data."}
 
 
 # ─── Demo data (clearly marked as simulated) ─────────────────────────────────

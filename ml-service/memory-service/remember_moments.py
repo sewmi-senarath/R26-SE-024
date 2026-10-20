@@ -57,6 +57,31 @@ def _warm_up():
         print("[remember_moments] detectors warmed up")
     except Exception as e:
         print("warm-up failed (first request will be slower):", e)
+    try:
+        _heal_face_galleries()
+    except Exception as e:
+        print("face gallery check failed:", e)
+
+
+def _heal_face_galleries():
+    """One-off upgrade for people registered before enrolment anchors existed: their
+    gallery may hold views the old, looser learning step took from look-alikes."""
+    if not _ctx.get("facenet_ok"):
+        return
+    changed = {}
+    for pid, people in PEOPLE.items():
+        todo = [p for p in people if p.get("embeddings") and not p.get("anchors")]
+        if not todo:
+            continue
+        for p in todo:
+            changed[f"{pid[:8]}/{p['id']}"] = _rebuild_anchors(p)
+        for p in todo:
+            for q in people:
+                if q is not p and q.get("embeddings"):
+                    changed[f"{pid[:8]}/{p['id']}"] += _drop_views_closer_to(p, q)
+    if changed:
+        _save()
+        print("[remember_moments] face galleries anchored, views removed:", changed)
 
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
@@ -82,6 +107,16 @@ STORY_HOUR = int(os.environ.get("STORY_HOUR", "20"))
 FACE_MATCH = 0.65        # FaceNet cosine - same threshold the face-login flow uses
 FACE_MAYBE = 0.50        # between MAYBE and MATCH: ask, but merge if the answer agrees
 FACE_NEW_VIEW = 0.92     # below this a confident match is a genuinely new view - worth keeping
+# Family greeting is stricter than face login: a wrong "this is your grandson"
+# confuses the patient, an "I'm not sure, who is this?" does not.
+FAMILY_MATCH = 0.72      # greet only above this ...
+FAMILY_MARGIN = 0.08     # ... and only when clearly closer than the next family member
+FAMILY_LEARN = 0.80      # learn a new view only this sure (a wrong learned view drifts the gallery)
+ANCHOR_AGREE = 0.60      # a match / learned view must also agree with the caregiver's enrolment photos
+FAMILY_VERIFY = 0.60     # a spoken "I'm his son" is accepted only with this face similarity
+FACE_MIN_PX = 60         # enrolment photo: face at least this wide
+LIVE_FACE_MIN_PX = 48    # live camera: smaller faces are too unreliable to name
+BLUR_MIN, LIVE_BLUR_MIN = 30.0, 15.0   # Laplacian variance of the 160px face crop
 OBJECT_FAMILIAR = 0.80   # MobileNet cosine for "this is your usual cup"
 GALLERY_CAP = 15
 
@@ -887,6 +922,15 @@ def identify_core(patient_id: str, ask: bool = True):
         return {"status": "no_person"}
     fr = frames[-1]
 
+    # Quality gate: a tiny or motion-blurred face gives an unreliable embedding,
+    # so wait for a better frame (the app retries on no_face) instead of guessing.
+    try:
+        problem, quality = _face_quality(Image.open(io.BytesIO(fr["jpeg"])).convert("RGB"), LIVE_FACE_MIN_PX, LIVE_BLUR_MIN)
+    except Exception:
+        problem, quality = None, {}
+    if problem:
+        return {"status": "no_face", "quality": problem, **quality}
+
     tmp = f"face_{uuid.uuid4().hex[:6]}.jpg"
     with open(tmp, "wb") as f:
         f.write(fr["jpeg"])
@@ -901,15 +945,11 @@ def identify_core(patient_id: str, ask: bool = True):
     if not emb:
         return {"status": "no_face"}
 
-    best, best_sim = None, 0.0
-    for p in PEOPLE.get(patient_id, []):
-        # Nearest prototype in the person's gallery - one good view is enough.
-        sim = max((_cos(emb, g) for g in p.get("embeddings", [])), default=0.0)
-        if sim > best_sim:
-            best, best_sim = p, sim
+    best, best_sim, second_sim, sure = _family_decision(_rank_faces(patient_id, emb))
+    margin = round(best_sim - second_sim, 3)
 
     now = datetime.datetime.now()
-    if best and best_sim >= FACE_MATCH and not _is_verified(best):
+    if best and sure and not _is_verified(best):
         # Seen before, but the caregiver hasn't confirmed who they are - don't
         # assert a family relation to the patient on an unverified claim.
         best["last_seen"] = now.isoformat()
@@ -917,12 +957,14 @@ def identify_core(patient_id: str, ask: bool = True):
         _save()
         return {"status": "pending_known", "person": _public_person(best), "similarity": round(best_sim, 3),
                 "say_si": "මේ කෙනාව මම කලින් දැකලා තියෙනවා. Caregiver තවම තහවුරු කරලා නැහැ."}
-    if best and best_sim >= FACE_MATCH:
+    if best and sure:
         learned = False
-        if best_sim < FACE_NEW_VIEW:
+        if FAMILY_LEARN <= best_sim < FACE_NEW_VIEW and _anchor_sim(emb, best) >= ANCHOR_AGREE:
             # Adaptive step: a confident match from a new angle/lighting becomes
-            # another prototype, so tomorrow's recognition is more robust.
-            best["embeddings"] = (best.get("embeddings", []) + [emb])[-GALLERY_CAP:]
+            # another prototype, so tomorrow's recognition is more robust. Only
+            # very sure matches that also agree with the enrolment photos, so
+            # someone else's face can't slowly creep into this person's gallery.
+            _add_view(best, emb)
             learned = True
         last = best.get("last_seen")
         # Log a "met" diary event at most once an hour per person.
@@ -938,10 +980,10 @@ def identify_core(patient_id: str, ask: bool = True):
         again = " අද ආයෙත් ඇවිත්." if today and today["count"] >= 1 else ""
         say = f"මේ ඔබේ {best['relation_si']}{(' ' + who) if who else ''}.{again}"
         return {"status": "known", "person": _public_person(best), "similarity": round(best_sim, 3),
-                "learned_new_view": learned, "say_si": say}
+                "margin": margin, "learned_new_view": learned, "say_si": say}
 
     if not ask:
-        return {"status": "unknown_silent", "similarity": round(best_sim, 3)}
+        return {"status": "unknown_silent", "similarity": round(best_sim, 3), "margin": margin}
 
     pending_id = uuid.uuid4().hex[:10]
     PENDING_FACES[pending_id] = {
@@ -969,8 +1011,9 @@ async def log_interaction(patient_id: str = Form(...), kind: str = Form(...), re
 
 
 def _public_person(p):
-    out = {k: v for k, v in p.items() if k not in ("embedding", "embeddings")}
+    out = {k: v for k, v in p.items() if k not in ("embedding", "embeddings", "anchors")}
     out["face_samples"] = len(p.get("embeddings", []))
+    out["enrol_photos"] = len(_anchors(p))
     return out
 
 
@@ -1029,8 +1072,9 @@ async def save_person(patient_id: str = Form(...), pending_id: str = Form(...), 
     same_rel = [p for p in verified if p["relation"] == parsed["relation"]]
     if same_rel:
         sim, match = max(((_face_sim(pending["embedding"], p), p) for p in same_rel), key=lambda x: x[0])
-        if sim >= FACE_MAYBE:
-            match["embeddings"] = (match.get("embeddings", []) + [pending["embedding"]])[-GALLERY_CAP:]
+        if sim >= FAMILY_VERIFY and _anchor_sim(pending["embedding"], match) >= FACE_MAYBE:
+            if sim >= FAMILY_LEARN or _anchor_sim(pending["embedding"], match) >= FAMILY_MATCH:
+                _add_view(match, pending["embedding"])
             match["last_seen"] = now
             match["times_met"] = match.get("times_met", 0) + 1
             _save()
@@ -1075,6 +1119,65 @@ def _is_verified(p):
 
 def _face_sim(emb, person):
     return max((_cos(emb, g) for g in person.get("embeddings", [])), default=0.0)
+
+
+def _anchors(person):
+    """The caregiver's enrolment photos - never trimmed or replaced by learned views.
+    People saved before anchors existed fall back to their whole gallery."""
+    return person.get("anchors") or person.get("embeddings", [])
+
+
+def _anchor_sim(emb, person):
+    return max((_cos(emb, g) for g in _anchors(person)), default=0.0)
+
+
+def _add_view(person, emb):
+    """Learned views rotate within the cap; the anchors always stay."""
+    anchors = person.get("anchors") or []
+    learned = [e for e in person.get("embeddings", []) if e not in anchors] + [emb]
+    person["embeddings"] = anchors + learned[-max(GALLERY_CAP - len(anchors), 3):]
+
+
+def _rank_faces(patient_id, emb, only=None):
+    """-> [(sim, anchor_sim, person)] best first, over the patient's family."""
+    people = [p for p in PEOPLE.get(patient_id, []) if p.get("embeddings") and (only is None or only(p))]
+    return sorted(((_face_sim(emb, p), _anchor_sim(emb, p), p) for p in people), key=lambda x: x[0], reverse=True)
+
+
+def _family_decision(ranked):
+    """Margin rule: (person, sim, second_sim, sure). Sure only when the best match is
+    above FAMILY_MATCH, agrees with that person's enrolment photos, and beats the
+    next family member by FAMILY_MARGIN - otherwise two look-alike relatives
+    (brothers, a grandson and his cousin) would be greeted by a coin flip."""
+    if not ranked:
+        return None, 0.0, 0.0, False
+    sim, a_sim, p = ranked[0]
+    second = ranked[1][0] if len(ranked) > 1 else 0.0
+    sure = sim >= FAMILY_MATCH and a_sim >= ANCHOR_AGREE and sim - second >= FAMILY_MARGIN
+    return p, sim, second, sure
+
+
+def _face_quality(img, min_px, blur_min):
+    """Size + sharpness gate on the single biggest face. -> (problem or None, info)."""
+    detector = _ctx.get("face_detector")
+    if detector is None:
+        return None, {}
+    with INFER_LOCK:
+        boxes, probs = detector.detect(img)
+    faces = [(b, p) for b, p in zip(boxes if boxes is not None else [], probs if probs is not None else []) if p and p >= 0.90]
+    if not faces:
+        return "no_face", {}
+    (x1, y1, x2, y2), prob = max(faces, key=lambda f: (f[0][2] - f[0][0]))
+    width = float(x2 - x1)
+    crop = img.crop((max(0, int(x1)), max(0, int(y1)), int(x2), int(y2))).convert("L").resize((160, 160))
+    g = np.asarray(crop, dtype=np.float32)
+    lap = g[:-2, 1:-1] + g[2:, 1:-1] + g[1:-1, :-2] + g[1:-1, 2:] - 4 * g[1:-1, 1:-1]
+    info = {"faces": len(faces), "face_px": round(width), "sharpness": round(float(lap.var()), 1), "prob": round(float(prob), 3)}
+    if width < min_px:
+        return "small", info
+    if info["sharpness"] < blur_min:
+        return "blurry", info
+    return None, info
 
 
 def _log_met(patient_id, person):
@@ -1136,18 +1239,15 @@ def _face_from_upload(raw):
     Sinhala reason the photo should be retaken."""
     img = ImageOps.exif_transpose(Image.open(io.BytesIO(raw))).convert("RGB")
     img.thumbnail((1024, 1024))
-    detector = _ctx.get("face_detector")
-    if detector is not None:
-        with INFER_LOCK:
-            boxes, probs = detector.detect(img)
-        faces = [b for b, p in zip(boxes if boxes is not None else [], probs if probs is not None else []) if p and p >= 0.90]
-        if not faces:
-            return None, None, "මුහුණක් පේන්නේ නැහැ"
-        if len(faces) > 1:
-            return None, None, "මුහුණු කිහිපයක් තියෙනවා - එක් කෙනෙක් විතරක් ඉන්න"
-        x1, y1, x2, y2 = faces[0]
-        if (x2 - x1) < 60:
-            return None, None, "මුහුණ ගොඩක් පොඩියි - ළඟට එන්න"
+    problem, info = _face_quality(img, FACE_MIN_PX, BLUR_MIN)
+    if problem == "no_face":
+        return None, None, "මුහුණක් පේන්නේ නැහැ"
+    if info.get("faces", 1) > 1:
+        return None, None, "මුහුණු කිහිපයක් තියෙනවා - එක් කෙනෙක් විතරක් ඉන්න"
+    if problem == "small":
+        return None, None, "මුහුණ ගොඩක් පොඩියි - ළඟට එන්න"
+    if problem == "blurry":
+        return None, None, "Photo එක පැහැදිලි නැහැ (blur) - phone එක නොසෙල්වා ආයෙත් ගන්න"
     buf = io.BytesIO()
     img.save(buf, "JPEG", quality=88)
     jpeg = buf.getvalue()
@@ -1179,12 +1279,66 @@ async def enroll_family(
     patient_id: str = Form(...), pin: str = Form(...), name: str = Form(...),
     relation: str = Form(...), files: list[UploadFile] = File(...),
     conversation_ok: bool = Form(False),
+    confirm_different: bool = Form(False),
 ):
     if not _pin_ok(patient_id, pin):
         return {"status": "error", "message": "Caregiver PIN is wrong"}
     if not _ctx.get("facenet_ok"):
         return {"status": "error", "message": "Face model not installed on the server"}
 
+    consistent, first_jpeg, problems, err = await _enrol_photos(files)
+    if err:
+        return err
+
+    # Already registered? Compared with each person's ENROLMENT photos (anchors),
+    # averaged over all the new photos - one look-alike shot is not a duplicate,
+    # and views the app learned later can't block a new family member.
+    similar = []
+    for p in PEOPLE.get(patient_id, []):
+        if p.get("embeddings"):
+            sims = [_anchor_sim(e, p) for e in consistent]
+            similar.append((float(np.mean(sims)), max(sims), p))
+    similar.sort(key=lambda x: x[0], reverse=True)
+    if similar and similar[0][0] >= FAMILY_MATCH and not confirm_different:
+        mean_sim, _mx, p = similar[0]
+        # Could be the same person again, or a look-alike relative (brother, son).
+        # The caregiver decides - the PIN was already checked above.
+        return {"status": "similar", "similarity": round(mean_sim, 3), "person": _public_person(p),
+                "message": f"මේ මුහුණ '{p['name']}' ({p['relation_si']}) ට ගොඩක් සමානයි ({round(mean_sim * 100)}%). "
+                           f"මේ වෙනම කෙනෙක්ද?",
+                "message_en": f"This face looks very like {p['name']} ({p['relation']}) - {round(mean_sim * 100)}%. "
+                              f"Is this a different person?"}
+
+    relation = relation.lower().strip()
+    rel_si = EN_REL_TO_SI.get(relation, relation)
+    now = datetime.datetime.now().isoformat()
+    person = {
+        "id": f"per-{uuid.uuid4().hex[:8]}", "name": name.strip() or rel_si, "relation": relation,
+        "relation_si": rel_si, "embeddings": list(consistent), "anchors": list(consistent),
+        "photo_url": _upload(first_jpeg, "memocare_family"),
+        "created": now, "last_seen": None, "times_met": 0, "status": "verified", "enrolled": True,
+        # The family member's consent for visit conversations to be summarised (visit_talk.py).
+        "conversation_ok": bool(conversation_ok),
+        **({"conversation_consent_at": now} if conversation_ok else {}),
+    }
+    PEOPLE.setdefault(patient_id, []).append(person)
+    cleaned = {}
+    if confirm_different:
+        # The caregiver said "a different person": views of this new person the
+        # app may have wrongly learned into the look-alike's gallery are removed.
+        for mean_sim, _mx, p in similar:
+            if mean_sim >= FAMILY_MATCH:
+                n = _drop_views_closer_to(p, person)
+                if n:
+                    cleaned[p["name"]] = n
+    _save()
+    return {"status": "success", "person": _public_person(person), "photos_used": len(consistent),
+            "problems": problems, "cleaned_views": cleaned}
+
+
+async def _enrol_photos(files):
+    """Quality-check every photo and keep the ones that agree with each other.
+    -> (embeddings, first_jpeg, problems, error_response or None)"""
     embeddings, first_jpeg, problems = [], None, []
     for i, f in enumerate(files):
         emb, jpeg, problem = _face_from_upload(await f.read())
@@ -1194,37 +1348,90 @@ async def enroll_family(
         embeddings.append(emb)
         first_jpeg = first_jpeg or jpeg
     if len(embeddings) < 2:
-        return {"status": "error", "message": "හොඳ photos අවම 2ක් ඕනේ.", "problems": problems}
-
+        return [], None, problems, {"status": "error", "message": "හොඳ photos අවම 2ක් ඕනේ.", "problems": problems}
     # Photos of one person should agree with each other - catches a photo of the
     # wrong person slipping into the set.
     centre = np.mean(np.array(embeddings), axis=0)
     consistent = [e for e in embeddings if _cos(e, centre) >= 0.6]
     if len(consistent) < 2:
-        return {"status": "error", "message": "Photos එකම කෙනාගේ වගේ පේන්නේ නැහැ. ආයෙත් ගන්න.", "problems": problems}
+        return [], None, problems, {"status": "error", "message": "Photos එකම කෙනාගේ වගේ පේන්නේ නැහැ. ආයෙත් ගන්න.",
+                                    "problems": problems}
+    return consistent, first_jpeg, problems, None
 
-    for p in PEOPLE.get(patient_id, []):
-        if not p.get("embeddings"):
-            continue
-        sim = max(_face_sim(e, p) for e in consistent)
-        if sim >= FACE_MATCH:
-            return {"status": "duplicate", "message": f"මේ කෙනා දැනටමත් '{p['name']}' ({p['relation_si']}) ලෙස ඉන්නවා.",
-                    "person": _public_person(p)}
 
-    relation = relation.lower().strip()
-    rel_si = EN_REL_TO_SI.get(relation, relation)
-    now = datetime.datetime.now().isoformat()
-    person = {
-        "id": f"per-{uuid.uuid4().hex[:8]}", "name": name.strip() or rel_si, "relation": relation,
-        "relation_si": rel_si, "embeddings": consistent, "photo_url": _upload(first_jpeg, "memocare_family"),
-        "created": now, "last_seen": None, "times_met": 0, "status": "verified", "enrolled": True,
-        # The family member's consent for visit conversations to be summarised (visit_talk.py).
-        "conversation_ok": bool(conversation_ok),
-        **({"conversation_consent_at": now} if conversation_ok else {}),
-    }
-    PEOPLE.setdefault(patient_id, []).append(person)
+def _drop_views_closer_to(person, other):
+    """Remove learned (non-anchor) views of `person` that look more like `other`."""
+    anchors = person.get("anchors") or []
+    keep, dropped = [], 0
+    for e in person.get("embeddings", []):
+        if e in anchors or _anchor_sim(e, person) >= _anchor_sim(e, other):
+            keep.append(e)
+        else:
+            dropped += 1
+    person["embeddings"] = keep
+    return dropped
+
+
+def _rebuild_anchors(person):
+    """For people saved before anchors existed: the enrolment photo (photo_url) is
+    the truth; otherwise the densest group of views. Views that disagree with it
+    are removed. -> number of views removed."""
+    gallery = person.get("embeddings", [])
+    if person.get("anchors") or len(gallery) < 2:
+        return 0
+    ref = None
+    if person.get("photo_url"):
+        try:
+            import urllib.request
+            raw = urllib.request.urlopen(person["photo_url"], timeout=15).read()
+            ref, _j, _p = _face_from_upload(raw)
+        except Exception as e:
+            print("anchor photo download failed:", e)
+    if ref is None:
+        ref = max(gallery, key=lambda g: sum(_cos(g, h) >= FAMILY_MATCH for h in gallery))
+    keep = [g for g in gallery if _cos(g, ref) >= ANCHOR_AGREE] or [ref]
+    person["anchors"] = keep[:5]
+    person["embeddings"] = keep
+    return len(gallery) - len(keep)
+
+
+@router.post("/family/add-photos")
+async def add_family_photos(patient_id: str = Form(...), pin: str = Form(...), person_id: str = Form(...),
+                            files: list[UploadFile] = File(...)):
+    """More enrolment photos for someone already registered (another angle, glasses,
+    new haircut) - several photos per person make recognition steadier."""
+    if not _pin_ok(patient_id, pin):
+        return {"status": "error", "message": "Caregiver PIN is wrong"}
+    person = next((p for p in PEOPLE.get(patient_id, []) if p["id"] == person_id), None)
+    if not person:
+        return {"status": "error", "message": "Person not found"}
+    consistent, _j, problems, err = await _enrol_photos(files)
+    if err:
+        return err
+    _rebuild_anchors(person)
+    if np.mean([_anchor_sim(e, person) for e in consistent]) < FACE_MAYBE:
+        return {"status": "error", "message": f"මේ photos '{person['name']}' ගේ වගේ පේන්නේ නැහැ.", "problems": problems}
+    person["anchors"] = ((person.get("anchors") or []) + consistent)[-10:]
+    for e in consistent:
+        _add_view(person, e)
     _save()
     return {"status": "success", "person": _public_person(person), "photos_used": len(consistent), "problems": problems}
+
+
+@router.post("/family/clean-faces")
+async def clean_faces(patient_id: str = Form(...), pin: str = Form(...)):
+    """Give every registered person enrolment anchors and remove learned views that
+    belong to someone else (fixes a person being greeted as their look-alike)."""
+    if not _pin_ok(patient_id, pin):
+        return {"status": "error", "message": "Caregiver PIN is wrong"}
+    people = [p for p in PEOPLE.get(patient_id, []) if p.get("embeddings")]
+    removed = {p["name"]: _rebuild_anchors(p) for p in people}
+    for p in people:
+        for q in people:
+            if q is not p:
+                removed[p["name"]] += _drop_views_closer_to(p, q)
+    _save()
+    return {"status": "success", "removed_views": removed}
 
 
 @router.get("/family/{patient_id}")

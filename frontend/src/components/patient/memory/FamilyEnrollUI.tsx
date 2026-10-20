@@ -42,6 +42,8 @@ export default function FamilyEnrollUI() {
   const [talkOk, setTalkOk] = useState(false); // consent to summarise visit conversations - off unless given
   const [message, setMessage] = useState('');
   const [saved, setSaved] = useState<{ name: string; relation_si: string; photo_url: string; samples: number } | null>(null);
+  // The server found a registered face very like this one - same person, or a look-alike relative?
+  const [similar, setSimilar] = useState<{ id: string; name: string; relation_si: string; photo_url: string; pct: number } | null>(null);
   const alive = useRef(true);
 
   useEffect(() => {
@@ -101,13 +103,14 @@ export default function FamilyEnrollUI() {
     setBusy(false);
   };
 
-  const save = async () => {
+  const save = async (confirmDifferent = false) => {
     const pid = await getPatientId();
     const pin = getCaregiverPin();
     if (!pid || !pin) return router.replace('/patient/family' as any);
     if (!relation) return setMessage('Relation එක තෝරන්න');
     setStep('saving');
     setMessage('');
+    setSimilar(null);
     try {
       const f = new FormData();
       f.append('patient_id', pid);
@@ -115,6 +118,7 @@ export default function FamilyEnrollUI() {
       f.append('name', name.trim());
       f.append('relation', relation);
       f.append('conversation_ok', talkOk ? 'true' : 'false');
+      f.append('confirm_different', confirmDifferent ? 'true' : 'false');
       goodShots.forEach((s, i) => f.append('files', { uri: s.uri, name: `face${i}.jpg`, type: 'image/jpeg' } as any));
       const res = await axios.post(`${AI_URL}/family/enroll`, f, {
         headers: { 'Content-Type': 'multipart/form-data' }, timeout: 60000,
@@ -124,10 +128,45 @@ export default function FamilyEnrollUI() {
         setSaved({ name: p.name, relation_si: p.relation_si, photo_url: p.photo_url, samples: res.data.photos_used });
         setStep('done');
         speak(`${p.name !== p.relation_si ? p.name + ', ' : ''}${p.relation_si} ලියාපදිංචි වුණා.`);
+      } else if (res.data.status === 'similar') {
+        const p = res.data.person;
+        setSimilar({ id: p.id, name: p.name, relation_si: p.relation_si, photo_url: p.photo_url, pct: Math.round(res.data.similarity * 100) });
+        setStep('details');
       } else {
         setMessage(res.data.message + (res.data.problems?.length ? `\n${res.data.problems.join('\n')}` : ''));
         setStep(res.data.status === 'duplicate' ? 'details' : 'capture');
         if (res.data.status !== 'duplicate') setShots([]);
+      }
+    } catch {
+      setMessage('සුරකින්න බැරි වුණා. AI සේවාව බලන්න.');
+      setStep('details');
+    }
+  };
+
+  // "Same person" -> these photos become extra enrolment photos of the registered one.
+  const addToExisting = async () => {
+    const pid = await getPatientId();
+    const pin = getCaregiverPin();
+    if (!pid || !pin || !similar) return;
+    setStep('saving');
+    try {
+      const f = new FormData();
+      f.append('patient_id', pid);
+      f.append('pin', pin);
+      f.append('person_id', similar.id);
+      goodShots.forEach((s, i) => f.append('files', { uri: s.uri, name: `face${i}.jpg`, type: 'image/jpeg' } as any));
+      const res = await axios.post(`${AI_URL}/family/add-photos`, f, {
+        headers: { 'Content-Type': 'multipart/form-data' }, timeout: 60000,
+      });
+      if (res.data.status === 'success') {
+        const p = res.data.person;
+        setSaved({ name: p.name, relation_si: p.relation_si, photo_url: p.photo_url, samples: res.data.photos_used });
+        setSimilar(null);
+        setStep('done');
+        speak(`${p.name} ගේ photos ${res.data.photos_used}ක් එකතු කළා.`);
+      } else {
+        setMessage(res.data.message);
+        setStep('details');
       }
     } catch {
       setMessage('සුරකින්න බැරි වුණා. AI සේවාව බලන්න.');
@@ -209,9 +248,27 @@ export default function FamilyEnrollUI() {
             </View>
           </TouchableOpacity>
           {!!message && <Text style={s.err}>{message}</Text>}
-          <TouchableOpacity style={s.primary} onPress={save} disabled={step === 'saving'}>
-            {step === 'saving' ? <ActivityIndicator color="#fff" /> : <Text style={s.primaryText}>ලියාපදිංචි කරන්න</Text>}
-          </TouchableOpacity>
+          {similar ? (
+            <View style={s.similar}>
+              <View style={s.similarRow}>
+                {!!similar.photo_url && <Image source={{ uri: similar.photo_url }} style={s.similarImg} />}
+                <View style={{ flex: 1 }}>
+                  <Text style={s.similarTitle}>{similar.name} ({similar.relation_si}) ට {similar.pct}% සමානයි</Text>
+                  <Text style={s.similarText}>Looks very like {similar.name}. Is this a different person?</Text>
+                </View>
+              </View>
+              <TouchableOpacity style={s.primary} onPress={() => save(true)} disabled={step === 'saving'}>
+                {step === 'saving' ? <ActivityIndicator color="#fff" /> : <Text style={s.primaryText}>ඔව්, වෙනම කෙනෙක් · Different person</Text>}
+              </TouchableOpacity>
+              <TouchableOpacity style={s.secondary} onPress={addToExisting} disabled={step === 'saving'}>
+                <Text style={s.secondaryText}>නැහැ, {similar.name} ම තමයි · Same person, add these photos</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity style={s.primary} onPress={() => save()} disabled={step === 'saving'}>
+              {step === 'saving' ? <ActivityIndicator color="#fff" /> : <Text style={s.primaryText}>ලියාපදිංචි කරන්න</Text>}
+            </TouchableOpacity>
+          )}
         </ScrollView>
       </SafeAreaView>
     );
@@ -296,6 +353,13 @@ const s = StyleSheet.create({
   consentText: { color: '#94a3b8', fontSize: 12.5, lineHeight: 18, marginTop: 3 },
   primary: { alignSelf: 'stretch', backgroundColor: '#14b8a6', borderRadius: 18, paddingVertical: 16, alignItems: 'center' },
   primaryText: { color: '#042f2e', fontWeight: '900', fontSize: 17 },
+  secondary: { alignSelf: 'stretch', borderRadius: 18, paddingVertical: 14, alignItems: 'center', borderWidth: 1.5, borderColor: '#5eead4' },
+  secondaryText: { color: '#5eead4', fontWeight: '800', fontSize: 14, textAlign: 'center', paddingHorizontal: 10 },
+  similar: { gap: 10, padding: 14, borderRadius: 18, backgroundColor: 'rgba(251,191,36,0.08)', borderWidth: 1.5, borderColor: '#fbbf24' },
+  similarRow: { flexDirection: 'row', gap: 12, alignItems: 'center' },
+  similarImg: { width: 64, height: 64, borderRadius: 32, borderWidth: 2, borderColor: '#fbbf24' },
+  similarTitle: { color: '#fde68a', fontWeight: '900', fontSize: 15 },
+  similarText: { color: '#fef3c7', fontSize: 13, marginTop: 2 },
 
   doneCard: { margin: 20, backgroundColor: '#0f3d3a', borderRadius: 28, padding: 24, alignItems: 'center', gap: 10 },
   doneImg: { width: 140, height: 140, borderRadius: 70, borderWidth: 4, borderColor: '#5eead4' },
