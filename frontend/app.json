@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "MemoCare",
-    "slug": "MemoCare",
+    "slug": "memocare",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -98,6 +98,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "owner": "pasi_ndu",
+    "extra": {
+      "eas": {
+        "projectId": "43e30fb3-dfc7-4f72-958a-e1d4a9b5601c"
+      }
     }
   }
 }

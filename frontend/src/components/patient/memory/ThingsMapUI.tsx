@@ -109,6 +109,7 @@ export default function ThingsMapUI() {
                 {it.familiar && <Text style={s.usual}>⭐ සුපුරුදු දෙයක් · seen {it.times_seen}x</Text>}
                 <Text style={s.rowMeta}>{timeAgo(it.time)}{it.room_si ? ` · ${it.room_si}` : ''}</Text>
                 {!it.lat && <Text style={s.noGps}>GPS නැහැ - කාමරය බලන්න</Text>}
+                {it.lat != null && it.lng != null && <Text style={s.rowMeta}>🌐 {it.lat.toFixed(6)}, {it.lng.toFixed(6)}</Text>}
               </View>
               {it.lat && it.lng ? (
                 <TouchableOpacity style={s.navBtn}

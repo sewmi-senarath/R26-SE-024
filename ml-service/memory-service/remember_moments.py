@@ -71,6 +71,7 @@ MOMENTS = {}         # pid -> [moment]
 LAST_SEEN = {}       # pid -> {label: {...latest sighting...}}
 PEOPLE = {}          # pid -> [{id, name, relation, relation_si, embeddings: [[...]], photo_url, created, last_seen}]
 OBJECT_GALLERY = {}  # pid -> {label: [embedding, ...]}  - this patient's own cup, glasses, ...
+PATIENT_NAMES = {}   # pid -> first name, so another resident's things can be named ("Kamala's keys")
 INTERACTIONS = {}    # pid -> {date: {key: {kind, ref, name_si, seconds, count}}}
 STORIES = {}         # pid -> {date: {lang: {title, story, photos, people, created, auto}}}
 CAREGIVER_PINS = {}  # pid -> sha256(pin) - gates family registration / approvals
@@ -97,6 +98,7 @@ INFER_LOCK = threading.RLock()
 
 def _load():
     global MOMENTS, LAST_SEEN, PEOPLE, OBJECT_GALLERY, INTERACTIONS, STORIES, CAREGIVER_PINS, FAMILY_ALERTS, FIND_LOG
+    global PATIENT_NAMES
     if os.path.exists(DB_FILE):
         try:
             with open(DB_FILE, "r", encoding="utf-8") as f:
@@ -110,6 +112,7 @@ def _load():
             CAREGIVER_PINS = data.get("CAREGIVER_PINS", {})
             FAMILY_ALERTS = data.get("FAMILY_ALERTS", {})
             FIND_LOG = data.get("FIND_LOG", {})
+            PATIENT_NAMES = data.get("PATIENT_NAMES", {})
         except Exception as e:
             print("moments_db load failed:", e)
     # Older records stored a single "embedding" - move it into the gallery.
@@ -125,7 +128,8 @@ def _save():
             json.dump({"MOMENTS": MOMENTS, "LAST_SEEN": LAST_SEEN, "PEOPLE": PEOPLE,
                        "OBJECT_GALLERY": OBJECT_GALLERY, "INTERACTIONS": INTERACTIONS,
                        "STORIES": STORIES, "CAREGIVER_PINS": CAREGIVER_PINS,
-                       "FAMILY_ALERTS": FAMILY_ALERTS, "FIND_LOG": FIND_LOG}, f, ensure_ascii=False)
+                       "FAMILY_ALERTS": FAMILY_ALERTS, "FIND_LOG": FIND_LOG,
+                       "PATIENT_NAMES": PATIENT_NAMES}, f, ensure_ascii=False)
 
 
 def _today():
@@ -474,11 +478,17 @@ async def detect_live(
     except Exception:
         return {"status": "error", "message": "Frame was not a valid image"}
 
+    first = (patient_name or "").strip().split(" ")[0]
+    if first and PATIENT_NAMES.get(patient_id) != first:
+        PATIENT_NAMES[patient_id] = first
     detections = _detect(img)
     _remember_frame(patient_id, jpeg, detections)
 
     shown = [dict(d) for d in detections]   # the stored frame keeps the plain labels
     _mark_owned(patient_id, patient_name, jpeg, shown)
+    for d, s_ in zip(detections, shown):    # ...but remembers which ones belong to another resident
+        if s_.get("other_owner"):
+            d["other_owner"] = s_["other_owner"]
     result = {"status": "success", "detections": shown, "width": img.size[0], "height": img.size[1]}
     if esp32_url:
         # The app can't fetch the exact same ESP32 frame again, so send back
@@ -493,6 +503,7 @@ OWNED_MAX_PER_FRAME = 5   # embeddings are the slow part; a frame rarely has mor
 # the live camera sees the same cup from new angles; it is only ever compared
 # with this patient's own saved things, so it cannot pick up another patient's.
 OWNED_LIVE_SIM = float(os.environ.get("OWNED_LIVE_SIM", "0.75"))
+OTHER_OWNER_SIM = float(os.environ.get("OTHER_OWNER_SIM", "0.82"))
 
 
 def _owner_si(name):
@@ -524,6 +535,27 @@ def _mark_owned(pid, patient_name, jpeg, detections):
             d["familiarity"] = round(sim, 3)
             d["label_si"] = f"{_owner_si(name)} {d['label_si']}"
             d["label_en"] = f"{name}'s {d['label']}" if name else f"your {d['label']}"
+    # Shared rooms (an elder home): a thing that is not this patient's but clearly matches
+    # another resident's own one is named as theirs and is never saved into this patient's
+    # memories. Stricter than the own-match, because a wrong "not yours" hides a real thing.
+    for d in detections:
+        if d.get("owned") or d["label"] in FIXED_ANCHORS or checked >= OWNED_MAX_PER_FRAME:
+            continue
+        others = [(p, g[d["label"]]) for p, g in OBJECT_GALLERY.items()
+                  if p != pid and d["label"] in g and p in PATIENT_NAMES]
+        if not others:
+            continue
+        checked += 1
+        emb = _object_embedding(jpeg, d["box"])
+        if emb is None:
+            continue
+        own_sim = max((_cos(emb, g) for g in gallery.get(d["label"], [])), default=0.0)
+        best_p, best_sim = max(((p, max(_cos(emb, x) for x in embs)) for p, embs in others), key=lambda t: t[1])
+        if best_sim >= OTHER_OWNER_SIM and best_sim > own_sim + 0.05:
+            other = PATIENT_NAMES[best_p]
+            d["other_owner"] = other
+            d["label_si"] = f"{_owner_si(other)} {d['label_si']}"
+            d["label_en"] = f"{other}'s {d['label']}"
 
 
 # ─── Short clips of essential things ─────────────────────────────────────────
@@ -658,6 +690,14 @@ def save_moment_core(patient_id, labels, lat=None, lng=None, room=None, source="
     frames = list(LIVE_FRAMES.get(patient_id, []))
     if not frames:
         return {"status": "error", "message": "No live frames for this patient - run /detect-live first"}
+    # Validation: a thing seen only as another resident's own one is not this patient's memory.
+    def _theirs_only(lbl):
+        hits = [d for fr in frames for d in fr["detections"] if d["label"] == lbl]
+        return bool(hits) and all(d.get("other_owner") for d in hits)
+    not_mine = [l for l in wanted if _theirs_only(l)]
+    wanted = [l for l in wanted if l not in not_mine]
+    if not wanted:
+        return {"status": "success", "result": "unchanged", "same": [], "not_mine": not_mine, "say_si": ""}
 
     # Best 3 frames = the ones containing the most of the wanted objects.
     def frame_score(fr):
@@ -699,6 +739,8 @@ def save_moment_core(patient_id, labels, lat=None, lng=None, room=None, source="
         if lbl in seen:
             seen[lbl]["time"] = now
             seen[lbl]["times_seen"] = seen[lbl].get("times_seen", 0) + 1
+            if lat is not None and lng is not None:   # the latest GPS fix where it was seen
+                seen[lbl]["lat"], seen[lbl]["lng"] = lat, lng
             _add_interaction(patient_id, "object", lbl, si_name(lbl), dwell_seconds)
     hook = _ctx.get("on_new_object")
     for lbl in new:
@@ -718,7 +760,7 @@ def save_moment_core(patient_id, labels, lat=None, lng=None, room=None, source="
     crops = {}
     for lbl in wanted:
         for fr in best:
-            hit = next((d for d in fr["detections"] if d["label"] == lbl), None)
+            hit = next((d for d in fr["detections"] if d["label"] == lbl and not d.get("other_owner")), None)
             if hit:
                 objects.append({**hit, "photo_url": photo_urls[min(best.index(fr), len(photo_urls) - 1)]})
                 crops[lbl] = (fr["jpeg"], hit["box"])
