@@ -6,18 +6,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as Location from 'expo-location';
-import MapView, { Marker, Polyline } from 'react-native-maps';
+import MapView, { Marker } from 'react-native-maps';
 import axios from 'axios';
 import { RecordingPresets, useAudioRecorder } from 'expo-audio';
 import {
-  AI_URL, SeenThing, bearingDegrees, distanceMetres, getPatientId, relativeDirection, speak,
+  AI_URL, SeenThing, distanceMetres, getPatientId, speak,
   startListening, stopAndUnderstand, stopSpeaking, timeAgo,
 } from '../../../services/memoryAI';
 import { EmptyBoxArt, VoiceArt } from './findThings/Illustrations';
 import ClipPlayer from './findThings/ClipPlayer';
 
 const LISTEN_SECONDS = 5;
-const NEAR_METRES = 15; // below this, GPS can't tell rooms apart - guide by room/anchor instead
 // While the map is open the thing's place is re-read this often: seen again somewhere
 // else -> the pin moves there (the server keeps only the latest sighting).
 const ITEM_REFRESH_MS = 10000;
@@ -112,15 +111,14 @@ export default function FindByVoiceUI() {
     return () => clearInterval(id);
   }, [openLabel, patientId]);
 
-  const guidanceFor = (item: SeenThing, here: { lat: number; lng: number } | null, hdg: number | null) => {
-    if (!item.lat || !item.lng || !here) return '';
-    const dist = distanceMetres(here.lat, here.lng, item.lat, item.lng);
-    if (dist < NEAR_METRES) {
-      const near = item.anchors?.length ? ' එතන තිබුණු ලොකු දේවල් ළඟ බලන්න.' : '';
-      return `ඔබ ඒ තැනට ගොඩක් ළඟයි.${item.room_si ? ` ${item.room_si}ේ බලන්න.` : ''}${near}`;
-    }
-    const dir = relativeDirection(bearingDegrees(here.lat, here.lng, item.lat, item.lng), hdg);
-    return `ඒක මීටර් ${Math.round(dist)}ක් ${dir} තියෙන්නේ.`;
+  // No metre count: phone GPS is off by tens of metres (more indoors), so a distance
+  // would mislead. The map shows the last place it was seen; the room and the big
+  // things next to it guide the patient there.
+  const guidanceFor = (item: SeenThing, _here?: unknown, _hdg?: unknown) => {
+    const room = item.room_si ? ` ${item.room_si}ේ බලන්න.` : '';
+    const near = item.anchors?.length ? ` එතන තිබුණු ${item.anchors.join(', ')} ළඟ බලන්න.` : '';
+    const map = item.lat && item.lng ? ' සිතියමේ ඒක අන්තිමට දැක්ක තැන පෙන්නනවා.' : '';
+    return `${room}${near}${map}`.trim();
   };
 
   const findBy = async (params: { label?: string; q?: string }) => {
@@ -196,8 +194,6 @@ export default function FindByVoiceUI() {
       return () => clearTimeout(t);
     }
   });
-  const dist = item && hasMap && userLoc ? distanceMetres(userLoc.lat, userLoc.lng, item.lat!, item.lng!) : null;
-  const camHeading = item && hasMap && userLoc ? bearingDegrees(userLoc.lat, userLoc.lng, item.lat!, item.lng!) : 0;
 
   return (
     <SafeAreaView style={s.container}>
@@ -273,12 +269,6 @@ export default function FindByVoiceUI() {
                   </View>
                 </Marker>
               )}
-              {userLoc && (
-                <Polyline
-                  coordinates={[{ latitude: userLoc.lat, longitude: userLoc.lng }, { latitude: item.lat!, longitude: item.lng! }]}
-                  strokeColor="#7c3aed" strokeWidth={5} lineDashPattern={[10, 8]}
-                />
-              )}
             </MapView>
           ) : item ? (
             <Image source={{ uri: item.photo_url }} style={StyleSheet.absoluteFill} blurRadius={8} />
@@ -321,15 +311,13 @@ export default function FindByVoiceUI() {
                   </View>
                 </View>
                 {!!item.clip_url && <ClipPlayer url={item.clip_url} />}
-                {dist != null && (
+                {hasMap && (
                   <View style={s.distRow}>
                     <View style={s.distBadge}>
-                      <Ionicons name="navigate" size={18} color="#fff" />
-                      <Text style={s.distText}>{dist < NEAR_METRES ? 'ගොඩක් ළඟයි' : `මීටර් ${Math.round(dist)}`}</Text>
+                      <Ionicons name="location" size={18} color="#fff" />
+                      <Text style={s.distText}>අන්තිමට දැක්ක තැන</Text>
                     </View>
-                    {dist >= NEAR_METRES && (
-                      <Text style={s.dirText}>{relativeDirection(camHeading, heading)}</Text>
-                    )}
+                    <Text style={s.dirText}>සිතියමේ දම් පාට ලකුණ</Text>
                   </View>
                 )}
                 {!hasMap && <Text style={s.noGps}>මේ වෙලාවේ GPS තිබුණේ නැහැ - ඡායාරූපය සහ කාමරය බලන්න.</Text>}

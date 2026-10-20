@@ -1625,6 +1625,7 @@ def build_report(pid, days=30):
             "unaided_pct": round(100 * totals["free"] / max(1, sum(totals.values())), 1) if sum(totals.values()) else None,
             "retry_total": sum(1 for x in sessions for a in x["answers"] if a.get("retry")),
             "retry_recovered": sum(1 for x in sessions for a in x["answers"] if a.get("retry") and a["points"] >= 2),
+            "demo_history": any(x.get("demo") for x in sessions),
         },
         "daily": daily, "domains": domains, "cue_totals": totals,
         "mmse": mmse, "mmse_correlation": {"r": corr, "n": len(pairs)},
@@ -1678,67 +1679,155 @@ def _session_view(s):
             "questions": out}
 
 
+DOMAIN_SI = {"people": "පුද්ගලයෝ", "places": "දේවල් තිබ්බ තැන්", "objects": "දේවල්", "time": "සිදුවීම් වෙලාව",
+             "orientation": "දවස / දිනය", "delayed": "පස්සේ මතක් කිරීම", "conversation": "කතාබහ"}
+TREND_SI = {"improving": "දියුණු වෙනවා", "stable": "ස්ථාවරයි", "declining": "අඩු වෙනවා"}
+RISK_SI = {"high": "වැඩියි", "medium": "මධ්‍යම", "low": "අඩුයි"}
+
+
 def _insights(r):
+    """Plain-language summary for the caregiver / family, in English and Sinhala."""
     s, out = r["summary"], []
+
+    def add(tone, en, si):
+        out.append({"tone": tone, "text": en, "text_si": si})
+
+    if s.get("demo_history"):
+        add("muted", "Includes simulated demo history (past 4 weeks) to show the forecast - not real game results.",
+            "මෙහි forecast එක පෙන්වීමට simulated demo දත්ත (පහුගිය සති 4) ඇතුළත් - සැබෑ ක්‍රීඩා ප්‍රතිඵල නෙමෙයි.")
     if s["trend"]:
         word = {"improving": "is improving", "stable": "is stable", "declining": "is going down"}[s["trend"]]
-        out.append({"tone": {"improving": "good", "stable": "neutral", "declining": "warn"}[s["trend"]],
-                    "text": f"Daily memory score {word} ({s['slope_per_week']:+} points per week over the period)."})
+        add({"improving": "good", "stable": "neutral", "declining": "warn"}[s["trend"]],
+            f"Daily memory score {word} ({s['slope_per_week']:+} points per week).",
+            f"දිනපතා මතක ලකුණු {TREND_SI[s['trend']]} (සතියකට {s['slope_per_week']:+}).")
     elif s["sessions"]:
-        out.append({"tone": "neutral", "text": "At least 3 days of memory games are needed to show a trend."})
+        add("neutral", "At least 3 days of memory games are needed to show a trend.",
+            "ප්‍රවණතාවයක් පෙන්වන්න අවම දවස් 3ක මතක ක්‍රීඩා ඕනේ.")
     if s["avg_7"] is not None and s["avg_prev_7"] is not None:
         diff = round(s["avg_7"] - s["avg_prev_7"], 1)
-        out.append({"tone": "good" if diff >= 0 else "warn",
-                    "text": f"This week's average is {s['avg_7']} ({diff:+} compared with the week before)."})
+        add("good" if diff >= 0 else "warn",
+            f"This week's average is {s['avg_7']} ({diff:+} compared with the week before).",
+            f"මේ සතියේ සාමාන්‍යය {s['avg_7']} (කලින් සතියට වඩා {diff:+}).")
+    fc = r.get("forecast") or {}
+    if fc.get("status") == "ok":
+        mae = ((fc.get("model_metrics") or {}).get("mae_4w") or {}).get("partial_pooling")
+        risk_en = f" Chance of a drop of 5 or more points: {round(100 * fc['risk'])}% ({fc['risk_level']})." if fc.get("risk") is not None else ""
+        risk_si = f" ලකුණු 5කට වඩා අඩුවීමේ ඉඩ: {round(100 * fc['risk'])}% ({RISK_SI[fc['risk_level']]})." if fc.get("risk") is not None else ""
+        acc_en = f" In testing this estimate was off by about {round(mae)} points on average." if mae else ""
+        acc_si = f" පරීක්ෂණ වලදී මේ ඇස්තමේන්තුවේ සාමාන්‍ය වැරැද්ද ලකුණු {round(mae)}ක් විතර." if mae else ""
+        add("warn" if fc.get("risk_level") == "high" else "neutral",
+            f"In 4 weeks the score is expected to be about {fc['w4']} (likely {fc['ci4'][0]}-{fc['ci4'][1]}).{risk_en}{acc_en}",
+            f"සති 4කින් ලකුණු {fc['w4']} විතර වෙයි කියලා හිතනවා (බොහෝවිට {fc['ci4'][0]}-{fc['ci4'][1]}).{risk_si}{acc_si}")
+    elif fc.get("status") == "not_enough_data":
+        add("muted", f"No forecast yet: it needs {fc['need_days']} game days in the last month (has {fc['have_days']}).",
+            f"තවම forecast එකක් නැහැ: පහුගිය මාසේ ක්‍රීඩා දවස් {fc['need_days']}ක් ඕනේ (තියෙන්නේ {fc['have_days']}).")
     weak = [d for d in r["domains"] if d["now"] is not None]
     if len(weak) >= 2:
         w = min(weak, key=lambda d: d["now"])
-        out.append({"tone": "warn" if w["now"] < 50 else "neutral",
-                    "text": f"Weakest area this week: {w['label'].lower()} ({w['now']}%). The game asks about it more often."})
+        add("warn" if w["now"] < 50 else "neutral",
+            f"Weakest area this week: {w['label'].lower()} ({round(w['now'])}%). The game asks about it more often.",
+            f"මේ සතියේ දුර්වලම කොටස: {DOMAIN_SI.get(w['key'], w['label'])} ({round(w['now'])}%). ක්‍රීඩාව ඒ ගැන වැඩිපුර අහනවා.")
     if s["unaided_pct"] is not None:
-        out.append({"tone": "neutral", "text": f"{s['unaided_pct']}% of answers were given without any hint."})
+        add("neutral", f"{s['unaided_pct']}% of answers were given without any hint.",
+            f"උත්තර වලින් {s['unaided_pct']}% ක් කිසිම උදව්වක් නැතුව දුන්නා.")
     if s["finds_7"] or s["finds_prev_7"]:
-        top = r["top_items"][0]["label"] if r["top_items"] else ""
-        out.append({"tone": "warn" if s["finds_7"] > s["finds_prev_7"] + 3 else "neutral",
-                    "text": f"Asked where things are {s['finds_7']} times this week (week before: {s['finds_prev_7']})"
-                            + (f"; most often the {top}." if top else ".")})
+        top = r["top_items"][0] if r["top_items"] else None
+        add("warn" if s["finds_7"] > s["finds_prev_7"] + 3 else "neutral",
+            f"Asked where things are {s['finds_7']} times this week (week before: {s['finds_prev_7']})"
+            + (f"; most often the {top['label']}." if top else "."),
+            f"මේ සතියේ දේවල් කොහෙද කියලා {s['finds_7']} වතාවක් ඇහුවා (කලින් සතියේ {s['finds_prev_7']})"
+            + (f"; වැඩියෙන්ම {top['label_si']}." if top else "."))
     if s.get("retry_total"):
-        out.append({"tone": "good" if s["retry_recovered"] * 2 >= s["retry_total"] else "neutral",
-                    "text": f"Practice of forgotten things: {s['retry_recovered']} of {s['retry_total']} items missed earlier "
-                            "were remembered when asked again on a later game."})
+        add("good" if s["retry_recovered"] * 2 >= s["retry_total"] else "neutral",
+            f"{s['retry_recovered']} of {s['retry_total']} things forgotten earlier were remembered when asked again later.",
+            f"කලින් අමතක වුණු දේවල් {s['retry_total']}න් {s['retry_recovered']}ක් පස්සේ ආයෙත් ඇහුවම මතක් වුණා.")
     reps = sum(x["repeats"] for x in r["daily"][-7:])
     if reps:
-        out.append({"tone": "warn", "text": f"{reps} repeated question(s) this week (same item asked again within 30 minutes)."})
+        add("warn", f"{reps} repeated question(s) this week (the same thing asked again within 30 minutes).",
+            f"මේ සතියේ එකම දේ විනාඩි 30ක් ඇතුළත ආයෙත් ඇහුවා {reps} වතාවක්.")
     missed = 7 - s["days_played_7"]
     if s["sessions"] and missed >= 3:
-        out.append({"tone": "neutral", "text": f"No memory game on {missed} of the last 7 days; daily play gives a clearer picture."})
+        add("neutral", f"No memory game on {missed} of the last 7 days; daily play gives a clearer picture.",
+            f"පහුගිය දවස් 7න් {missed}ක මතක ක්‍රීඩාව සෙල්ලම් කළේ නැහැ; හැමදාම සෙල්ලම් කළොත් පැහැදිලි චිත්‍රයක් ලැබෙනවා.")
     if r["mmse"]:
         m = r["mmse"][-1]
-        sev = f", {m['severity']}" if m.get("severity") else ""
-        out.append({"tone": "neutral", "text": f"Latest MMSE (cognitive assessment): {m['total']}/30{sev}, on {m['date']}."})
-    fc = r.get("forecast") or {}
-    if fc.get("status") == "ok":
-        risk = f"; risk of a 5-point drop in 4 weeks: {round(100 * fc['risk'])}% ({fc['risk_level']})" if fc.get("risk") is not None else ""
-        out.append({"tone": "warn" if fc.get("risk_level") == "high" else "neutral",
-                    "text": f"Forecast: about {fc['w4']} in 4 weeks (likely {fc['ci4'][0]}-{fc['ci4'][1]}) and {fc['w8']} in 8 weeks{risk}. "
-                            f"Own trend {fc['own_slope_week']:+}/week, trusted {round(100 * fc['pool_weight'])}% "
-                            "(the rest comes from the population trend)."})
-    elif fc.get("status") == "not_enough_data":
-        out.append({"tone": "muted", "text": f"No forecast yet: it needs {fc['need_days']} game days in the last month "
-                                             f"(has {fc['have_days']})."})
+        add("neutral", f"Latest MMSE test: {m['total']}/30" + (f" ({m['severity']})" if m.get("severity") else "") + f", on {m['date']}.",
+            f"අන්තිම MMSE පරීක්ෂණය: {m['total']}/30" + (f" ({m['severity']})" if m.get("severity") else "") + f", {m['date']}.")
     if r.get("severity"):
         sv = r["severity"]
-        out.append({"tone": "warn" if sv["triage"] == "escalate" else "neutral",
-                    "text": f"Severity screening (other component, {sv['date']}): {sv['triage']}."})
-    if len(r.get("cognitive_games") or []) >= 2:
-        g = r["cognitive_games"]
-        out.append({"tone": "neutral", "text": f"Cognitive games (other component): {len(g)} days, latest accuracy {g[-1]['accuracy']}%."})
+        esc = sv["triage"] == "escalate"
+        add("warn" if esc else "neutral",
+            "Screening suggests a doctor's review." if esc else "Screening: keep monitoring.",
+            "පරීක්ෂණයට අනුව දොස්තර කෙනෙක්ට පෙන්වන්න ඕනේ." if esc else "පරීක්ෂණයට අනුව දිගටම නිරීක්ෂණය කරන්න.")
     c = r["mmse_correlation"]
-    if c["r"] is not None:
-        strength = "strong" if abs(c["r"]) >= 0.7 else "moderate" if abs(c["r"]) >= 0.4 else "weak"
-        out.append({"tone": "neutral", "text": f"Daily score and MMSE agree with a {strength} correlation (r = {c['r']}, n = {c['n']})."})
-    out.append({"tone": "muted", "text": "This report supports monitoring only. It is not a diagnosis; clinical decisions stay with the doctor."})
+    if c["r"] is not None and abs(c["r"]) >= 0.4:
+        add("neutral", "The daily memory score moves together with the MMSE test results.",
+            "දිනපතා මතක ලකුණුයි MMSE පරීක්ෂණ ප්‍රතිඵලයි එකට වෙනස් වෙනවා.")
+    add("muted", "For monitoring only - not a diagnosis. Clinical decisions stay with the doctor.",
+        "මේක නිරීක්ෂණයට විතරයි - රෝග විනිශ්චයක් නෙමෙයි. තීරණ දොස්තර ගන්නවා.")
     return out
+
+
+# ─── Demo history for the viva (clearly marked simulated) ────────────────────
+DEMO_PROFILES = {"declining": (86, -1.5), "slow": (74, -0.4), "stable": (66, 0.05)}   # (start score, points per day)
+
+
+def _seed_history(pid, profile, days=28, seed=11):
+    """28 past days of SIMULATED memory games for a real patient, so the forecast can
+    be demonstrated. Every session is marked demo=True, only days without a real game
+    are filled, and the report shows a "simulated demo history" note."""
+    base, per_day = DEMO_PROFILES[profile]
+    rnd = random.Random(f"{pid}-{seed}")
+    real_days = {s["day"] for s in SESSIONS.get(pid, []) if not s.get("demo")}
+    SESSIONS[pid] = [s for s in SESSIONS.get(pid, []) if not s.get("demo")]
+    today = datetime.date.today()
+    types = [("weekday", "orientation"), ("person_photo", "people"), ("object_place", "places"),
+             ("reveal", "objects"), ("time_of_day", "time"), ("who_visited", "delayed"), ("talk_topic", "conversation")]
+    offs = {"orientation": 12, "people": 6, "places": -10, "objects": 8, "time": -5, "delayed": -16, "conversation": 0}
+    added = 0
+    for back in range(days, 0, -1):
+        d = today - datetime.timedelta(days=back)
+        if d.isoformat() in real_days or rnd.random() < 0.15:
+            continue
+        level = base + per_day * (days - back)
+        qs, ans = [], []
+        for i, (t, dom) in enumerate(rnd.choice(types) for _ in range(10)):
+            p_ok = max(0.05, min(0.97, (level + offs[dom]) / 100))
+            x = rnd.random()
+            pts = 3 if x < p_ok * 0.75 else 2 if x < p_ok else 1 if x < p_ok + 0.18 else 0
+            qs.append({"id": f"s{i}", "type": t, "domain": dom, "prompt_si": "", "prompt_en": "(simulated demo question)",
+                       "answer_si": "", "answer_en": "", "media": {"kind": "none"}})
+            ans.append({"q_index": i, "q_id": f"s{i}", "type": t, "domain": dom, "attempts": [], "points": pts,
+                        "stage_reached": ["choice", "choice", "hint", "free"][pts], "done": True,
+                        "first_ms": int(rnd.uniform(2500, 7000))})
+        sess = {"id": f"qz-sim-{pid[-4:]}-{back}", "pid": pid, "created": f"{d.isoformat()}T20:10:00", "day": d.isoformat(),
+                "level": "normal", "questions": qs, "answers": ans, "finished": True, "demo": True,
+                "finished_at": f"{d.isoformat()}T20:14:00"}
+        sess["score"], sess["stars"], sess["max_stars"] = _score(sess)
+        SESSIONS[pid].append(sess)
+        added += 1
+    SESSIONS[pid].sort(key=lambda x: x["created"])
+    PROFILE.setdefault(pid, {})["demo_history"] = profile
+    return added
+
+
+@router.post("/memory-report/demo-history")
+def demo_history(patient_id: str = Form(...), pin: str = Form(...), targets: str = Form(...), remove: bool = Form(False)):
+    """Caregiver-only. targets = "pid:profile,pid:profile" (profile declining|slow|stable).
+    remove=true takes the simulated sessions out again (real games are never touched)."""
+    if not _caregiver_ok(patient_id, pin):
+        return {"status": "error", "message": "Caregiver PIN required"}
+    out = {}
+    for part in [t for t in targets.split(",") if t.strip()]:
+        pid, _, profile = part.strip().partition(":")
+        if remove:
+            SESSIONS[pid] = [s for s in SESSIONS.get(pid, []) if not s.get("demo")]
+            PROFILE.get(pid, {}).pop("demo_history", None)
+            out[pid] = "removed"
+        elif profile in DEMO_PROFILES:
+            out[pid] = _seed_history(pid, profile)
+    _save()
+    return {"status": "success", "result": out}
 
 
 @router.get("/memory-report/{patient_id}")
@@ -1761,6 +1850,7 @@ def _row(pid, reg=None):
             "registered": bool(reg), "age": (reg or {}).get("age"), "condition": (reg or {}).get("condition"),
             "stage": (reg or {}).get("stage"),
             "simulated": bool(PROFILE.get(pid, {}).get("simulated")),
+            "demo_history": any(x.get("demo") for x in fin),
             "sessions": len(fin), "last_score": fin[-1]["score"] if fin else None,
             "last_played": fin[-1]["day"] if fin else None, "moments": len(rm.MOMENTS.get(pid, [])),
             "mmse_last": mm[-1]["total"] if mm else None, "mmse_date": mm[-1]["date"] if mm else None,

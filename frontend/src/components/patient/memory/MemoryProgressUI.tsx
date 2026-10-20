@@ -47,10 +47,6 @@ const T = {
   fc4: { si: 'සති 4කින්', en: 'In 4 weeks' },
   fc8: { si: 'සති 8කින්', en: 'In 8 weeks' },
   range: { si: 'බොහෝවිට {a}–{b}', en: 'likely {a}–{b}' },
-  trust: { si: 'මේ කෙනාගේම ප්‍රවණතාවය {n}% ක් විශ්වාස කරනවා - ඉතිරිය සාමාන්‍ය ප්‍රවණතාවයෙන්.',
-    en: "The patient's own trend is trusted {n}% - the rest comes from the population trend." },
-  modelNote: { si: 'Model: partial pooling + gradient boosting. Simulated cohort එකකින් පුහුණු කළා (MAE {m} vs පරණ ක්‍රමය {b}).',
-    en: 'Model: partial pooling + gradient boosting, trained on a simulated cohort (MAE {m} vs old rule {b}).' },
   improving: { si: 'දියුණු වෙනවා', en: 'Improving' },
   stable: { si: 'ස්ථාවරයි', en: 'Stable' },
   declining: { si: 'අඩු වෙනවා', en: 'Declining' },
@@ -70,7 +66,11 @@ const T = {
   tapBar: { si: 'දවසක් ඔබලා ලකුණ බලන්න', en: 'Tap a day to see its score' },
   noScore: { si: 'සෙල්ලම් නැහැ', en: 'no game' },
   skills: { si: 'කුසලතා (මේ සතිය / කලින්)', en: 'Skills (this week / before)' },
-  team: { si: 'අනිත් කොටස් වලින් (read-only)', en: 'From the other components (read-only)' },
+  team: { si: 'MMSE සහ අනෙක් පරීක්ෂණ', en: 'MMSE and other tests' },
+  demoHistory: { si: 'Demo දත්ත', en: 'Demo history' },
+  demoBanner: { si: 'Forecast එක පෙන්වීමට පහුගිය සති 4ට simulated demo දත්ත දාලා තියෙනවා - සැබෑ ක්‍රීඩා ප්‍රතිඵල නෙමෙයි.',
+    en: 'Simulated demo history (past 4 weeks) is included to show the forecast - not real game results.' },
+  why: { si: 'ඇයි මේ කොටස?', en: 'Why this area?' },
   mmseHist: { si: 'MMSE ඉතිහාසය', en: 'MMSE history' },
   cogGames: { si: 'Cognitive games දවස් {n} · අන්තිම නිරවද්‍යතාව {a}%', en: 'Cognitive games: {n} days · latest accuracy {a}%' },
   severity: { si: 'Severity screening: {s} ({d})', en: 'Severity screening: {s} ({d})' },
@@ -97,18 +97,28 @@ const DOMAIN_SI: Record<string, string> = {
 const REGIONS = [
   { key: 'frontal', domains: ['orientation', 'time'], si: 'වෙලාව / දවස', en: 'Time & day', top: 22, bottom: 118,
     about: { si: 'අද දවස, දිනය, දේවල් වුණු වෙලාව මතක තියාගැනීම.', en: 'Knowing the day and date, and when things happened.' },
+    why: { si: 'ඉදිරිපස කොටස (frontal lobe) දේවල් වුණු පිළිවෙළ සහ වෙලාව මතක තියාගන්න උදව් වෙනවා.',
+      en: 'The frontal lobe helps keep track of time and the order in which things happened.' },
     d: 'M35 115 C25 70 60 30 115 22 L130 100 C100 112 65 118 35 115 Z', lx: 78, ly: 78 },
   { key: 'parietal', domains: ['places'], si: 'තැන්', en: 'Places', top: 12, bottom: 100,
     about: { si: 'දේවල් තිබ්බ තැන් සහ කාමර මතක තියාගැනීම.', en: 'Remembering where things were put and which room.' },
+    why: { si: 'උඩ කොටස (parietal lobe) තැන් සහ දිශා තේරුම් ගන්නවා. Alzheimer\'s වලදී මේක කලින්ම බලපාන කොටසක්.',
+      en: "The parietal lobe handles places and directions - one of the areas Alzheimer's affects early." },
     d: 'M115 22 C165 12 215 25 240 55 L185 100 L130 100 Z', lx: 178, ly: 58 },
   { key: 'occipital', domains: ['objects'], si: 'දේවල්', en: 'Objects', top: 55, bottom: 135,
     about: { si: 'දැකපු දේවල් හඳුනාගැනීම සහ ඒවා මොකටද කියලා දැනගැනීම.', en: 'Recognising things that were seen and what they are for.' },
+    why: { si: 'පිටුපස කොටස (occipital lobe) ඇහෙන් දකින දේ හඳුනාගන්නවා.',
+      en: 'The occipital lobe, at the back, recognises what the eyes see.' },
     d: 'M240 55 C268 75 275 110 255 135 L205 125 L185 100 Z', lx: 236, ly: 100 },
   { key: 'temporal', domains: ['people', 'conversation'], si: 'අය / කතා', en: 'People & talk', top: 100, bottom: 158,
     about: { si: 'බලන්න ආපු අය සහ එයාලා කතා කරපු දේ මතක තියාගැනීම.', en: 'Remembering visitors and what they talked about.' },
+    why: { si: 'පැති කොටස (temporal lobe) මුහුණු, නම් සහ භාෂාව මතක තියාගන්නවා.',
+      en: 'The temporal lobe, at the side, holds faces, names and language.' },
     d: 'M35 115 C65 118 100 112 130 100 L185 100 L205 125 C170 150 110 158 70 145 C50 138 38 128 35 115 Z', lx: 96, ly: 138 },
   { key: 'hippo', domains: ['delayed'], si: 'මතකය', en: 'Recall', top: 106, bottom: 126,
     about: { si: 'ටික වෙලාවකට පස්සේ (පැය ගාණකට පස්සේ) මතක් කරගැනීම.', en: 'Remembering after a delay of hours.' },
+    why: { si: 'Hippocampus එක අලුත් මතක හදනවා. Alzheimer\'s වලදී මුලින්ම බලපාන්නේ මේකට - ඒ නිසා "පස්සේ මතක් කිරීම" තමයි වැදගත්ම ලකුණ.',
+      en: "The hippocampus makes new memories. Alzheimer's affects it first, so delayed recall is the most telling score." },
     d: 'M126 116 A24 10 0 1 0 174 116 A24 10 0 1 0 126 116 Z', lx: 150, ly: 117 },
 ];
 const WEAK = 50;
@@ -128,7 +138,7 @@ type Forecast = {
 type PatientRow = {
   patient_id: string; name: string; simulated: boolean; registered: boolean; age?: number; condition?: string; stage?: string;
   sessions: number; last_score: number | null; last_played: string | null; mmse_last: number | null; mmse_date: string | null;
-  game_days: number; severity: string | null;
+  game_days: number; severity: string | null; demo_history?: boolean;
 };
 type RiskRow = PatientRow & {
   avg_7: number | null; trend: string | null; forecast: Forecast; risk: number | null; risk_level: string | null;
@@ -138,7 +148,7 @@ type Domain = { key: string; label: string; now: number | null; before: number |
 type Report = {
   name: string; simulated: boolean;
   summary: { latest_score: number | null; avg_7: number | null; slope_per_week: number | null; trend: string | null;
-    streak: number; unaided_pct: number | null; level: string };
+    streak: number; unaided_pct: number | null; level: string; demo_history?: boolean };
   daily: { date: string; score: number | null }[];
   domains: Domain[];
   people: { name: string; relation: string; minutes: number; visits: number }[];
@@ -147,7 +157,7 @@ type Report = {
   mmse: { date: string; total: number; severity?: string }[];
   cognitive_games: { date: string; accuracy: number }[];
   severity: { triage: string; date: string } | null;
-  insights: { tone: string; text: string }[];
+  insights: { tone: string; text: string; text_si?: string }[];
 };
 
 function avg(xs: (number | null | undefined)[]) {
@@ -440,6 +450,7 @@ export default function MemoryProgressUI() {
                     {p.mmse_last != null && <Text style={st.chip}>{t('mmse', lang, { n: p.mmse_last })}</Text>}
                     {sevChip(p.severity)}
                     {p.simulated && <Text style={st.badge}>{t('simulated', lang)}</Text>}
+                    {p.demo_history && <Text style={st.badge}>{t('demoHistory', lang)}</Text>}
                   </View>
                 </View>
                 <Ionicons name="chevron-forward" size={20} color="#94A3B8" />
@@ -467,6 +478,7 @@ export default function MemoryProgressUI() {
                       {r.mmse_last != null && <Text style={st.chip}>{t('mmse', lang, { n: r.mmse_last })}</Text>}
                       {sevChip(r.severity)}
                       {r.simulated && <Text style={st.badge}>{t('simulated', lang)}</Text>}
+                      {r.demo_history && <Text style={st.badge}>{t('demoHistory', lang)}</Text>}
                     </View>
                   </View>
                   <Ionicons name="chevron-forward" size={20} color="#94A3B8" />
@@ -480,6 +492,12 @@ export default function MemoryProgressUI() {
         ) : (
           <>
             {rep.simulated && <Text style={[st.badge, { alignSelf: 'flex-start', marginBottom: 10 }]}>{t('simulated', lang)}</Text>}
+            {!!rep.summary.demo_history && (
+              <View style={st.demoBanner}>
+                <Ionicons name="flask" size={18} color="#92400E" />
+                <Text style={st.demoText}>{t('demoBanner', lang)}</Text>
+              </View>
+            )}
             <View style={st.heroRow}>
               <View style={[st.card, st.hero]}>
                 <Text style={st.muted}>{t('now', lang)}</Text>
@@ -513,10 +531,6 @@ export default function MemoryProgressUI() {
                   <Text style={[st.cardTitle, { flex: 1, marginBottom: 0 }]}>{t('risk', lang)}</Text>
                   {riskChip(fc.risk_level, fc.risk)}
                 </View>
-                <Text style={st.muted}>{t('trust', lang, { n: Math.round((fc.pool_weight ?? 0) * 100) })}</Text>
-                {fc.model_metrics?.mae_4w && (
-                  <Text style={st.note}>{t('modelNote', lang, { m: fc.model_metrics.mae_4w.partial_pooling, b: fc.model_metrics.mae_4w.baseline_avg7_plus_slope })}</Text>
-                )}
               </View>
             )}
             <View style={st.chips}>
@@ -548,6 +562,8 @@ export default function MemoryProgressUI() {
                 <View style={st.regionCard}>
                   <Text style={st.cardTitle}>{lang === 'en' ? regionInfo.en : regionInfo.si} · {regionValues[regionInfo.key] ?? '–'}</Text>
                   <Text style={st.muted}>{regionInfo.about[lang]}</Text>
+                  <Text style={st.whyTitle}>{t('why', lang)}</Text>
+                  <Text style={st.muted}>{regionInfo.why[lang]}</Text>
                   {rep.domains.filter((d) => regionInfo.domains.includes(d.key)).map((d) => (
                     <Text key={d.key} style={st.listLine}>
                       {lang === 'en' ? d.label : DOMAIN_SI[d.key] || d.label}: {t('thisWeek', lang)} {d.now == null ? '–' : Math.round(d.now)} · {t('before', lang)} {d.before == null ? '–' : Math.round(d.before)}
@@ -626,7 +642,7 @@ export default function MemoryProgressUI() {
                 <Text style={st.section}>{t('insights', lang)}</Text>
                 <View style={st.card}>
                   {rep.insights.map((x, i) => (
-                    <Text key={i} style={[st.listLine, x.tone === 'warn' && { color: '#B45309' }, x.tone === 'muted' && { color: '#64748B' }]}>• {x.text}</Text>
+                    <Text key={i} style={[st.listLine, x.tone === 'warn' && { color: '#B45309' }, x.tone === 'muted' && { color: '#64748B' }]}>• {lang === 'si' && x.text_si ? x.text_si : x.text}</Text>
                   ))}
                 </View>
               </>
@@ -711,6 +727,9 @@ const st = StyleSheet.create({
   toggleBtn: { paddingHorizontal: 16, paddingVertical: 7, borderRadius: 9 },
   toggleOn: { backgroundColor: '#0F9D8A' },
   toggleText: { fontWeight: '800', color: '#0F2A24', fontSize: 13 },
+  demoBanner: { flexDirection: 'row', gap: 8, alignItems: 'center', backgroundColor: '#FEF3C7', borderRadius: 14, padding: 12, marginBottom: 10 },
+  demoText: { flex: 1, color: '#92400E', fontWeight: '700', fontSize: 13 },
+  whyTitle: { fontSize: 13, fontWeight: '900', color: '#0B7768', marginTop: 8 },
   regionCard: { backgroundColor: '#F0FDFA', borderRadius: 14, padding: 12, marginTop: 10 },
   weakText: { color: '#B45309', fontWeight: '800', marginTop: 4 },
   legend: { flexDirection: 'row', alignItems: 'center', gap: 3, justifyContent: 'center', marginTop: 4 },
