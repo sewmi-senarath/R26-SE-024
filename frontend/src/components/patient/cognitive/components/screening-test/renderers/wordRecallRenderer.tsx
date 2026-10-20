@@ -9,6 +9,9 @@ interface Props {
   onAnswer: (recalled: string[]) => void;
   secondsLeft: number;
   timeLimit: number | null;
+  // Review mode: preselect the words marked, skip the memorise phase.
+  answer?: unknown;
+  readOnly?: boolean;
 }
 
 export function WordRecallRenderer({
@@ -16,12 +19,16 @@ export function WordRecallRenderer({
   onAnswer,
   secondsLeft,
   timeLimit,
+  answer,
+  readOnly,
 }: Props) {
   const [recalled, setRecalled] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    setRecalled({});
-  }, [question.id]);
+    const marked: Record<string, boolean> = {};
+    if (Array.isArray(answer)) answer.forEach((w) => (marked[String(w)] = true));
+    setRecalled(marked);
+  }, [question.id, answer]);
 
   const isRegistration = question.type === "word_recall_display";
   const isRecall = question.type === "word_recall_input";
@@ -29,9 +36,9 @@ export function WordRecallRenderer({
   // Registration: show words during timer, then mark.
   // Recall: never show words first; directly mark recalled words.
   const phase = useMemo<"showing" | "marking">(() => {
-    if (isRecall) return "marking";
+    if (isRecall || readOnly) return "marking";
     return secondsLeft > 0 ? "showing" : "marking";
-  }, [isRecall, secondsLeft]);
+  }, [isRecall, readOnly, secondsLeft]);
 
   const words = question.words ?? [];
   const markedCount = words.filter((w) => recalled[w]).length;

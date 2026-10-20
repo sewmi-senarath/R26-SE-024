@@ -30,7 +30,7 @@ import re
 import json
 import uuid
 import random
-import datetime
+import sltime as datetime  # Sri Lanka time whatever the host timezone (see sltime.py)
 import threading
 
 import requests
@@ -110,6 +110,8 @@ EMOJI = {
     "pill bottle": "💊", "wallet": "👛", "watch": "⌚", "drinking glass": "🥛", "toothbrush": "🪥",
     "umbrella": "☂️", "bowl": "🥣", "handbag": "👜", "laptop": "💻", "spoon": "🥄", "scissors": "✂️",
     "vase": "🏺", "keys": "🔑", "banana": "🍌", "apple": "🍎", "orange": "🍊",
+    "fan": "🌀", "slippers": "🩴", "walking stick": "🦯", "towel": "🧺", "comb": "🪮", "flask": "🫖",
+    "charger": "🔌", "hat": "👒", "torch": "🔦", "pen": "🖊️", "kettle": "🫖", "plate": "🍽️",
 }
 RELATION_GROUP_HINT = {
     "son": "එයා ඔයාගේ දරුවෙක්", "daughter": "එයා ඔයාගේ දරුවෙක්",
@@ -360,7 +362,7 @@ def q_object_place(pid, m, obj, day):
     dsi, den = _day_word(day)
     correct = {"si": m["room_si"], "en": m["room"], "icon": ROOM_ICON.get(m["room"], "🏠")}
     choices, idx = _choices(correct, _rooms(), k=4)
-    when = rm.si_time(m["time"]).replace("අද ", "").replace("ඊයේ ", "")
+    when = PERIODS[_period(m["time"])][0]
     hint = f"ඒක {rm.si_name(m['anchors'][0])} ළඟ තිබ්බේ." if m.get("anchors") else "ඔයා ඒක ළඟ ටික වෙලාවක් හිටියා."
     return _q("object_place", "places" if dsi == "අද" else "delayed",
               f"මේ ඔයාගේ {obj['label_si']}. {dsi} {when} මේක තිබ්බේ ගෙදර කොයි කාමරේද?",
@@ -466,10 +468,17 @@ def q_order(pid, events, day):
     return q
 
 
+HIDDEN_MAX_AREA = 0.25
+
+
 def q_hidden(pid, m, obj, day):
     """Fun: one thing in today's photo is covered with a ? tile - what is it?"""
     box = obj.get("box")
-    if not box or (box[2] - box[0]) * (box[3] - box[1]) < 0.01:
+    # The ? tile must leave most of the photo visible - the room around it is
+    # the clue. A thing filling the frame (a phone held up to the camera) would
+    # turn into a blank green card nobody can answer.
+    area = (box[2] - box[0]) * (box[3] - box[1]) if box else 0
+    if not box or area < 0.01 or area > HIDDEN_MAX_AREA:
         return None
     lbl = obj["label"]
     correct = {"si": obj["label_si"], "en": lbl, "icon": EMOJI.get(lbl, "📦")}
@@ -551,6 +560,17 @@ OBJECT_USE = {
     "handbag":        {"use_si": "බඩු දාගෙන යන්න", "use_en": "carrying things", "need": True},
     "laptop":         {"use_si": "වැඩ කරන්න, වීඩියෝ බලන්න", "use_en": "work and videos"},
     "scissors":       {"use_si": "කපන්න", "use_en": "cutting", "need": True},
+    "kettle":         {"use_si": "තේට වතුර රත් කරන්න", "use_en": "boiling water for tea", "did_si": "තේ හැදුවේ", "did_en": "make tea"},
+    "plate":          {"use_si": "කෑම කන්න", "use_en": "eating", "did_si": "කෑම කෑවේ", "did_en": "eat"},
+    "walking stick":  {"use_si": "ආරක්ෂිතව ඇවිදින්න", "use_en": "walking safely", "need": True},
+    "slippers":       {"use_si": "ලිස්සන්නේ නැතුව ඇවිදින්න", "use_en": "walking without slipping", "need": True},
+    "towel":          {"use_si": "නාලා ඇඟ පිහදාන්න", "use_en": "drying after a bath", "did_si": "නෑවේ", "did_en": "have your bath"},
+    "comb":           {"use_si": "කොණ්ඩේ පීරන්න", "use_en": "combing hair", "did_si": "කොණ්ඩේ පීරුවේ", "did_en": "comb your hair"},
+    "flask":          {"use_si": "උණු වතුර / තේ තියාගන්න", "use_en": "keeping tea or water hot"},
+    "charger":        {"use_si": "ෆෝන් එක charge කරන්න", "use_en": "charging the phone", "need": True},
+    "hat":            {"use_si": "අව්වෙන් ඔළුව බේරගන්න", "use_en": "shade from the sun"},
+    "torch":          {"use_si": "අඳුරේ බලන්න", "use_en": "seeing in the dark", "need": True},
+    "pen":            {"use_si": "ලියන්න", "use_en": "writing"},
 }
 
 
@@ -683,17 +703,46 @@ def _missed_targets(pid):
     return out
 
 
-def build_questions(pid):
-    level, avg = _level(pid)
-    n_target = {"gentle": 5, "normal": 6, "challenge": 6}[level]
-    # Only TODAY's events: every night brings a new set of questions, and what was
-    # asked today is never asked again tomorrow.
-    day = datetime.date.today().isoformat()
-    photos = _object_photos(pid)
+# "General knowledge" questions about a thing (what is it for, which one do we use
+# for X) are the same every day. Once the patient answers one without help it is
+# not asked again for a week, so the game stays about today, not a repeated test.
+KNOWLEDGE_TYPES = {"used_for", "which_for"}
+MASTERED_DAYS = 7
 
-    # Each candidate carries a "target" (the person / thing it is about), so two
-    # questions never give each other's answer away.
+# Order inside the practical part: safety first (medicine, things they need),
+# then today's routine, then general knowledge, then the filler kind.
+PRACTICAL_ORDER = {"did_when": 0, "where_now": 1, "which_first": 2, "object_place": 3,
+                   "which_for": 4, "used_for": 5, "replay": 6}
+
+
+def _recently_mastered(pid, days=MASTERED_DAYS):
+    """(type, target) of knowledge questions answered without help (3 points) lately."""
+    since = (datetime.date.today() - datetime.timedelta(days=days)).isoformat()
+    out = set()
+    for s in _finished(pid):
+        if s.get("day", "") < since:
+            continue
+        for a in s.get("answers", []):
+            if a.get("type") in KNOWLEDGE_TYPES and a.get("points") == 3 and a.get("target"):
+                out.add((a["type"], a["target"]))
+    return out
+
+
+def _practical_rank(q, missed, weak):
+    """Lower = asked earlier. Missed before (spaced retrieval) and medicine come
+    first; then the fixed practical order; weaker memory areas break ties."""
+    target = q.get("target") or ""
+    medicine = target in ("object:pill bottle", "object:medicine")
+    return (0 if target in missed else 1, 0 if medicine else 1,
+            PRACTICAL_ORDER.get(q["type"], 9), weak.get(q["domain"], 50))
+
+
+def _collect(pid, day, photos):
+    """Every question that could be asked about one day: (candidates, talk questions).
+    Each candidate carries a "target" (the person / thing it is about), so two
+    questions never give each other's answer away."""
     cands = []
+
     def add(q, target):
         q["target"] = target
         cands.append(q)
@@ -724,16 +773,18 @@ def build_questions(pid):
             seen_obj.add(o["label"])
             # Practical: did you take your medicine / when, where is it now,
             # what do we use it for, what did you drink your tea from.
+            use = object_use(o["label"]) or {}
+            meaningful = bool(use.get("need") or use.get("did_si"))   # a laptop or a mouse is not
             for q in (q_did_when(pid, m, o, day),
-                      q_where_now(pid, o["label"], day, photos) if (object_use(o["label"]) or {}).get("need") else None,
-                      q_which_for(pid, m, o, day, photos),
-                      q_used_for(pid, o["label"], day, photos)):
+                      q_where_now(pid, o["label"], day, photos) if use.get("need") else None,
+                      q_which_for(pid, m, o, day, photos) if meaningful else None,
+                      q_used_for(pid, o["label"], day, photos) if meaningful else None):
                 if q:
                     add(q, f"object:{o['label']}")
             fun = q_hidden(pid, m, o, day)
             if fun:
                 add(fun, f"object:{o['label']}")
-            filler = q_object_place(pid, m, o, day) if m.get("room_si") else None
+            filler = q_object_place(pid, m, o, day) if (m.get("room_si") and meaningful) else None
             if filler:  # only if the practical ones run out
                 filler["filler"] = True
                 add(filler, f"object:{o['label']}")
@@ -752,8 +803,78 @@ def build_questions(pid):
     if seq:
         add(seq, f"sequence:{day}")
 
+    return cands, talk_qs
+
+
+# ─── At least five questions ─────────────────────────────────────────────────
+# A quiet day gives only one or two questions. The game then also asks about the
+# last few days - real memories again (who came, what was said, when the medicine
+# was taken, where things were), never a question that was already asked.
+MIN_QUESTIONS = 5
+RECAP_DAYS = 6
+RECAP_TYPES = ("who_came", "talk", "person_photo", "did_when", "object_place", "visit_time", "replay")
+_SI_TODAY = re.compile(r"(?<![\u0D80-\u0DFF])අද(?![\u0D80-\u0DFF])")
+
+
+def _asked_before(pid):
+    return {(q["type"], q.get("target"), q.get("day")) for se in SESSIONS.get(pid, []) for q in se.get("questions", [])}
+
+
+def _for_past_day(q):
+    """Question texts say 'අද' / 'today'; a question about an earlier day says that day instead."""
+    si, en = _day_word(q["day"])
+    for k in ("prompt_si", "hint_si", "reveal_si", "talk_intro_si"):
+        if q.get(k):
+            q[k] = _SI_TODAY.sub(si, q[k])
+    for k in ("prompt_en", "hint_en"):
+        if q.get(k):
+            q[k] = re.sub(r"\btoday\b", en, q[k]).replace("Today", en.capitalize())
+    return q
+
+
+def _top_up(pid, ordered, photos):
+    real = [q for q in ordered if not q.get("bonus")]
+    if len(real) >= MIN_QUESTIONS:
+        return ordered
+    asked = _asked_before(pid)
+    used = {(q["type"], q.get("target")) for q in ordered}
+    recap = []
+    today = datetime.date.today()
+    for back in range(1, RECAP_DAYS + 1):
+        d = (today - datetime.timedelta(days=back)).isoformat()
+        cands, talk = _collect(pid, d, photos)
+        pool = talk + sorted((q for q in cands if q["type"] in RECAP_TYPES),
+                             key=lambda q: (bool(q.get("filler")), RECAP_TYPES.index(q["type"])))
+        for q in pool:
+            if len(real) + len(recap) >= MIN_QUESTIONS:
+                break
+            key = (q["type"], q.get("target"))
+            if key in used or (d, q.get("target")) in used or (q["type"], q.get("target"), d) in asked:
+                continue
+            used.add(key)
+            used.add((d, q.get("target")))
+            q["recap"] = True
+            recap.append(_for_past_day(q))
+        if len(real) + len(recap) >= MIN_QUESTIONS:
+            break
+    bonus = [q for q in ordered if q.get("bonus")]
+    return real + recap + bonus
+
+
+def build_questions(pid):
+    level, avg = _level(pid)
+    n_target = {"gentle": 5, "normal": 6, "challenge": 6}[level]
+    # Only TODAY's events: every night brings a new set of questions, and what was
+    # asked today is never asked again tomorrow.
+    day = datetime.date.today().isoformat()
+    photos = _object_photos(pid)
+
+    cands, talk_qs = _collect(pid, day, photos)
     if not cands and not talk_qs:
-        return [], level, avg
+        ordered = _top_up(pid, [], photos)
+        _add_leads(ordered)
+        return ordered, level, avg
+
 
     # Tonight's set, in a fixed shape:
     #   1. "who came?" when someone visited (the day's main event)
@@ -761,8 +882,16 @@ def build_questions(pid):
     #   3. practical questions, weakest memory areas first, with variety
     #   4. one fun picture game as a bonus at the end (photo order / what's hidden)
     weak = _domain_scores(_finished(pid)[-10:])
-    random.shuffle(cands)
-    cands.sort(key=lambda q: (bool(q.get("filler")), weak.get(q["domain"], 50)))
+    missed = _missed_targets(pid)
+    mastered = _recently_mastered(pid)
+    # Drop knowledge questions the patient has shown they know this week - unless
+    # that would leave fewer than two real questions for tonight.
+    fresh = [q for q in cands if (q["type"], q.get("target")) not in mastered]
+    real = [q for q in fresh if q["type"] not in ("order", "hidden") and not q.get("filler")]
+    if len(real) + len(talk_qs) >= 2:
+        cands = fresh
+    random.shuffle(cands)   # variety between equally ranked questions
+    cands.sort(key=lambda q: (bool(q.get("filler")),) + _practical_rank(q, missed, weak))
     fun = [q for q in cands if q["type"] in ("order", "hidden")]
     cands = [q for q in cands if q not in fun]
     who = next((q for q in cands if q["type"] == "who_came"), None)
@@ -781,12 +910,23 @@ def build_questions(pid):
             picked.append(q)
             type_count[q["type"]] = type_count.get(q["type"], 0) + 1
             used_targets.add(q["target"])
-    visit_more = [q for q in picked if q["type"] in ("person_photo", "visit_time", "visit_count")]
-    rest = sorted([q for q in picked if q not in visit_more], key=lambda q: bool(q.get("filler")))
-    bonus = next((q for q in fun if q["target"] not in used_targets or q["type"] == "order"), None)
+    # People first (who came -> their photo -> when -> how many), then the talk,
+    # then the practical questions in their ranked order, fillers last.
+    visit_more = sorted([q for q in picked if q["type"] in ("person_photo", "visit_time", "visit_count")],
+                        key=lambda q: ("person_photo", "visit_time", "visit_count").index(q["type"]))
+    rest = sorted([q for q in picked if q not in visit_more],
+                  key=lambda q: (bool(q.get("filler")),) + _practical_rank(q, missed, weak))
+    # The picture game is a reward after real questions, never the whole game - and
+    # never the same kind of game as last time (photo order one day, what's hidden the next).
+    last_fun = next((q["type"] for se in reversed(SESSIONS.get(pid, [])) for q in se.get("questions", [])
+                     if q.get("bonus")), None)
+    random.shuffle(fun)
+    fun.sort(key=lambda q: q["type"] == last_fun)
+    bonus = next((q for q in fun if q["target"] not in used_targets or q["type"] == "order"), None)         if len(picked) + len(talk) + (1 if who else 0) >= 2 else None
     if bonus:
         bonus["bonus"] = True
-    ordered = ([who] if who else []) + talk + visit_more + rest + ([bonus] if bonus else [])
+    ordered = ([who] if who else []) + visit_more + talk + rest + ([bonus] if bonus else [])
+    ordered = _top_up(pid, ordered, photos)
     _add_leads(ordered)
     return ordered, level, avg
 
@@ -794,15 +934,20 @@ def build_questions(pid):
 def _add_leads(qs):
     """A short spoken bridge before each question, so the game flows like a
     conversation instead of a list of questions."""
-    talk_seen, objects_started = set(), False
+    talk_seen, objects_started, recap_started = set(), False, False
     for i, q in enumerate(qs):
         lead = ""
+        if q.get("recap") and not recap_started:
+            recap_started = True
+            lead = "දැන් පහුගිය දවස් ගැනත් පොඩ්ඩක් මතක් කරමු." if i else "අද දවස ගැන තවම මතක සටහන් අඩුයි. ඒ නිසා පහුගිය දවස් ගැන මතක් කරමු."
+            q["lead_si"] = lead
+            continue
         if q["type"] == "talk":
             lead = q["talk_intro_si"] if q["talk_id"] not in talk_seen else "ඒ කතාව ගැනම තව එකක්."
             talk_seen.add(q["talk_id"])
         elif i == 0 and q["type"] == "who_came":
             lead = "මුලින්ම, අද දවසේ වැදගත්ම දේ ගැන."
-        elif q["domain"] in ("objects", "places", "time") and not objects_started:
+        elif q["domain"] in ("objects", "places", "time") and not objects_started and not q.get("recap"):
             objects_started = True
             lead = "දැන් ඔයාගේ බඩු ගැනයි, අද කරපු දේවල් ගැනයි කතා කරමු." if i else ""
         if q.get("bonus"):

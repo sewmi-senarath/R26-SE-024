@@ -1,7 +1,8 @@
 import { Step1Data } from '@/src/types/PatientRegisterTypes';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import { Text, TextInput, View } from 'react-native';
+import { Text, View } from 'react-native';
+import { KeyboardAwareTextInput as TextInput } from '@/src/components/common/KeyboardAware';
 import DropDownPicker from 'react-native-dropdown-picker';
 
 interface Step1Props {

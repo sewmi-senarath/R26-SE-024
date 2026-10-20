@@ -122,3 +122,45 @@ export interface EventReaction {
   seenByFamilyAt: string | null;
   createdAt: string;
 }
+
+// ── Close the Loop: Decide / Act / Log / Check ──────────────────────────────────
+export type DecisionCode = 'strong_happy' | 'comforting_fading' | 'clear_painful' | 'confusing_upsetting' | 'not_enough_data';
+export type DecisionConfidence = 'high' | 'medium' | 'low';
+export type ActionType =
+  | 'send_similar_story' | 'share_with_family' | 'call_or_visit' | 'show_photo_together'
+  | 'pause_topic' | 'try_gentler_story' | 'call_now' | 'dismiss';
+export type FollowUpOutcome = 'better' | 'same' | 'worse';
+export type FollowUpStatus = 'pending' | 'evaluated' | 'no_followup' | null;
+
+export interface SessionDecision {
+  code: DecisionCode;
+  title: string;
+  text: string;
+  confidence: DecisionConfidence;
+  talkAboutTip: string;
+  quality: { framesUsed: number; framesTotal: number | null };
+  suggestedActions: ActionType[];
+  computedAt: string;
+}
+
+export interface SessionAction {
+  type: ActionType;
+  takenAt: string;
+  responseSeconds: number | null;
+}
+
+export interface SessionFollowUp {
+  status: FollowUpStatus;
+  outcome: FollowUpOutcome | null;
+}
+
+export interface LoopHealthStats {
+  hasEnoughData: boolean;
+  cardsReceived: number;
+  actedOn?: number;
+  actionRate?: number;              // 0-100
+  medianResponseSeconds?: number | null;
+  evaluatedFollowUps?: number;
+  positiveOutcomeRate?: number | null; // 0-100, or null if nothing evaluated yet
+  weeklyMoodTrend?: { date: string; moodShiftPercent: number }[];
+}

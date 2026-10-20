@@ -4,6 +4,10 @@ import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../../src/constants/colors';
+import { FamilyColors, FamilyRadius, FamilyShadow } from '../../src/constants/familyTheme';
+import { ScreenHeader } from '../../src/components/family/ui/ScreenHeader';
+import { Card } from '../../src/components/family/ui/Card';
+import { IconChip } from '../../src/components/family/ui/IconChip';
 import { getLinkedPatient } from '../../src/services/family/familyService';
 import { getMemorySessionReports, MemorySessionReport } from '../../src/services/family/emotionService';
 import { getInitials } from '../../src/utils/nameHelpers';
@@ -20,9 +24,7 @@ interface MenuRow {
 
 const Row: React.FC<MenuRow> = ({ icon, label, iconColor, iconBg, onPress, badge }) => (
   <TouchableOpacity onPress={onPress} activeOpacity={0.75} style={{ flexDirection: 'row', alignItems: 'center', padding: 14, gap: 14 }}>
-    <View style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: iconBg, justifyContent: 'center', alignItems: 'center' }}>
-      <Ionicons name={icon} size={18} color={iconColor} />
-    </View>
+    <IconChip icon={icon} color={iconColor} bg={iconBg} size={38} iconSize={18} radius={FamilyRadius.sm} />
     <Text style={{ flex: 1, fontSize: 14, fontWeight: '600', color: Colors.textPrimary }}>{label}</Text>
     {badge ? (
       <View style={{ backgroundColor: Colors.danger, borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2 }}>
@@ -55,67 +57,63 @@ export default function MoreScreen() {
   const latestReport = reports[0] || null;
 
   return (
-    <View style={{ flex: 1, backgroundColor: Colors.background }}>
+    <View style={{ flex: 1, backgroundColor: FamilyColors.canvas }}>
       <StatusBar barStyle="dark-content" />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
 
-        {/* Header */}
-        <View style={{ backgroundColor: Colors.white, paddingTop: 56, paddingHorizontal: 20, paddingBottom: 20, borderBottomLeftRadius: 24, borderBottomRightRadius: 24, shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 6 }}>
-          <Text style={{ fontSize: 22, fontWeight: '800', color: Colors.textPrimary }}>More</Text>
-          <Text style={{ fontSize: 14, color: Colors.textMuted, marginTop: 2 }}>Profile & settings</Text>
-        </View>
+        <ScreenHeader title="More" subtitle="Profile & settings" />
 
         {/* Profile Card — real stored user */}
-        <View style={{ margin: 20, backgroundColor: Colors.white, borderRadius: 20, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3, flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-          <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: '#E8D5F5', justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: Colors.purple }}>
-            <Text style={{ fontSize: 20, fontWeight: '800', color: Colors.purple }}>{getInitials(user?.fullName)}</Text>
+        <Card style={{ margin: 20, flexDirection: 'row', alignItems: 'center', gap: 16 }} padding={20}>
+          <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: Colors.purpleSoft, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: Colors.purple }}>
+            <Text style={{ fontSize: 20, fontWeight: '700', color: Colors.purple }}>{getInitials(user?.fullName)}</Text>
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 17, fontWeight: '800', color: Colors.textPrimary }}>{user?.fullName || 'Family Member'}</Text>
+            <Text style={{ fontSize: 17, fontWeight: '700', color: Colors.textPrimary }}>{user?.fullName || 'Family Member'}</Text>
             <Text style={{ fontSize: 13, color: Colors.textMuted, marginTop: 2 }}>{user?.email || ''}</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 }}>
               <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.success }} />
               <Text style={{ fontSize: 12, color: Colors.success, fontWeight: '600' }}>Active account</Text>
             </View>
           </View>
-          <TouchableOpacity style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: Colors.primaryLight, justifyContent: 'center', alignItems: 'center' }}>
+          <TouchableOpacity style={{ width: 36, height: 36, borderRadius: FamilyRadius.sm, backgroundColor: Colors.primaryLight, justifyContent: 'center', alignItems: 'center' }}>
             <Ionicons name="pencil" size={16} color={Colors.primary} />
           </TouchableOpacity>
-        </View>
+        </Card>
 
         {/* Session Summary — real data only; no call-duration/cognitive-score
             tiles, since nothing tracks those anywhere in the backend */}
-        <View style={{ marginHorizontal: 20, marginBottom: 16, backgroundColor: '#0F172A', borderRadius: 20, padding: 18 }}>
+        <View style={{ marginHorizontal: 20, marginBottom: 16, backgroundColor: FamilyColors.slate900, borderRadius: 20, padding: 18 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-            <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: Colors.primary + '30', justifyContent: 'center', alignItems: 'center' }}>
+            <View style={{ width: 36, height: 36, borderRadius: FamilyRadius.sm, backgroundColor: Colors.primary + FamilyColors.alpha.soft, justifyContent: 'center', alignItems: 'center' }}>
               <Ionicons name="stats-chart" size={18} color={Colors.primary} />
             </View>
             <View>
-              <Text style={{ fontSize: 14, fontWeight: '800', color: '#F8FAFC' }}>Session Summary</Text>
-              <Text style={{ fontSize: 11, color: '#64748B' }}>Real mood data · Last session</Text>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: FamilyColors.slate50 }}>Session Summary</Text>
+              <Text style={{ fontSize: 11, color: FamilyColors.slate500 }}>Real mood data · Last session</Text>
             </View>
           </View>
           {loading ? (
             <ActivityIndicator color={Colors.primary} />
           ) : !latestReport ? (
-            <Text style={{ fontSize: 12, color: '#94A3B8', lineHeight: 18 }}>
+            <Text style={{ fontSize: 12, color: FamilyColors.slate400, lineHeight: 18 }}>
               No memory sessions recorded yet.
             </Text>
           ) : (
             <>
               <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
-                <View style={{ flex: 1, backgroundColor: '#1E293B', borderRadius: 12, padding: 12, alignItems: 'center' }}>
+                <View style={{ flex: 1, backgroundColor: FamilyColors.slate800, borderRadius: 12, padding: 12, alignItems: 'center' }}>
                   <Text style={{ fontSize: 20, fontWeight: '800', color: latestReport.moodShiftPercent >= 0 ? Colors.success : Colors.danger }}>
                     {latestReport.moodShiftPercent > 0 ? '+' : ''}{latestReport.moodShiftPercent}%
                   </Text>
-                  <Text style={{ fontSize: 10, color: '#64748B', fontWeight: '600', marginTop: 2 }}>MOOD SHIFT</Text>
+                  <Text style={{ fontSize: 10, color: FamilyColors.slate500, fontWeight: '600', marginTop: 2 }}>MOOD SHIFT</Text>
                 </View>
-                <View style={{ flex: 1, backgroundColor: '#1E293B', borderRadius: 12, padding: 12, alignItems: 'center' }}>
+                <View style={{ flex: 1, backgroundColor: FamilyColors.slate800, borderRadius: 12, padding: 12, alignItems: 'center' }}>
                   <Text style={{ fontSize: 20, fontWeight: '800', color: Colors.primary }}>{latestReport.totalReadings}</Text>
-                  <Text style={{ fontSize: 10, color: '#64748B', fontWeight: '600', marginTop: 2 }}>READINGS</Text>
+                  <Text style={{ fontSize: 10, color: FamilyColors.slate500, fontWeight: '600', marginTop: 2 }}>READINGS</Text>
                 </View>
               </View>
-              <Text style={{ fontSize: 12, color: '#94A3B8', lineHeight: 18 }}>
+              <Text style={{ fontSize: 12, color: FamilyColors.slate400, lineHeight: 18 }}>
                 "{latestReport.storyTitle}" — mood shifted from {latestReport.baselineEmotion} to {latestReport.finalEmotion}.
               </Text>
             </>
@@ -148,14 +146,14 @@ export default function MoreScreen() {
         ].map((section) => (
           <View key={section.title} style={{ marginHorizontal: 20, marginBottom: 12 }}>
             <Text style={{ fontSize: 11, fontWeight: '700', color: Colors.textMuted, letterSpacing: 0.6, marginBottom: 6, marginLeft: 4 }}>{section.title}</Text>
-            <View style={{ backgroundColor: Colors.white, borderRadius: 16, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 }}>
+            <Card radius="md" padding={0} style={{ overflow: 'hidden' }}>
               {section.rows.map((row, i) => (
                 <View key={row.label}>
                   {i > 0 && <View style={{ height: 1, backgroundColor: Colors.borderLight, marginHorizontal: 16 }} />}
                   <Row {...row} />
                 </View>
               ))}
-            </View>
+            </Card>
           </View>
         ))}
 

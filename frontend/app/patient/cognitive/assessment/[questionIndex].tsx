@@ -1,16 +1,9 @@
 import { ProgressBar } from "@/src/components/patient/cognitive/components/screening-test/progressBar";
-import { DrawingRenderer } from "@/src/components/patient/cognitive/components/screening-test/renderers/drawingRenderer";
-import { ImageMcqRenderer } from "@/src/components/patient/cognitive/components/screening-test/renderers/imageMcqRenderer";
-import { InstructionActionRenderer } from "@/src/components/patient/cognitive/components/screening-test/renderers/instructionActionRenderer";
-import { MCQRenderer } from "@/src/components/patient/cognitive/components/screening-test/renderers/mcqRenderer";
-import { PhraseRepeatRenderer } from "@/src/components/patient/cognitive/components/screening-test/renderers/phraseRepeatRenderer";
-import { SerialSubtractionRenderer } from "@/src/components/patient/cognitive/components/screening-test/renderers/serialSubtractionRenderer";
-import { TextInputRenderer } from "@/src/components/patient/cognitive/components/screening-test/renderers/textInputRenderer";
+import { renderQuestion } from "@/src/components/patient/cognitive/components/screening-test/renderers/renderQuestion";
 import { TimerBar } from "@/src/components/patient/cognitive/components/screening-test/renderers/timeBar";
-import { WordRecallRenderer } from "@/src/components/patient/cognitive/components/screening-test/renderers/wordRecallRenderer";
 import { useAssessmentSession } from "@/src/hooks/useAssessmentSession";
 import { useQuestionTimer } from "@/src/hooks/useQuestionTimer";
-import { Question } from "@/src/types/assessment.types";
+import { SavedDrawing } from "@/src/types/assessment.types";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import { CARD_SHADOW } from "@/src/components/patient/cognitive/components/screening-test/assessmentUi";
@@ -76,9 +69,9 @@ export default function QuestionScreen() {
   });
 
   const handleAnswer = useCallback(
-    async (answer: any) => {
+    async (answer: any, extras?: { drawing?: SavedDrawing }) => {
       if (!currentQuestion) return;
-      await submitAnswer(currentQuestion.id, answer);
+      await submitAnswer(currentQuestion.id, answer, extras);
     },
     [currentQuestion, submitAnswer],
   );
@@ -179,7 +172,11 @@ export default function QuestionScreen() {
             </Text>
           </View>
 
-          {renderQuestion(currentQuestion, handleAnswer, timer.secondsLeft)}
+          {renderQuestion({
+            question: currentQuestion,
+            onAnswer: handleAnswer,
+            secondsLeft: timer.secondsLeft,
+          })}
         </ScrollView>
 
         {!keyboardVisible && (
@@ -246,49 +243,4 @@ export default function QuestionScreen() {
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
-}
-
-function renderQuestion(
-  question: Question,
-  onAnswer: (a: any) => void,
-  secondsLeft: number,
-) {
-  switch (question.type) {
-    case "mcq":
-      return <MCQRenderer question={question} onAnswer={onAnswer} />;
-    case "image_mcq":
-      return <ImageMcqRenderer question={question} onAnswer={onAnswer} />;
-    case "word_recall_display":
-    case "word_recall_input":
-      return (
-        <WordRecallRenderer
-          question={question}
-          onAnswer={onAnswer}
-          secondsLeft={secondsLeft}
-          timeLimit={question.timeLimit ?? null}
-        />
-      );
-    case "serial_subtraction":
-      return (
-        <SerialSubtractionRenderer question={question} onAnswer={onAnswer} />
-      );
-    case "phrase_repeat":
-      return <PhraseRepeatRenderer question={question} onAnswer={onAnswer} />;
-    case "text_input":
-      return <TextInputRenderer question={question} onAnswer={onAnswer} />;
-    case "instruction_action":
-      return (
-        <InstructionActionRenderer question={question} onAnswer={onAnswer} />
-      );
-    case "drawing_canvas":
-      return <DrawingRenderer question={question} onAnswer={onAnswer} />;
-    default:
-      return (
-        <View className="px-6">
-          <Text className="text-gray-400 text-sm">
-            Renderer for `{question.type}` coming soon
-          </Text>
-        </View>
-      );
-  }
 }

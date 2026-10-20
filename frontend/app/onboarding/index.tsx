@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Dimensions, Text, TouchableOpacity, View } from 'react-native';
-
-const { width } = Dimensions.get('window');
+import { useRef, useState } from 'react';
+import { FlatList, Text, TouchableOpacity, useWindowDimensions, View } from 'react-native';
+import PrimaryButton from '../../src/components/common/PrimaryButton';
+import ScreenBackground from '../../src/components/common/ScreenBackground';
 
 const slides = [
   {
@@ -31,90 +31,73 @@ const slides = [
 
 export default function OnboardingIntro() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const listRef = useRef<FlatList>(null);
   const [current, setCurrent] = useState(0);
+  const last = current === slides.length - 1;
 
   const handleNext = () => {
-    if (current < slides.length - 1) {
+    if (!last) {
+      listRef.current?.scrollToIndex({ index: current + 1, animated: true });
       setCurrent(current + 1);
     } else {
-      // ✅ After last slide → go to role selection
       router.push('/role/select');
     }
   };
 
-  const slide = slides[current];
-
   return (
-    <View style={{ flex: 1, backgroundColor: '#fff' }}>
-
-      {/* Skip */}
+    <ScreenBackground tint={slides[current].bg}>
       <View style={{ alignItems: 'flex-end', paddingHorizontal: 24, paddingTop: 56 }}>
-        <TouchableOpacity onPress={() => router.push('/role/select')}>
-          <Text style={{ color: '#6b7280', fontSize: 16 }}>Skip</Text>
+        <TouchableOpacity onPress={() => router.push('/role/select')} hitSlop={12}>
+          <Text style={{ color: '#64748b', fontSize: 16, fontWeight: '600' }}>Skip</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Slide Content */}
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }}>
-        {/* Icon */}
-        <View style={{
-          width: 160, height: 160, borderRadius: 80,
-          backgroundColor: slide.bg,
-          alignItems: 'center', justifyContent: 'center',
-          marginBottom: 48,
-        }}>
-          <Ionicons name={slide.icon} size={80} color={slide.color} />
-        </View>
+      <FlatList
+        ref={listRef}
+        data={slides}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        keyExtractor={(s) => s.title}
+        onMomentumScrollEnd={(e) => setCurrent(Math.round(e.nativeEvent.contentOffset.x / width))}
+        getItemLayout={(_, i) => ({ length: width, offset: width * i, index: i })}
+        renderItem={({ item }) => (
+          <View style={{ width, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }}>
+            <View style={{
+              width: 220, height: 220, borderRadius: 110, backgroundColor: item.bg + '99',
+              alignItems: 'center', justifyContent: 'center', marginBottom: 48,
+            }}>
+              <View style={{
+                width: 150, height: 150, borderRadius: 75, backgroundColor: '#fff',
+                alignItems: 'center', justifyContent: 'center',
+                shadowColor: item.color, shadowOffset: { width: 0, height: 12 },
+                shadowOpacity: 0.25, shadowRadius: 24, elevation: 8,
+              }}>
+                <Ionicons name={item.icon} size={72} color={item.color} />
+              </View>
+            </View>
+            <Text style={{ fontSize: 30, fontWeight: '800', color: '#0F172A', textAlign: 'center', marginBottom: 14 }}>
+              {item.title}
+            </Text>
+            <Text style={{ fontSize: 16, color: '#64748b', textAlign: 'center', lineHeight: 26 }}>
+              {item.description}
+            </Text>
+          </View>
+        )}
+      />
 
-        {/* Title */}
-        <Text style={{
-          fontSize: 28, fontWeight: 'bold',
-          color: '#1f2937', textAlign: 'center', marginBottom: 16,
-        }}>
-          {slide.title}
-        </Text>
-
-        {/* Description */}
-        <Text style={{
-          fontSize: 16, color: '#6b7280',
-          textAlign: 'center', lineHeight: 26,
-        }}>
-          {slide.description}
-        </Text>
-      </View>
-
-      {/* Bottom */}
       <View style={{ paddingHorizontal: 24, paddingBottom: 56 }}>
-
-        {/* Dots */}
-        <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 32, gap: 8 }}>
-          {slides.map((_, i) => (
-            <View key={i} style={{
-              width: i === current ? 28 : 8,
-              height: 8, borderRadius: 4,
-              backgroundColor: i === current ? '#2563eb' : '#e5e7eb',
+        <View style={{ flexDirection: 'row', justifyContent: 'center', marginBottom: 28, gap: 8 }}>
+          {slides.map((s, i) => (
+            <View key={s.title} style={{
+              width: i === current ? 28 : 8, height: 8, borderRadius: 4,
+              backgroundColor: i === current ? '#2563eb' : '#CBD5E1',
             }} />
           ))}
         </View>
-
-        {/* Next / Get Started */}
-        <TouchableOpacity
-          onPress={handleNext}
-          style={{
-            backgroundColor: '#2563eb',
-            paddingVertical: 16, borderRadius: 14,
-            alignItems: 'center',
-            shadowColor: '#2563eb',
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.3, shadowRadius: 8, elevation: 5,
-          }}
-        >
-          <Text style={{ color: 'white', fontSize: 18, fontWeight: 'bold' }}>
-            {current === slides.length - 1 ? 'Get Started' : 'Next'}
-          </Text>
-        </TouchableOpacity>
-
+        <PrimaryButton label={last ? 'Get Started' : 'Next'} onPress={handleNext} />
       </View>
-    </View>
+    </ScreenBackground>
   );
 }

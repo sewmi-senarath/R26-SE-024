@@ -108,6 +108,13 @@ async function submitAnswer(sessionId, payload) {
     }
 
     assessment.answers.set(payload.questionId, payload.answer);
+    // Drawing strokes ride along with the caregiver's verdict; a re-submit
+    // without strokes (e.g. "Clear") drops any earlier drawing.
+    if (payload.drawing && payload.drawing.strokes?.length) {
+      assessment.drawings.set(payload.questionId, payload.drawing);
+    } else if (assessment.drawings.has(payload.questionId)) {
+      assessment.drawings.delete(payload.questionId);
+    }
     assessment.answeredAt.set(payload.questionId, payload.answeredAt || Date.now());
 
     if (typeof payload.timeSpentMs === "number") {
@@ -178,7 +185,11 @@ async function completeAssessment(sessionId) {
 }
 
 async function listAssessmentsByPatient(patientId) {
-  return Assessment.find({ patientId }).sort({ createdAt: -1 }).lean();
+  // Drawings can be large and the history list never shows them.
+  return Assessment.find({ patientId })
+    .select("-drawings")
+    .sort({ createdAt: -1 })
+    .lean();
 }
 
 module.exports = {

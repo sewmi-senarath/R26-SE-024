@@ -7,6 +7,7 @@ node_modules
 .venv-ml
 __pycache__
 *.pt
+*.gguf
 
 # ESP32 firmware stays local (contains Wi-Fi credentials)
 hardware/
@@ -16,9 +17,23 @@ ml-service/memory-service/moments_db.json
 ml-service/memory-service/memory_quiz_db.json
 ml-service/memory-service/visit_talk_db.json
 ml-service/memory-service/reminders_db.json
+ml-service/memory-service/vault_db.json
+ml-service/memory-service/routine_ai_db.json
 ml-service/memory-service/esp32_passive.json
 ml-service/memory-service/tts_cache/
 ml-service/memory-service/videos/
+ml-service/memory-service/uploads/
+
+# Elder-home user testing: patient logins and care profiles stay local
+backend/scripts/home_patients_logins.csv
+ml-service/memory-service/care_profiles.json
+
+# AI services: server secrets
+ml-service/.env
+ml-service/.clip-cache/
 
 # Built APKs
 dist/
+
+# Backups made by ml-service/tools/merge_patient_id.py (patient data)
+ml-service/memory-service/*.before-merge-*

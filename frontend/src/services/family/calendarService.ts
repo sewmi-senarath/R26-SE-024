@@ -32,6 +32,15 @@ export interface BestTimeResponse {
   ranked: BestTimeBucket[];
 }
 
+export interface UnseenReaction {
+  id: string;
+  eventId: string | null;
+  eventTitle: string;
+  type: 'emoji' | 'voice' | 'video';
+  emoji: 'happy' | 'calm' | 'sad' | null;
+  createdAt: string;
+}
+
 // backend documents use Mongo's _id — map every raw event to the shape
 // FamilyEvent actually declares (id, not _id), otherwise event.id is
 // undefined everywhere a screen reads it (navigation, keys, edit/delete)
@@ -168,5 +177,17 @@ export const getBestTime = async (): Promise<BestTimeResponse> => {
   } catch (error: any) {
     console.error('Fetch best-time error:', error.message);
     return { success: false, totalReactions: 0, recommendation: null, ranked: [] };
+  }
+};
+
+// the family-side half of the Moment Card loop — reactions the patient has
+// made that nobody on the family side has looked at yet
+export const getUnseenReactions = async (): Promise<{ count: number; reactions: UnseenReaction[] }> => {
+  try {
+    const data = await authFetch('/family/events/reactions/unseen');
+    return data?.success ? { count: data.count, reactions: data.reactions } : { count: 0, reactions: [] };
+  } catch (error: any) {
+    console.error('Fetch unseen reactions error:', error.message);
+    return { count: 0, reactions: [] };
   }
 };

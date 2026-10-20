@@ -7,6 +7,7 @@ const {
   captureEmotion,
   logEmotionReading,
   finalizeSession,
+  submitReaction,
 } = require('../../controllers/patient/emotionController');
 
 // every route here requires a logged-in patient account — the care record is
@@ -17,5 +18,6 @@ router.get('/warmup', warmupEmotionService);
 router.post('/capture', captureEmotion);
 router.post('/log', logEmotionReading);
 router.post('/finalize', finalizeSession);
+router.patch('/outcomes/:id/reaction', submitReaction);
 
 module.exports = router;

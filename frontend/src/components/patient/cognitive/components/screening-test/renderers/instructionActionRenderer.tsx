@@ -6,14 +6,16 @@ import { CARD_SHADOW, InfoCard, VerdictButtons } from '../assessmentUi';
 interface Props {
   question: Question;
   onAnswer: (answer: string) => void;
+  // Review mode: preselect the saved answer (the review screen blocks touches).
+  answer?: unknown;
 }
 
-export function InstructionActionRenderer({ question, onAnswer }: Props) {
+export function InstructionActionRenderer({ question, onAnswer, answer }: Props) {
   const [userResponse, setUserResponse] = useState<'correct' | 'incorrect' | null>(null);
 
   useEffect(() => {
-    setUserResponse(null);
-  }, [question.id]);
+    setUserResponse(answer === 'correct' || answer === 'incorrect' ? answer : null);
+  }, [question.id, answer]);
 
   const handleSelect = (value: 'correct' | 'incorrect') => {
     setUserResponse(value);

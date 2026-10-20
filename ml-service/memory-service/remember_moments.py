@@ -25,7 +25,7 @@ import json
 import uuid
 import math
 import hashlib
-import datetime
+import sltime as datetime  # Sri Lanka time whatever the host timezone (see sltime.py)
 import threading
 from collections import deque
 
@@ -162,13 +162,17 @@ SI_NAMES = {
     "dog": "බල්ලා", "cat": "පූසා", "sports ball": "බෝලය", "cake": "කේක්",
     "glasses": "කණ්ණාඩිය", "keys": "යතුරු", "wallet": "පසුම්බිය", "pill bottle": "බෙහෙත් බෝතලය",
     "hearing aid": "ශ්‍රවණාධාරය", "watch": "අත් ඔරලෝසුව", "drinking glass": "වීදුරුව",
+    "plate": "පිඟාන", "kettle": "කේතලය",
+    "fan": "විදුලි පංකාව", "slippers": "සෙරෙප්පු", "walking stick": "සැරයටිය", "towel": "තුවාය",
+    "comb": "පනාව", "flask": "ෆ්ලාස්ක් එක", "charger": "චාජර් එක", "hat": "තොප්පිය",
+    "torch": "ටෝච් එක", "pen": "පෑන",
 }
 
 # Things a patient can't "lose" - they're never offered in Find-by-voice, but they
 # are kept as location anchors ("your cup was near the sink") and used to guess
 # the room, which GPS can't resolve indoors.
 FIXED_ANCHORS = {"sink", "oven", "refrigerator", "microwave", "bed", "couch", "toilet",
-                 "dining table", "tv", "chair", "potted plant"}
+                 "dining table", "tv", "chair", "potted plant", "fan"}
 ROOM_FROM_ANCHOR = {
     "sink": ("Kitchen", "කුස්සිය"), "oven": ("Kitchen", "කුස්සිය"),
     "refrigerator": ("Kitchen", "කුස්සිය"), "microwave": ("Kitchen", "කුස්සිය"),
@@ -187,6 +191,20 @@ ROOM_SI = {"Kitchen": "කුස්සිය", "Bedroom": "නිදන කා�
 PERSONAL_VOCAB = ["eyeglasses", "wallet", "pill bottle", "hearing aid", "wristwatch", "drinking glass"]
 WORLD_TO_LABEL = {"eyeglasses": "glasses", "wristwatch": "watch"}
 
+# Essential things the fine-tuned items model does not know yet. While it is in
+# use, YOLO-World looks for these in the same frame. Only prompts that held up on
+# test photos are kept: "shoes" found slippers (0.77), "thermos flask" a flask
+# (0.71), "hat" a hat. Fan, towel, bag and walking stick scored under 0.25 with
+# every wording tried, so they come from retraining the items model instead
+# (Open Images has Mechanical/Ceiling fan, Towel, Handbag, Backpack, Footwear ...).
+EXTRA_VOCAB = ["shoes", "thermos flask", "hat"]
+EXTRA_TO_LABEL = {"shoes": "slippers", "thermos flask": "flask"}
+EXTRA_CONF = float(os.environ.get("EXTRA_CONF", "0.35"))
+# Known mix-ups of the first items model: brown leather slippers came out as a
+# "wallet" (0.93). When YOLO-World is fairly sure of the other label for the
+# same box, that label wins even though its score is lower.
+EXTRA_OVERRIDES = {("slippers", "wallet"): 0.6}
+
 # Sinhala/English words people actually say -> canonical label.
 SPOKEN_TO_LABEL = {
     "කෝප්ප": "cup", "කප්": "cup", "cup": "cup", "මග්": "cup",
@@ -201,6 +219,11 @@ SPOKEN_TO_LABEL = {
     "කතුර": "scissors", "scissors": "scissors", "දත් බුරුසු": "toothbrush", "toothbrush": "toothbrush",
     "බඳුන": "bowl", "bowl": "bowl", "වීදුරු": "drinking glass", "glass": "drinking glass",
     "මල් බඳුන": "vase", "vase": "vase", "ශ්‍රවණ": "hearing aid",
+    "පංකාව": "fan", "fan": "fan", "සෙරෙප්පු": "slippers", "slippers": "slippers", "සපත්තු": "slippers",
+    "සැරයටිය": "walking stick", "walking stick": "walking stick", "තුවාය": "towel", "towel": "towel",
+    "පනාව": "comb", "comb": "comb", "ෆ්ලාස්ක්": "flask", "flask": "flask", "චාජර්": "charger",
+    "charger": "charger", "තොප්පිය": "hat", "hat": "hat", "ටෝච්": "torch", "torch": "torch",
+    "පෑන": "pen", "pen": "pen",
 }
 
 RELATIONS = {
@@ -283,17 +306,41 @@ def si_time(iso):
 
 
 # ─── Models ──────────────────────────────────────────────────────────────────
-_world = None
+_worlds = {}
 
 
-def _world_model():
-    # Separate instance from main.py's scan-for-item one, because set_classes()
-    # mutates the model and that endpoint resets classes per request.
-    global _world
-    if _world is None:
-        _world = YOLO("yolov8s-worldv2.pt")
-        _world.set_classes(PERSONAL_VOCAB)
-    return _world
+def _world_model(vocab=None):
+    # Separate instances from main.py's scan-for-item one (and one per word list),
+    # because set_classes() mutates the model and that endpoint resets classes per request.
+    vocab = tuple(vocab or PERSONAL_VOCAB)
+    if vocab not in _worlds:
+        m = YOLO("yolov8s-worldv2.pt")
+        m.set_classes(list(vocab))
+        _worlds[vocab] = m
+    return _worlds[vocab]
+
+
+# The fine-tuned everyday-items model (memocare_items.ipynb in Colab). When the
+# weights file is present it replaces YOLO-World for personal items; its class
+# names are mapped to the labels the rest of the service already uses.
+ITEMS_MODEL_PATH = os.environ.get("ITEMS_MODEL", os.path.join("models", "memocare_items.pt"))
+ITEMS_TO_LABEL = {"eyeglasses": "glasses", "medicine": "pill bottle", "phone": "cell phone",
+                  # classes added in the second training round
+                  "bag": "handbag", "footwear": "slippers", "flashlight": "torch"}
+ITEMS_CONF = float(os.environ.get("ITEMS_CONF", "0.35"))
+# The first model learned "medicine" mostly from pill-box photos and also fires on
+# other small objects on plain backgrounds (a toothbrush scored 0.81), so it must
+# be very sure. Lower this after retraining with tablet strips and home photos.
+ITEMS_CLASS_CONF = {"medicine": float(os.environ.get("ITEMS_MEDICINE_CONF", "0.85"))}
+_items = None
+
+
+def _items_model():
+    global _items
+    if _items is None and os.path.exists(ITEMS_MODEL_PATH):
+        _items = YOLO(ITEMS_MODEL_PATH)
+        print("[remember_moments] using fine-tuned items model:", ITEMS_MODEL_PATH, list(_items.names.values()))
+    return _items
 
 
 COCO_CONF = 0.45
@@ -319,6 +366,15 @@ def _prepare(jpeg_bytes):
     return img, buf.getvalue()
 
 
+_noted = set()
+
+
+def _note_once(msg):
+    if msg not in _noted:
+        _noted.add(msg)
+        print(msg)
+
+
 def _detect(img):
     with INFER_LOCK:
         return _detect_unlocked(img)
@@ -338,22 +394,38 @@ def _detect_unlocked(img):
             out.append({"label": label, "confidence": round(conf, 3),
                         "box": [x1 / w, y1 / h, x2 / w, y2 / h]})
     try:
-        world = _world_model()
-        for r in world.predict(img, conf=WORLD_CONF, verbose=False):
-            for box in r.boxes:
-                prompt = PERSONAL_VOCAB[int(box.cls[0])]
-                x1, y1, x2, y2 = box.xyxy[0].tolist()
-                cand = {"label": WORLD_TO_LABEL.get(prompt, prompt), "confidence": round(float(box.conf[0]), 3),
-                        "box": [x1 / w, y1 / h, x2 / w, y2 / h]}
-                # Same physical object found by both models (e.g. COCO "bottle"
-                # and YOLO-World "pill bottle") - keep only the more confident one.
-                clash = next((d for d in out if _iou(d["box"], cand["box"]) > 0.5), None)
-                if clash is None:
-                    out.append(cand)
-                elif cand["confidence"] > clash["confidence"]:
-                    out[out.index(clash)] = cand
+        items = _items_model()
+        if items is not None:  # fine-tuned model for the patient's everyday items
+            # agnostic NMS: one box per object, even when two classes compete for it
+            preds = [(ITEMS_TO_LABEL.get(items.names[int(b.cls[0])], items.names[int(b.cls[0])]), b)
+                     for r in items.predict(img, conf=ITEMS_CONF, agnostic_nms=True, verbose=False)
+                     for b in r.boxes
+                     if float(b.conf[0]) >= ITEMS_CLASS_CONF.get(items.names[int(b.cls[0])], ITEMS_CONF)]
+            try:   # extra essentials via YOLO-World (needs CLIP); if it fails, the items model still counts
+                extra = _world_model(EXTRA_VOCAB)
+                preds += [(EXTRA_TO_LABEL.get(EXTRA_VOCAB[int(b.cls[0])], EXTRA_VOCAB[int(b.cls[0])]), b)
+                          for r in extra.predict(img, conf=EXTRA_CONF, verbose=False) for b in r.boxes]
+            except Exception as e:
+                _note_once("extra-items pass skipped (YOLO-World/CLIP unavailable): " + str(e)[:120])
+        else:                  # fall back to open-vocabulary YOLO-World prompts
+            world = _world_model()
+            preds = [(WORLD_TO_LABEL.get(PERSONAL_VOCAB[int(b.cls[0])], PERSONAL_VOCAB[int(b.cls[0])]), b)
+                     for r in world.predict(img, conf=WORLD_CONF, verbose=False) for b in r.boxes]
+        for label, box in preds:
+            x1, y1, x2, y2 = box.xyxy[0].tolist()
+            cand = {"label": label, "confidence": round(float(box.conf[0]), 3),
+                    "box": [x1 / w, y1 / h, x2 / w, y2 / h]}
+            # Same physical object found by both models (e.g. COCO "bottle"
+            # and "pill bottle") - keep only the more confident one.
+            clash = next((d for d in out if _iou(d["box"], cand["box"]) > 0.5), None)
+            if clash is None:
+                out.append(cand)
+            elif cand["confidence"] > clash["confidence"]:
+                out[out.index(clash)] = cand
+            elif cand["confidence"] >= EXTRA_OVERRIDES.get((cand["label"], clash["label"]), 2):
+                out[out.index(clash)] = cand
     except Exception as e:
-        print("YOLO-World pass skipped:", e)
+        print("personal-items pass skipped:", e)
 
     for d in out:
         d["label_si"] = si_name(d["label"])
@@ -373,9 +445,12 @@ async def detect_live(
     patient_id: str = Form(...),
     file: UploadFile = File(None),
     esp32_url: str = Form(None),
+    patient_name: str = Form(""),
 ):
     """Detection only. Frames are kept in a short in-memory ring buffer so a
-    later /save-moment can pick the best ones - nothing hits Cloudinary or disk."""
+    later /save-moment can pick the best ones - nothing hits Cloudinary or disk.
+    Objects that match this patient's own saved ones come back labelled with
+    their name ("සුනිල්ගේ කෝප්පය")."""
     # The phone screen is actively driving this patient right now - the ESP32
     # passive worker stands down meanwhile so the two don't both act on it.
     LAST_CLIENT[patient_id] = datetime.datetime.now().timestamp()
@@ -402,13 +477,113 @@ async def detect_live(
     detections = _detect(img)
     _remember_frame(patient_id, jpeg, detections)
 
-    result = {"status": "success", "detections": detections, "width": img.size[0], "height": img.size[1]}
+    shown = [dict(d) for d in detections]   # the stored frame keeps the plain labels
+    _mark_owned(patient_id, patient_name, jpeg, shown)
+    result = {"status": "success", "detections": shown, "width": img.size[0], "height": img.size[1]}
     if esp32_url:
         # The app can't fetch the exact same ESP32 frame again, so send back
         # the one we analysed for display under the boxes.
         import base64
         result["frame_b64"] = base64.b64encode(jpeg).decode()
     return result
+
+
+OWNED_MAX_PER_FRAME = 5   # embeddings are the slow part; a frame rarely has more personal things
+# Live "සුනිල්ගේ කෝප්පය" label: a little looser than OBJECT_FAMILIAR (0.80) because
+# the live camera sees the same cup from new angles; it is only ever compared
+# with this patient's own saved things, so it cannot pick up another patient's.
+OWNED_LIVE_SIM = float(os.environ.get("OWNED_LIVE_SIM", "0.75"))
+
+
+def _owner_si(name):
+    """'සුනිල්' -> 'සුනිල්ගේ', 'Sunil' -> 'Sunil ගේ', no name -> 'ඔයාගේ' (your)."""
+    name = (name or "").strip().split(" ")[0]
+    if not name:
+        return "ඔයාගේ"
+    return f"{name}ගේ" if any("඀" <= ch <= "෿" for ch in name) else f"{name} ගේ"
+
+
+def _mark_owned(pid, patient_name, jpeg, detections):
+    """Live view: compare each object with this patient's own gallery (built from
+    the moments saved earlier, never another patient's) and relabel the ones
+    that are theirs: 'සුනිල්ගේ කෝප්පය' / "Sunil's cup"."""
+    gallery = OBJECT_GALLERY.get(pid) or {}
+    checked = 0
+    for d in detections:
+        known = gallery.get(d["label"])
+        if not known or d["label"] in FIXED_ANCHORS or checked >= OWNED_MAX_PER_FRAME:
+            continue
+        checked += 1
+        emb = _object_embedding(jpeg, d["box"])
+        if emb is None:
+            continue
+        sim = max((_cos(emb, g) for g in known), default=0.0)
+        if sim >= OWNED_LIVE_SIM:
+            name = (patient_name or "").strip().split(" ")[0]
+            d["owned"] = True
+            d["familiarity"] = round(sim, 3)
+            d["label_si"] = f"{_owner_si(name)} {d['label_si']}"
+            d["label_en"] = f"{name}'s {d['label']}" if name else f"your {d['label']}"
+
+
+# ─── Short clips of essential things ─────────────────────────────────────────
+# A moving picture is easier to recall than one photo, so when one of these is
+# saved, the last few camera frames become a short clip (a few seconds). Only
+# for these categories - not every cup and book - to keep uploads small.
+ESSENTIAL_CLIP = {"pill bottle", "glasses", "keys", "wallet", "cell phone", "watch", "hearing aid",
+                  "walking stick", "slippers", "remote"}
+CLIP_FRAME_SECONDS = 0.6   # how long each camera frame stays on screen
+CLIP_MIN_FRAMES = 3
+
+
+def _make_clip(jpegs):
+    """Camera frames -> a short MP4 (H.264, plays on phones). Returns the bytes or None."""
+    import subprocess
+    import tempfile
+    import imageio_ffmpeg
+    if len(jpegs) < CLIP_MIN_FRAMES:
+        return None
+    with tempfile.TemporaryDirectory() as tmp:
+        size = None
+        for i, jpeg in enumerate(jpegs):
+            img = Image.open(io.BytesIO(jpeg)).convert("RGB")
+            if size is None:   # at most 640 px wide/high, even sizes (H.264 needs them)
+                k = min(1.0, 640 / max(img.width, img.height))
+                size = (int(img.width * k) // 2 * 2, int(img.height * k) // 2 * 2)
+            img.resize(size).save(os.path.join(tmp, f"{i:03d}.jpg"), "JPEG", quality=85)
+        out = os.path.join(tmp, "clip.mp4")
+        cmd = [imageio_ffmpeg.get_ffmpeg_exe(), "-y", "-loglevel", "error",
+               "-framerate", f"{1 / CLIP_FRAME_SECONDS:.4f}", "-i", os.path.join(tmp, "%03d.jpg"),
+               "-vf", "fps=24,scale=in_range=full:out_range=tv,format=yuv420p", "-pix_fmt", "yuv420p", "-c:v", "libx264", "-crf", "28",
+               "-movflags", "+faststart", out]
+        if subprocess.run(cmd, capture_output=True, timeout=60).returncode != 0 or not os.path.exists(out):
+            return None
+        with open(out, "rb") as f:
+            return f.read()
+
+
+def _attach_clip(pid, moment, labels, jpegs):
+    """Background: build + upload the clip, then link it to the moment and to
+    the 'last seen' record of each essential thing in it."""
+    try:
+        data = _make_clip(jpegs)
+        if not data:
+            return
+        res = cloudinary.uploader.upload(io.BytesIO(data), folder="memocare_clips", resource_type="video")
+        url = res.get("secure_url", "")
+        if not url:
+            return
+        moment["clip_url"] = url
+        for o in moment["objects"]:
+            if o["label"] in labels:
+                o["clip_url"] = url
+                rec = LAST_SEEN.get(pid, {}).get(o["label"])
+                if rec and rec.get("moment_id") == moment["id"]:
+                    rec["clip_url"] = url
+        _save()
+        print(f"[remember_moments] clip saved for {', '.join(labels)}: {url}")
+    except Exception as e:
+        print("clip failed:", e)
 
 
 def _upload(jpeg, folder):
@@ -519,6 +694,7 @@ def save_moment_core(patient_id, labels, lat=None, lng=None, room=None, source="
                 "say_si": " ".join(parts)}
 
     now = datetime.datetime.now().isoformat()
+    routines_done = _routines_seen(patient_id, new + moved + same)
     for lbl in same:
         if lbl in seen:
             seen[lbl]["time"] = now
@@ -531,7 +707,7 @@ def save_moment_core(patient_id, labels, lat=None, lng=None, room=None, source="
     wanted = new + moved
     if not wanted:
         _save()
-        return {"status": "success", "result": "unchanged", "same": same, "say_si": ""}
+        return {"status": "success", "result": "unchanged", "same": same, "say_si": "", "routines_done": routines_done}
 
     photo_urls = [u for u in (_upload(fr["jpeg"], "memocare_moments") for fr in best) if u]
     if not photo_urls:
@@ -573,6 +749,10 @@ def save_moment_core(patient_id, labels, lat=None, lng=None, room=None, source="
     }
     MOMENTS.setdefault(patient_id, []).append(moment)
     MOMENTS[patient_id] = MOMENTS[patient_id][-500:]
+    essential = sorted({o["label"] for o in objects} & ESSENTIAL_CLIP)
+    if essential:
+        clip_frames = [fr["jpeg"] for fr in sorted(frames, key=lambda fr: fr["time"])]
+        threading.Thread(target=_attach_clip, args=(patient_id, moment, essential, clip_frames), daemon=True).start()
 
     for obj in objects:
         if obj["label"] in FIXED_ANCHORS:
@@ -607,7 +787,18 @@ def save_moment_core(patient_id, labels, lat=None, lng=None, room=None, source="
             save_db()
 
     return {"status": "success", "result": "saved", "moment": moment, "new": new, "moved": moved, "same": same,
-            "say_si": " ".join(say_parts)}
+            "say_si": " ".join(say_parts), "routines_done": routines_done}
+
+
+def _routines_seen(pid, labels):
+    """A pill bottle / toothbrush / plate seen near its routine's usual time marks the
+    AI reminder done (routine_ai.camera_seen). Never stops a moment from saving."""
+    try:
+        import routine_ai
+        return routine_ai.camera_seen(pid, labels)
+    except Exception as e:
+        print("routine camera signal failed:", e)
+        return []
 
 
 def _place_changed(prev, room_en, anchors, lat, lng):
@@ -1085,8 +1276,10 @@ def _find_payload(item):
         where.append(item["room_si"] + "ේ")
     if item.get("anchors"):
         where.append(f"{si_name(item['anchors'][0])} ළඟ")
-    where_txt = ", ".join(where) if where else "මෙතන"
-    say = f"ඔබේ {item['label_si']} අන්තිමට දැක්කේ {si_time(item['time'])}, {where_txt}. මම සිතියමේ පෙන්වන්නම්."
+    if where:
+        say = f"ඔබේ {item['label_si']} අන්තිමට දැක්කේ {si_time(item['time'])}, {', '.join(where)}. මම සිතියමේ පෙන්වන්නම්."
+    else:   # no room or nearby furniture known: the photo shows where it was
+        say = f"ඔබේ {item['label_si']} අන්තිමට දැක්කේ {si_time(item['time'])}. තිබ්බ තැන මේ පින්තූරයේ පේනවා."
     return {**item, "when_si": si_time(item["time"]), "say_si": say}
 
 
@@ -1280,9 +1473,39 @@ def _minutes(seconds):
     return max(1, round(seconds / 60))
 
 
+# Story helpers: what is worth retelling. A story helps memory when it orients
+# (day, date), puts people first, says where important things are and what is
+# coming - not when it lists every object with clock times.
+STORY_THINGS = {"glasses", "keys", "wallet", "pill bottle", "cell phone", "watch", "hearing aid", "remote",
+                "walking stick", "slippers", "handbag", "umbrella", "book", "flask"}      # where they are matters
+STORY_ROUTINE = {"cup": ("you had a drink from your cup", "ඔයා ඔයාගේ කෝප්පයෙන් බිව්වා"),
+                 "plate": ("you had a meal", "ඔයා කෑම කෑවා"), "bowl": ("you ate from your bowl", "ඔයා බඳුනෙන් කෑවා"),
+                 "kettle": ("the kettle was used for tea", "තේ හදන්න කේතලය පාවිච්චි කළා"),
+                 "toothbrush": ("you brushed your teeth", "ඔයා දත් මැද්දා"), "towel": ("you used your towel", "ඔයා තුවාය පාවිච්චි කළා")}
+DAYS_SI_STORY = ["සඳුදා", "අඟහරුවාදා", "බදාදා", "බ්‍රහස්පතින්දා", "සිකුරාදා", "සෙනසුරාදා", "ඉරිදා"]
+MONTHS_SI_STORY = ["ජනවාරි", "පෙබරවාරි", "මාර්තු", "අප්‍රේල්", "මැයි", "ජූනි", "ජූලි", "අගෝස්තු", "සැප්තැම්බර්",
+                   "ඔක්තෝබර්", "නොවැම්බර්", "දෙසැම්බර්"]
+
+
+def _part_of_day(iso, si):
+    h = int(iso[11:13])
+    if si:
+        return "උදේ" if h < 12 else "දවල්" if h < 15 else "හවස" if h < 19 else "රෑ"
+    return "in the morning" if h < 12 else "around midday" if h < 15 else "in the afternoon" if h < 19 else "at night"
+
+
+def _date_words(day, si):
+    d = datetime.date.fromisoformat(day)
+    if si:
+        return f"{DAYS_SI_STORY[d.weekday()]}, {MONTHS_SI_STORY[d.month - 1]} {d.day}"
+    return f"{d.strftime('%A')}, {d.day} {d.strftime('%B')}"
+
+
 def build_story(patient_id, day, lang="si"):
-    """The day's events -> a short, factual-but-warm story. Returns None when
-    nothing happened that day."""
+    """The day's events -> a short, warm story that helps memory: day and date,
+    people first, what was said and promised, where important things are, what
+    is coming, and the main event repeated at the end. No clock times. Returns
+    None when nothing happened that day."""
     moments = [m for m in MOMENTS.get(patient_id, []) if m["time"].startswith(day)]
     inter = INTERACTIONS.get(patient_id, {}).get(day, {})
     people_by_id = {p["id"]: p for p in PEOPLE.get(patient_id, [])}
@@ -1297,22 +1520,23 @@ def build_story(patient_id, day, lang="si"):
     # In Sinhala mode the events carry the exact Sinhala words, so the LLM can't
     # mistranslate (it once turned "cup" into කුප්පි, a bottle word).
     obj_name = (lambda o: o["label_si"]) if si else (lambda o: o["label"])
-    lines, last_key = [], None
-    for m in moments:
-        key = (tuple(sorted(o["label"] for o in m["objects"])), m.get("room"))
-        if key == last_key:
-            continue  # same scene saved again back-to-back - one sentence is enough
-        last_key = key
-        things = ", ".join(("your usual " if o.get("familiar") else "") + obj_name(o) for o in m["objects"])
-        room = m.get("room_si") if si else (m.get("room") or "").lower()
-        where = f" in the {room}" if room else ""
-        lines.append(f"- {m['time'][11:16]}: you spent time with {things}{where}")
+    lines = [f"- DATE: " + (f"අද {_date_words(day, si)}." if si else f"Today is {_date_words(day, si)}.")]
+    main = None
+    # 1. People first - the day's main events.
     for p in people:
         rec = inter.get(f"person:{p['id']}")
-        how_long = f" for about {_minutes(rec['seconds'])} minutes" if rec and rec["seconds"] else ""
-        visits = f", {rec['count']} times today" if rec and rec["count"] > 1 else ""
+        part = _part_of_day(rec["first"], si) if rec and rec.get("first") else ""
+        mins = _minutes(rec["seconds"]) if rec and rec["seconds"] else 0
         name = f" {p['name']}" if p["name"] != p["relation_si"] else ""
-        lines.append(f"- you were with your {p['relation_si'] if si else p['relation']}{name}{how_long}{visits}")
+        if si:
+            who = f"ඔයාගේ {p['relation_si']}{name}"
+            line = f"{part} {who} ඔයා එක්ක හිටියා" + (f", විනාඩි {mins}ක් විතර." if mins else ".")
+            main = main or f"අද {who} ඔයාව බලන්න ආවා."
+        else:
+            who = f"your {p['relation']}{name}"
+            line = f"{who.capitalize()} was with you {part}" + (f" for about {mins} minutes." if mins else ".")
+            main = main or f"Today {who} came to see you."
+        lines.append(f"- PEOPLE: {line.strip()}")
     # What was talked about during visits (only summaries, only with consent - visit_talk.py).
     talks_for = _ctx.get("conversations_for")
     for c in (talks_for(patient_id, day) if talks_for else []):
@@ -1322,31 +1546,63 @@ def build_story(patient_id, day, lang="si"):
         rel = p["relation_si"] if si else p["relation"]
         topics = ", ".join(t["si"] if si else t["en"] for t in c.get("topics", []) if t.get("si"))
         if topics:
-            lines.append(f"- {c['time'][11:16]}: your {rel} talked with you about: {topics}")
+            lines.append("- TALK: " + (f"ඔයාගේ {rel} ඔයා එක්ක {topics} ගැන කතා කළා." if si
+                                       else f"Your {rel} talked with you about {topics}."))
         for pr in c.get("promises", []):
-            lines.append(f"- your {rel} promised: {pr['si'] if si else pr['en']}")
-    most_used = sorted((r for r in inter.values() if r["kind"] == "object"), key=lambda r: -r["seconds"])[:1]
-    if most_used and len(lines) > 1:
-        lines.append(f"- the thing you were with longest today: {most_used[0]['name_si'] if si else most_used[0]['ref']}")
+            text = pr["si"] if si else pr["en"]
+            lines.append("- COMING: " + (f"ඔයාගේ {rel} කිව්වා: {text}" if si else f"Your {rel} said: {text}"))
+    # 2. Where the important things were last seen today (the latest sighting each).
+    last_place = {}
+    for m in moments:
+        for o in m["objects"]:
+            if o["label"] in STORY_THINGS:
+                last_place[o["label"]] = (obj_name(o), m.get("room_si") if si else (m.get("room") or "").lower(),
+                                          _part_of_day(m["time"], si))
+    for name_, room, part in last_place.values():
+        if si:   # locative like _find_payload: කුස්සිය -> කුස්සියේ
+            lines.append(f"- PLACE: ඔයාගේ {name_} අන්තිමට {part} තිබුණේ {room}ේ." if room
+                         else f"- PLACE: ඔයාගේ {name_} {part} දැක්කා.")
+        else:
+            lines.append(f"- PLACE: Your {name_} was last seen in the {room} {part}." if room
+                         else f"- PLACE: Your {name_} was seen {part}.")
+        main = main or (f"ඔයාගේ {name_} තියෙන තැන මතක තියාගන්න." if si else f"Remember where your {name_} is.")
+    # 3. Small routine wins (only what a saved photo shows), once each.
+    seen = {o["label"]: m["time"] for m in moments for o in m["objects"] if o["label"] in STORY_ROUTINE}
+    for lbl, t in seen.items():
+        en, si_txt = STORY_ROUTINE[lbl]
+        lines.append(f"- DONE: {_part_of_day(t, si)} {si_txt}." if si else f"- DONE: {en.capitalize()} {_part_of_day(t, si)}.")
+    if len(lines) == 1:      # only the date - nothing worth a story
+        return None
+    if main:
+        lines.append(f"- MAIN: {main}")
 
     language = "Sinhala (simple, spoken Sinhala, Sinhala script)" if lang == "si" else "simple English"
     title, story = "", None
     if GROQ_API_KEY:
         try:
             out = _llm_json(
-                f"Write a short, warm and gently fun end-of-day memory story in {language} for an elderly person "
-                "with dementia, about THEIR OWN day, in second person (\"you\"), like a loving grandchild retelling "
-                "it at bedtime. Mention every event below in time order with its time of day, place, objects and "
-                "people (and how long, if given), then ONE happy closing sentence. Strict rules: never invent "
-                "actions, feelings, food, weather, conversations or anything not written below (no quotation marks). Use the object, "
-                "place and relation words exactly as written in the events (do not translate or swap them). "
-                'Short, simple sentences. Reply ONLY with JSON {"title": "<3-5 word title>", "story": "..."}.\n\n'
-                "Events:\n" + "\n".join(lines))
+                f"Join the sentences below into a short, warm bedtime memory story in {language} for an elderly "
+                "person with dementia, like a loving grandchild retelling THEIR OWN day. They are already written in "
+                "the right language: keep their words and facts, only join them smoothly. Order: DATE, PEOPLE, TALK, "
+                "PLACE, DONE, COMING, and finish with the MAIN sentence (the most important thing, said again). "
+                "Rules: add nothing new - no extra people, actions, feelings, food, weather or plans; no clock times; "
+                "no quotation marks; "
+                + ("spoken Sinhala as written (ඔයා, not ඔබ; තිබුණේ, not තිබේ); " if si else "") +
+                "short, simple, positive sentences. "
+                'Reply ONLY with JSON {"title": "<3-5 word title>", "story": "..."}.\n\n'
+                "Sentences:\n" + "\n".join(lines))
             story, title = out.get("story"), out.get("title", "")
+            if story:   # the model sometimes says the closing sentence twice
+                import re as _re
+                parts, kept = _re.split(r"(?<=[.!?])\s+", story.strip()), []
+                for sent in parts:
+                    if sent and (not kept or sent != kept[-1]):
+                        kept.append(sent)
+                story = " ".join(kept)
         except Exception as e:
             print("story LLM failed:", e)
     if not story:
-        story = " ".join(lines).replace("- ", "")
+        story = " ".join(l.split(": ", 1)[-1] for l in lines)
 
     photos = [u for m in moments for u in m["photo_urls"][:1]] + [p["photo_url"] for p in people if p.get("photo_url")]
     return {"title": title, "story": story, "photos": photos[:8], "date": day, "lang": lang,

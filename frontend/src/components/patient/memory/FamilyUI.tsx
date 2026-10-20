@@ -158,7 +158,7 @@ export default function FamilyUI() {
       </TouchableOpacity>
       <View style={{ flex: 1 }}>
         <Text style={s.title}>පවුලේ අය</Text>
-        <Text style={s.sub}>{patientName ? `👤 ${patientName} ගේ පවුල` : 'Family registration · caregiver'}</Text>
+        <Text style={s.sub}>{patientName ? `${patientName} ගේ පවුල` : 'Family registration · caregiver'}</Text>
       </View>
       {gate === 'open' && (
         <TouchableOpacity style={s.lockBtn} onPress={() => { clearCaregiverPin(); setGate('enter'); }}>
@@ -226,7 +226,7 @@ export default function FamilyUI() {
                 <View style={{ flex: 1 }}>
                   <Text style={s.alertText}>
                     {a.kind === 'unknown_visitor'
-                      ? 'නොදන්නා කෙනෙක් රෝගියා එක්ක තත්පර 30කට වඩා හිටියා (ESP32 camera).'
+                      ? 'නොදන්නා කෙනෙක් රෝගියා එක්ක තත්පර 5කට වඩා හිටියා (ESP32 camera).'
                       : `කෙනෙක් "${a.claimed_si}" කියලා කිව්වා, ඒත් මුහුණ ලියාපදිංචි ${a.registered_name ? `${a.registered_name}ට` : 'කෙනාට'} ගැලපෙන්නේ නැහැ.`}
                   </Text>
                   <Text style={s.alertMeta}>{timeAgo(a.time)}{a.said ? ` · "${a.said}"` : ''}</Text>
@@ -279,7 +279,7 @@ export default function FamilyUI() {
                 <Image source={{ uri: p.photo_url }} style={s.photo} />
                 <Text style={s.rel}>{p.relation_si}</Text>
                 {p.name && p.name !== p.relation_si ? <Text style={s.name}>{p.name}</Text> : null}
-                <Text style={s.meta}>🧠 මුහුණු {p.face_samples || 0}ක්</Text>
+                <Text style={s.meta}><Ionicons name="scan" size={13} /> මුහුණු {p.face_samples || 0}ක්</Text>
                 <TouchableOpacity onPress={() => toggleTalk(p)}
                   style={[s.talkChip, p.conversation_ok && { backgroundColor: '#0f766e', borderColor: '#0f766e' }]}>
                   <Ionicons name={p.conversation_ok ? 'mic' : 'mic-off'} size={13} color={p.conversation_ok ? '#fff' : '#64748b'} />

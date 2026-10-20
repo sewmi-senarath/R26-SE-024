@@ -1,22 +1,32 @@
 import { Question } from '@/src/types/assessment.types';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Keyboard, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { InfoCard, tapFeedback } from '../assessmentUi';
 
 interface Props {
   question: Question;
   onAnswer: (answers: string[]) => void;
+  // Review mode: preselect the saved answer (the review screen blocks touches).
+  answer?: unknown;
 }
 
 const TOTAL_STEPS = 5;
 
-export function SerialSubtractionRenderer({ question, onAnswer }: Props) {
+export function SerialSubtractionRenderer({ question, onAnswer, answer }: Props) {
   const [entries, setEntries] = useState<string[]>(Array(TOTAL_STEPS).fill(''));
   const [currentStep, setCurrentStep] = useState(0);
   const [inputVal, setInputVal] = useState('');
   const [isComplete, setIsComplete] = useState(false);
   const inputRef = useRef<TextInput>(null);
+
+  // Review mode: show the five saved entries as already completed.
+  useEffect(() => {
+    if (!Array.isArray(answer)) return;
+    setEntries(Array.from({ length: TOTAL_STEPS }, (_, i) => String(answer[i] ?? '')));
+    setCurrentStep(TOTAL_STEPS - 1);
+    setIsComplete(true);
+  }, [answer]);
 
   const canSubmit = inputVal.length > 0;
 

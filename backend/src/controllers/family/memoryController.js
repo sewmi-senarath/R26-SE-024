@@ -2,6 +2,8 @@ const Memory = require('../../models/family/FamilyMemory');
 const Patient = require('../../models/caregiver/Patient');
 const FamilyPatientProfile = require('../../models/family/FamilyPatientProfile');
 const SessionOutcome = require('../../models/family/SessionOutcome');
+const StoryQuizAttempt = require('../../models/family/StoryQuizAttempt');
+const PatientTopicPreference = require('../../models/family/PatientTopicPreference');
 const axios = require('axios');
 const cloudinary = require('../../config/cloudinary');
 
@@ -126,14 +128,52 @@ const getCategoryRecommendation = async (req, res) => {
       byCategory[category].count += 1;
     }
 
+    // quiz accuracy — a second, AI-dependent signal that enriches the
+    // mood-based ranking below rather than gating it (many sessions
+    // legitimately have no quiz, since the AI-unavailable fallback is to
+    // skip the quiz entirely, not show a weak one — see storyQuizService.js)
+    const completedAttempts = await StoryQuizAttempt.find({ patientId, status: 'completed' })
+      .populate('memoryId', 'category');
+
+    const quizByCategory = {};
+    for (const attempt of completedAttempts) {
+      const category = attempt.memoryId?.category || 'other';
+      if (!quizByCategory[category]) quizByCategory[category] = { sum: 0, count: 0 };
+      quizByCategory[category].sum += (attempt.score / attempt.questions.length) * 100;
+      quizByCategory[category].count += 1;
+    }
+
+    // close-the-loop `pause_topic` action marks a category sensitive —
+    // excluded from every suggestion, same as "What's Working" and any
+    // future recommendation built on this endpoint
+    const sensitivePrefs = await PatientTopicPreference.find({ patientId, status: 'sensitive' }).select('category');
+    const sensitiveCategories = new Set(sensitivePrefs.map((p) => p.category));
+
     const ranked = Object.entries(byCategory)
-      .map(([category, { sum, count }]) => ({
-        category,
-        avgMoodShiftPercent: Math.round((sum / count) * 10) / 10,
-        sessionCount: count,
-      }))
+      .filter(([category]) => !sensitiveCategories.has(category))
+      .map(([category, { sum, count }]) => {
+        const avgMoodShiftPercent = Math.round((sum / count) * 10) / 10;
+        const quiz = quizByCategory[category];
+        const avgQuizAccuracyPercent = quiz ? Math.round((quiz.sum / quiz.count) * 10) / 10 : null;
+        // centered on the 50% midpoint so it's comparable in sign/scale to
+        // a mood-shift delta; mood-shift stays the dominant, validated
+        // signal (70/30) — quiz accuracy nudges the ranking, doesn't drive it
+        const quizSignal = avgQuizAccuracyPercent === null ? null : avgQuizAccuracyPercent - 50;
+        const combinedScore = quizSignal === null
+          ? avgMoodShiftPercent
+          : Math.round((0.7 * avgMoodShiftPercent + 0.3 * quizSignal) * 10) / 10;
+
+        return {
+          category,
+          avgMoodShiftPercent,
+          sessionCount: count,
+          avgQuizAccuracyPercent,
+          quizAttemptsCount: quiz ? quiz.count : 0,
+          combinedScore,
+        };
+      })
       .filter((entry) => entry.sessionCount >= MIN_SESSIONS_PER_CATEGORY)
-      .sort((a, b) => b.avgMoodShiftPercent - a.avgMoodShiftPercent);
+      .sort((a, b) => b.combinedScore - a.combinedScore);
 
     res.status(200).json({
       success: true,
