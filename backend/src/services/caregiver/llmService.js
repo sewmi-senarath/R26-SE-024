@@ -1,9 +1,9 @@
-// backend/src/services/caregiver/llmService.js
+//Configure the OpenAI API
 const API_KEY  = () => process.env.OPENAI_API_KEY;
 const MODEL    = () => process.env.OPENAI_MODEL    || 'gpt-4o-mini';
 const BASE_URL = () => process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
 const TIMEOUT_MS = 25000;
-
+//Define the system prompt
 const SYSTEM_PROMPT = `You are the "Smart Care Coach" inside MemoCare, an app for family and professional caregivers of people with dementia.
 Your ONLY job is to rewrite already-chosen recommendations in a warm, personal, calm tone.
 
@@ -18,7 +18,9 @@ STRICT RULES:
 
 const buildUserPrompt = ({ stressLevel, stressScore, weekly, recs }) => {
   const lines = [];
+  //Add today's stress information
   lines.push(`Today's stress level: ${stressLevel} (${stressScore}/10).`);
+  //Add weekly information
   if (weekly) {
     lines.push(
       `Weekly picture: burnout risk ${weekly.riskLevel}, trend ${weekly.trend}` +
@@ -34,13 +36,13 @@ const buildUserPrompt = ({ stressLevel, stressScore, weekly, recs }) => {
   });
   return lines.join('\n');
 };
-
+//Create the personalization function
 const personalizeRecommendations = async (payload) => {
   if (!API_KEY()) return null;
-
+//Set the API timeout
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
-
+//Call the OpenAI API
   try {
     const res = await fetch(`${BASE_URL()}/chat/completions`, {
       method: 'POST',
@@ -65,12 +67,12 @@ const personalizeRecommendations = async (payload) => {
       console.log('LLM request failed:', res.status);
       return null;
     }
-
+//Receive the AI response
     const data = await res.json();
     const raw = (data.choices?.[0]?.message?.content || '{}')
       .replace(/^\s*```(?:json)?/i, '').replace(/```\s*$/, '').trim();
     const parsed = JSON.parse(raw);
-
+//Validate the AI response
     if (typeof parsed.message !== 'string' || !parsed.message.trim()) return null;
 
     const validIds = new Set(payload.recs.map((r) => r.id));

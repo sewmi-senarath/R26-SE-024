@@ -1,7 +1,7 @@
 const express    = require('express');
 const router     = express.Router();
 const RecommendationFeedback = require('../../models/caregiver/RecommendationFeedback');
-
+//Save caregiver feedback(helpful/Not helpful)
 router.post('/feedback', async (req, res) => {
   try {
     const {
@@ -14,6 +14,7 @@ router.post('/feedback', async (req, res) => {
       stressScore,
     } = req.body;
 
+// Validate required data
     if (!caregiverId || !recommendationId || !feedback) {
       return res.status(400).json({
         success: false,
@@ -21,7 +22,7 @@ router.post('/feedback', async (req, res) => {
       });
     }
 
-    // Save feedback
+    // Save feedback to MongoDB
     const record = await RecommendationFeedback.create({
       caregiverId,
       recommendationId,
@@ -33,7 +34,7 @@ router.post('/feedback', async (req, res) => {
     });
 
     console.log(`[Recommendation] ${feedback} for ${recommendationId} by ${caregiverId}`);
-
+  //Return the response
     res.status(201).json({
       success: true,
       message: 'Feedback saved successfully',
@@ -46,7 +47,7 @@ router.post('/feedback', async (req, res) => {
   }
 });
 
-
+//Calculate recommendation priorities
 router.get('/priorities/:caregiverId', async (req, res) => {
   try {
     const { caregiverId } = req.params;
@@ -56,7 +57,7 @@ router.get('/priorities/:caregiverId', async (req, res) => {
 
     // Calculate priority adjustments per recommendation
     const priorityMap = {};
-
+    //Calculate feedback scores
     allFeedback.forEach(fb => {
       const id = fb.recommendationId;
       if (!priorityMap[id]) {
@@ -92,7 +93,7 @@ router.get('/priorities/:caregiverId', async (req, res) => {
   }
 });
 
-
+//Retrieve feedback history
 router.get('/history/:caregiverId', async (req, res) => {
   try {
     const { caregiverId } = req.params;
