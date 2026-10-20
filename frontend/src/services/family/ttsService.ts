@@ -29,14 +29,28 @@ const splitIntoSentences = (text: string): string[] =>
     .map((s) => s.trim())
     .filter(Boolean);
 
-const PAUSE_BETWEEN_SENTENCES_MS = 450;
+const PAUSE_BETWEEN_SENTENCES_MS = 600;
 
-let cancelToken = { cancelled: false };
+interface SpeechToken {
+  cancelled: boolean;
+  paused: boolean;
+  pauseHere?: () => void;
+  resume?: () => void;
+}
 
-export const speakStory = async (text: string, onDone?: () => void) => {
+// only one story plays at a time, so a single module-level token is enough
+// for pauseSpeaking()/resumeSpeaking() to reach whichever speakStory() call
+// is currently active
+let currentToken: SpeechToken | null = null;
+
+export const speakStory = async (
+  text: string,
+  onDone?: () => void,
+  onProgress?: (currentSentence: number, totalSentences: number) => void
+) => {
   Speech.stop();
-  cancelToken.cancelled = false;
-  const myToken = cancelToken;
+  const myToken: SpeechToken = { cancelled: false, paused: false };
+  currentToken = myToken;
 
   if (!bestVoicePromise) bestVoicePromise = pickBestVoice();
   const voice = await bestVoicePromise;
@@ -46,33 +60,57 @@ export const speakStory = async (text: string, onDone?: () => void) => {
   let index = 0;
 
   const speakNext = () => {
-    if (myToken.cancelled) return;
+    if (myToken.cancelled || myToken.paused) return;
     if (index >= sentences.length) {
       onDone?.();
       return;
     }
 
     const sentence = sentences[index];
+    onProgress?.(index + 1, sentences.length);
     index += 1;
 
     Speech.speak(sentence, {
       language: 'en-US',
       voice,
-      pitch: 0.97,   // very slightly lower — warmer, less clinical
-      rate: 0.82,    // slower, more deliberate storytelling pace
+      pitch: 0.88,   // lower — warmer, softer tone instead of a clinical read
+      rate: 0.72,    // slower, calmer storytelling pace
       onDone: () => {
-        if (myToken.cancelled) return;
+        if (myToken.cancelled || myToken.paused) return;
         setTimeout(speakNext, PAUSE_BETWEEN_SENTENCES_MS);
       },
-      onStopped: () => onDone?.(),
+      onStopped: () => {
+        if (!myToken.paused && !myToken.cancelled) onDone?.();
+      },
       onError: () => onDone?.(),
     });
+  };
+
+  // pausing rewinds to the start of the sentence that got cut off, since
+  // expo-speech can only stop/start whole utterances, not mid-sentence —
+  // resuming replays that sentence rather than skipping the rest of it
+  myToken.pauseHere = () => {
+    index = Math.max(0, index - 1);
+    myToken.paused = true;
+    Speech.stop();
+  };
+  myToken.resume = () => {
+    myToken.paused = false;
+    speakNext();
   };
 
   speakNext();
 };
 
+export const pauseSpeaking = () => {
+  currentToken?.pauseHere?.();
+};
+
+export const resumeSpeaking = () => {
+  currentToken?.resume?.();
+};
+
 export const stopSpeaking = () => {
-  cancelToken.cancelled = true;
+  if (currentToken) currentToken.cancelled = true;
   Speech.stop();
 };

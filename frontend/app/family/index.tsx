@@ -1,30 +1,31 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, StatusBar, Text, View } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 
 import { DashboardHeader }    from '../../src/components/family/dashboard/DashboardHeader';
 import { PatientStatusCard }  from '../../src/components/family/dashboard/PatientStatusCard';
 import { StatsGrid }          from '../../src/components/family/dashboard/StatsGrid';
-import { SmartAlertCard }     from '../../src/components/family/dashboard/SmartAlertCard';
 import { FollowUpPrompt }     from '../../src/components/family/dashboard/FollowUpPrompt';
-import { LatestStoryCard }    from '../../src/components/family/dashboard/LatestStoryCard';
+import { FamilyActionCard }   from '../../src/components/family/dashboard/FamilyActionCard';
+import { LoopHealthPanel }    from '../../src/components/family/dashboard/LoopHealthPanel';
 import { QuickActions }       from '../../src/components/family/dashboard/QuickActions';
 
 import { getStoredUser } from '../../src/api/authApi';
 import { getLinkedPatient } from '../../src/services/family/familyService';
 import {
-  acknowledgeAlert,
   getEngagementAlerts,
   getLatestEngagementAlert,
   getMemorySessionReports,
+  getLoopHealth,
   MemorySessionReport,
-  recordAction,
   recordFollowUp,
 } from '../../src/services/family/emotionService';
+import { getUnseenReactions } from '../../src/services/family/calendarService';
 import { buildWeeklyMoodHistory, emotionToMoodBucket, MOOD_EMOJI } from '../../src/utils/moodMapping';
 import { getInitials } from '../../src/utils/nameHelpers';
-import { EngagementAlert, FamilyDashboardStats, LinkedPatient } from '../../src/types/family.types';
+import { EngagementAlert, FamilyDashboardStats, LinkedPatient, LoopHealthStats } from '../../src/types/family.types';
 import { Colors } from '../../src/constants/colors';
+import { FamilyColors } from '../../src/constants/familyTheme';
 
 export default function FamilyDashboard() {
   const [refreshing, setRefreshing] = useState(false);
@@ -34,6 +35,8 @@ export default function FamilyDashboard() {
   const [alert, setAlert] = useState<EngagementAlert | null>(null);
   const [pendingFollowUp, setPendingFollowUp] = useState<EngagementAlert | null>(null);
   const [reports, setReports] = useState<MemorySessionReport[]>([]);
+  const [loopHealth, setLoopHealth] = useState<LoopHealthStats>({ hasEnoughData: false, cardsReceived: 0 });
+  const [unseenReactions, setUnseenReactions] = useState(0);
 
   const latestReport = reports[0] || null;
 
@@ -82,21 +85,51 @@ export default function FamilyDashboard() {
     setReports(data);
   }, [patient]);
 
+  const loadLoopHealth = useCallback(async () => {
+    if (!patient) return;
+    const stats = await getLoopHealth(patient.id);
+    setLoopHealth(stats);
+  }, [patient]);
+
+  // the family-side half of the Moment Card loop — how many patient
+  // reactions nobody has looked at yet (badge on the Calendar quick action)
+  const loadUnseenReactions = useCallback(async () => {
+    if (!patient) return;
+    const { count } = await getUnseenReactions();
+    setUnseenReactions(count);
+  }, [patient]);
+
   useEffect(() => {
     if (!patient) return;
     loadAlert();
     loadPendingFollowUp();
     loadReports();
-  }, [patient, loadAlert, loadPendingFollowUp, loadReports]);
+    loadLoopHealth();
+    loadUnseenReactions();
+  }, [patient, loadAlert, loadPendingFollowUp, loadReports, loadLoopHealth, loadUnseenReactions]);
+
+  // close-the-loop: refresh on focus + a 45s poll while the dashboard stays
+  // open, per the brief — same no-push, no-sockets ceiling as the rest of
+  // this app's "real-time-ish" screens, just a tighter interval here since
+  // this is the primary screen a family member leaves open
+  useFocusEffect(
+    useCallback(() => {
+      loadReports();
+      loadLoopHealth();
+      loadUnseenReactions();
+      const interval = setInterval(() => { loadReports(); loadLoopHealth(); loadUnseenReactions(); }, 45000);
+      return () => clearInterval(interval);
+    }, [loadReports, loadLoopHealth, loadUnseenReactions])
+  );
 
   const handleRefresh = () => {
     setRefreshing(true);
-    Promise.all([loadAlert(), loadPendingFollowUp(), loadReports()]).finally(() => setRefreshing(false));
+    Promise.all([loadAlert(), loadPendingFollowUp(), loadReports(), loadLoopHealth(), loadUnseenReactions()]).finally(() => setRefreshing(false));
   };
 
   if (patientLoading) {
     return (
-      <View style={{ flex: 1, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ flex: 1, backgroundColor: FamilyColors.canvas, alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator color={Colors.primary} size="large" />
       </View>
     );
@@ -104,7 +137,7 @@ export default function FamilyDashboard() {
 
   if (!patient) {
     return (
-      <View style={{ flex: 1, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <View style={{ flex: 1, backgroundColor: FamilyColors.canvas, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
         <Text style={{ fontSize: 14, color: Colors.textMuted, textAlign: 'center' }}>
           We couldn't find a patient linked to your account. Please check your registration or contact support.
         </Text>
@@ -113,7 +146,7 @@ export default function FamilyDashboard() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: Colors.background }}>
+    <View style={{ flex: 1, backgroundColor: FamilyColors.canvas }}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.white} />
 
       <ScrollView
@@ -143,26 +176,18 @@ export default function FamilyDashboard() {
           onPress={() => router.push('/family/patient')}
         />
 
-        {/* ── Latest Story Watched — always shown, not just on alert-worthy sessions ── */}
+        {/* ── Family Action Card — close-the-loop stages 3 & 4. Every
+            completed session gets one; this is also the single source of
+            truth for the urgent "confusing_upsetting" alert styling, so
+            nothing shows twice in two different card styles ── */}
         {latestReport && (
-          <LatestStoryCard report={latestReport} patientName={patient.name} />
-        )}
-
-        {/* ── Smart Alert (Predictive Engagement Engine) ─────────────────────── */}
-        {alert?.isActive && (
-          <SmartAlertCard
-            alert={alert}
-            onCallNow={() => {
-              // Future: open phone dialler or in-app call
-              recordAction(alert.id).then(() => {
-                loadAlert();
-                loadPendingFollowUp();
-              });
-            }}
-            onDismiss={() => {
-              acknowledgeAlert(alert.id).then(() => loadAlert());
-            }}
-          />
+          <View style={{ marginHorizontal: 20, marginTop: 20 }}>
+            <FamilyActionCard
+              report={latestReport}
+              patientName={patient.name}
+              onChanged={() => { loadReports(); loadLoopHealth(); }}
+            />
+          </View>
         )}
 
         {/* ── Follow-up — did the call actually help? ─────────────────────────── */}
@@ -186,7 +211,11 @@ export default function FamilyDashboard() {
         <QuickActions
           onStoriesPress={() => router.push('/family/stories')}
           onCalendarPress={() => router.push('/family/calendar')}
+          calendarBadge={unseenReactions}
         />
+
+        {/* ── Loop Health — close-the-loop stage overview ─────────────────────── */}
+        <LoopHealthPanel stats={loopHealth} />
       </ScrollView>
     </View>
   );

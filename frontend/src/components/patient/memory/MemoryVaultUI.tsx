@@ -12,8 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { speakStory, stopSpeaking } from '../../../services/family/ttsService';
-import EmotionTracker from '../../family/EmotionTracker';
+import StoryPlayerModal from './StoryPlayerModal';
 
 const API_URL = `${process.env.EXPO_PUBLIC_API_URL}/api`;
 
@@ -42,8 +41,7 @@ export default function MemoryVaultUI() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
 
-  const [playingId, setPlayingId] = useState<string | null>(null);
-  const [thankYouFor, setThankYouFor] = useState<string | null>(null);
+  const [activeMemory, setActiveMemory] = useState<Memory | null>(null);
 
   const loadMemories = useCallback(async (patientId: string) => {
     setError('');
@@ -76,22 +74,6 @@ export default function MemoryVaultUI() {
       }
     })();
   }, [loadMemories]);
-
-  const playMemory = (memory: Memory) => {
-    stopSpeaking();
-    setThankYouFor(null);
-    setPlayingId(memory._id);
-
-    speakStory(memory.generatedStory, () => {
-      setPlayingId(null);
-      setThankYouFor(memory._id);
-    });
-  };
-
-  const stopMemory = () => {
-    stopSpeaking();
-    setPlayingId(null);
-  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -132,52 +114,32 @@ export default function MemoryVaultUI() {
               <Text style={styles.emptyText}>No memories yet</Text>
             </View>
           ) : (
-            memories.map((item) => {
-              const isPlaying = playingId === item._id;
-              return (
-                <View key={item._id} style={styles.card}>
-                  <Image source={{ uri: item.photoUrl }} style={styles.cardImage} />
-                  <Text style={styles.cardNote} numberOfLines={isPlaying ? undefined : 2}>
-                    {item.familyNote}
-                  </Text>
+            memories.map((item) => (
+              <View key={item._id} style={styles.card}>
+                <Image source={{ uri: item.photoUrl }} style={styles.cardImage} />
+                <Text style={styles.cardNote} numberOfLines={2}>
+                  {item.familyNote}
+                </Text>
 
-                  {/* full story text stays on screen the whole time it's
-                      being read aloud, so the patient can follow along
-                      visually as well as by ear */}
-                  {isPlaying && (
-                    <View style={styles.storyTextBox}>
-                      <Text style={styles.storyText}>{item.generatedStory}</Text>
-                    </View>
-                  )}
-
-                  {thankYouFor === item._id ? (
-                    <View style={styles.thankYouBox}>
-                      <Ionicons name="heart" size={22} color="#EC4899" />
-                      <Text style={styles.thankYouText}>Thank you for sharing that with me</Text>
-                    </View>
-                  ) : (
-                    <TouchableOpacity
-                      style={[styles.playBtn, isPlaying && styles.playBtnActive]}
-                      onPress={() => (isPlaying ? stopMemory() : playMemory(item))}
-                      activeOpacity={0.85}
-                    >
-                      <Ionicons name={isPlaying ? 'stop-circle' : 'play-circle'} size={30} color="#fff" />
-                      <Text style={styles.playBtnText}>{isPlaying ? 'Stop' : 'Listen'}</Text>
-                    </TouchableOpacity>
-                  )}
-
-                  {/* runs silently while this story is being read aloud */}
-                  <EmotionTracker
-                    patientId={patient.id}
-                    memoryId={item._id}
-                    isActive={isPlaying}
-                  />
-                </View>
-              );
-            })
+                <TouchableOpacity
+                  style={styles.playBtn}
+                  onPress={() => setActiveMemory(item)}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="play-circle" size={30} color="#fff" />
+                  <Text style={styles.playBtnText}>Listen</Text>
+                </TouchableOpacity>
+              </View>
+            ))
           )}
         </ScrollView>
       )}
+
+      <StoryPlayerModal
+        memory={activeMemory}
+        patientId={patient?.id ?? null}
+        onClose={() => setActiveMemory(null)}
+      />
     </SafeAreaView>
   );
 }
@@ -221,23 +183,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
     backgroundColor: '#7C3AED', borderRadius: 18, paddingVertical: 18,
   },
-  playBtnActive: { backgroundColor: '#DC2626' },
   playBtnText: { color: '#fff', fontSize: 18, fontWeight: '900' },
-
-  thankYouBox: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
-    backgroundColor: '#FDF2F8', borderRadius: 18, paddingVertical: 18,
-    borderWidth: 1, borderColor: '#FBCFE8',
-  },
-  thankYouText: { color: '#9D174D', fontSize: 16, fontWeight: '700' },
-
-  storyTextBox: {
-    backgroundColor: '#FAF5FF',
-    borderRadius: 18,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#E9D5FF',
-  },
-  storyText: { fontSize: 17, fontWeight: '600', color: '#3B0764', lineHeight: 26 },
 });

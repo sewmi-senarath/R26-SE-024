@@ -19,7 +19,8 @@ import os
 import html
 import uuid
 import shutil
-import datetime
+import sltime as datetime  # Sri Lanka time whatever the host timezone (see sltime.py)
+import pathlib
 import subprocess
 
 import imageio_ffmpeg
@@ -145,8 +146,11 @@ def _render_cards(pages, work):
         png = os.path.abspath(os.path.join(work, f"s{i}.png"))
         with open(hp, "w", encoding="utf-8") as f:
             f.write(page)
-        subprocess.run([chrome, "--headless=new", "--disable-gpu", "--hide-scrollbars", f"--window-size={W},{H}",
-                        "--virtual-time-budget=8000", f"--screenshot={png}", "file:///" + hp.replace("\\", "/")],
+        # In a container Chrome runs as root (or without user namespaces), which only works without its sandbox.
+        root = (hasattr(os, "geteuid") and os.geteuid() == 0) or os.environ.get("CHROME_NO_SANDBOX") == "1"
+        subprocess.run([chrome, "--headless=new", "--disable-gpu", "--hide-scrollbars", f"--window-size={W},{H}"]
+                       + (["--no-sandbox", "--disable-dev-shm-usage"] if root else [])
+                       + ["--virtual-time-budget=8000", f"--screenshot={png}", pathlib.Path(hp).as_uri()],
                        capture_output=True, timeout=60)
         if os.path.exists(png):
             paths.append(png)

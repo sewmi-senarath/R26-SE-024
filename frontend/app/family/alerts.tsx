@@ -3,6 +3,9 @@ import { router } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../../src/constants/colors';
+import { FamilyColors, FamilyRadius } from '../../src/constants/familyTheme';
+import { ScreenHeader } from '../../src/components/family/ui/ScreenHeader';
+import { Card } from '../../src/components/family/ui/Card';
 import { getLinkedPatient } from '../../src/services/family/familyService';
 import {
   acknowledgeAlert,
@@ -65,7 +68,7 @@ export default function AlertsScreen() {
 
   if (patientLoading) {
     return (
-      <View style={{ flex: 1, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ flex: 1, backgroundColor: FamilyColors.canvas, alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator color={Colors.primary} size="large" />
       </View>
     );
@@ -73,7 +76,7 @@ export default function AlertsScreen() {
 
   if (!patient) {
     return (
-      <View style={{ flex: 1, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <View style={{ flex: 1, backgroundColor: FamilyColors.canvas, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
         <Text style={{ fontSize: 14, color: Colors.textMuted, textAlign: 'center' }}>
           We couldn't find a patient linked to your account. Please check your registration or contact support.
         </Text>
@@ -82,24 +85,19 @@ export default function AlertsScreen() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: Colors.background }}>
+    <View style={{ flex: 1, backgroundColor: FamilyColors.canvas }}>
       <StatusBar barStyle="dark-content" />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
 
-        {/* Header */}
-        <View style={{ backgroundColor: Colors.white, paddingTop: 56, paddingHorizontal: 20, paddingBottom: 20, borderBottomLeftRadius: 24, borderBottomRightRadius: 24, shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 6 }}>
-          <TouchableOpacity onPress={() => (router.canGoBack() ? router.back() : router.replace('/family'))} style={{ marginBottom: 12 }}>
-            <Ionicons name="chevron-back" size={24} color={Colors.primary} />
-          </TouchableOpacity>
-          <Text style={{ fontSize: 22, fontWeight: '800', color: Colors.textPrimary }}>Engagement Alerts</Text>
-          <Text style={{ fontSize: 14, color: Colors.textMuted, marginTop: 2 }}>
-            Real mood-lift alerts from {patient.name}'s story sessions
-          </Text>
-        </View>
+        <ScreenHeader
+          title="Engagement Alerts"
+          subtitle={`Real mood-lift alerts from ${patient.name}'s story sessions`}
+          onBack={() => (router.canGoBack() ? router.back() : router.replace('/family'))}
+        />
 
         {/* Engagement stats — real evidence of whether alerts actually help */}
         {!loading && stats && (
-          <View style={{ marginHorizontal: 20, marginTop: 20, backgroundColor: Colors.white, borderRadius: 18, padding: 16 }}>
+          <Card style={{ marginHorizontal: 20, marginTop: 20 }} radius="md">
             <Text style={{ fontSize: 11, fontWeight: '700', color: Colors.textMuted, letterSpacing: 0.5, marginBottom: 10 }}>ENGAGEMENT</Text>
             {stats.totalAlerts === 0 ? (
               <Text style={{ fontSize: 12, color: Colors.textMuted }}>Not enough data yet.</Text>
@@ -125,7 +123,7 @@ export default function AlertsScreen() {
                 )}
               </View>
             )}
-          </View>
+          </Card>
         )}
 
         <View style={{ marginHorizontal: 20, marginTop: 20 }}>
@@ -134,38 +132,31 @@ export default function AlertsScreen() {
               <ActivityIndicator color={Colors.primary} />
             </View>
           ) : alerts.length === 0 ? (
-            <View style={{ backgroundColor: Colors.white, borderRadius: 20, padding: 24, alignItems: 'center' }}>
+            <Card style={{ alignItems: 'center' }} padding={24}>
               <Ionicons name="notifications-off-outline" size={28} color={Colors.textMuted} />
               <Text style={{ fontSize: 13, color: Colors.textMuted, marginTop: 10, textAlign: 'center' }}>
                 No alerts yet. When a story session lifts {patient.name}'s mood enough, it will show up here.
               </Text>
-            </View>
+            </Card>
           ) : (
             alerts.map((alert) => (
-              <View
+              <Card
                 key={alert.id}
+                radius="md"
                 style={{
-                  backgroundColor: Colors.white,
-                  borderRadius: 18,
-                  padding: 16,
                   marginBottom: 12,
                   borderWidth: alert.acknowledged ? 0 : 1.5,
                   borderColor: Colors.success,
                   opacity: alert.acknowledged ? 0.7 : 1,
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.06,
-                  shadowRadius: 8,
-                  elevation: 3,
                 }}
               >
                 {/* Title row */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                  <Text style={{ fontSize: 14, fontWeight: '800', color: Colors.textPrimary, flex: 1 }} numberOfLines={1}>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: Colors.textPrimary, flex: 1 }} numberOfLines={1}>
                     "{alert.storyTitle}"
                   </Text>
                   {alert.acknowledged ? (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, backgroundColor: Colors.background }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, backgroundColor: FamilyColors.canvasAlt }}>
                       <Ionicons name={alert.actedAt ? 'call' : 'checkmark-circle'} size={12} color={Colors.textMuted} />
                       <Text style={{ fontSize: 10, fontWeight: '700', color: Colors.textMuted }}>{alert.actedAt ? 'Called' : 'Acknowledged'}</Text>
                     </View>
@@ -177,7 +168,7 @@ export default function AlertsScreen() {
                 </View>
 
                 {/* Mood numbers */}
-                <View style={{ flexDirection: 'row', backgroundColor: Colors.background, borderRadius: 12, padding: 10, marginBottom: 10, gap: 12 }}>
+                <View style={{ flexDirection: 'row', backgroundColor: FamilyColors.canvasAlt, borderRadius: 12, padding: 10, marginBottom: 10, gap: 12 }}>
                   <View style={{ alignItems: 'center', flex: 1 }}>
                     <Text style={{ fontSize: 9, color: Colors.textMuted, fontWeight: '700', marginBottom: 2 }}>SAD BEFORE</Text>
                     <Text style={{ fontSize: 16, fontWeight: '800', color: '#F87171' }}>{alert.sadBefore}%</Text>
@@ -230,7 +221,7 @@ export default function AlertsScreen() {
                     </View>
                   )}
                 </View>
-              </View>
+              </Card>
             ))
           )}
         </View>

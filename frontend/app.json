@@ -43,7 +43,12 @@
         "android.permission.FOREGROUND_SERVICE_LOCATION"
       ],
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.MemoCare"
+      "package": "com.anonymous.MemoCare",
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyDPlayYuwbxUOs_8sePIJ0ggul2MqxwhZw"
+        }
+      }
     },
     "web": {
       "output": "static",
@@ -79,7 +84,17 @@
       "expo-image",
       "expo-sharing",
       "expo-status-bar",
-      "expo-audio"
+      "expo-audio",
+      "@react-native-community/datetimepicker",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

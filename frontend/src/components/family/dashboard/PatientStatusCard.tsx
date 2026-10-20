@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../../../constants/colors';
+import { FamilyColors, FamilyRadius, FamilyShadow } from '../../../constants/familyTheme';
 import { LinkedPatient, PatientCondition } from '../../../types/family.types';
 
 interface PatientStatusCardProps {
@@ -36,15 +37,11 @@ export const PatientStatusCard: React.FC<PatientStatusCardProps> = ({ patient, o
         marginHorizontal: 20,
         marginTop: 20,
         backgroundColor: Colors.white,
-        borderRadius: 20,
+        borderRadius: FamilyRadius.lg,
         padding: 18,
-        shadowColor: Colors.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 12,
-        elevation: 5,
         borderWidth: 1,
-        borderColor: Colors.border,
+        borderColor: Colors.borderLight,
+        ...FamilyShadow.elevated,
       }}
     >
       {/* Top row */}
@@ -55,21 +52,21 @@ export const PatientStatusCard: React.FC<PatientStatusCardProps> = ({ patient, o
             width: 56,
             height: 56,
             borderRadius: 28,
-            backgroundColor: patient.avatarColor + '22',
+            backgroundColor: patient.avatarColor + FamilyColors.alpha.soft,
             justifyContent: 'center',
             alignItems: 'center',
             borderWidth: 2,
             borderColor: patient.avatarColor,
           }}
         >
-          <Text style={{ fontSize: 20, fontWeight: '800', color: patient.avatarColor }}>
+          <Text style={{ fontSize: 20, fontWeight: '700', color: patient.avatarColor }}>
             {patient.initials}
           </Text>
         </View>
 
         {/* Name & condition */}
         <View style={{ flex: 1, marginLeft: 14 }}>
-          <Text style={{ fontSize: 17, fontWeight: '800', color: Colors.textPrimary }}>
+          <Text style={{ fontSize: 17, fontWeight: '700', color: Colors.textPrimary }}>
             {patient.name}
           </Text>
           <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 1 }}>
@@ -80,7 +77,7 @@ export const PatientStatusCard: React.FC<PatientStatusCardProps> = ({ patient, o
               style={{
                 paddingHorizontal: 10,
                 paddingVertical: 3,
-                borderRadius: 20,
+                borderRadius: FamilyRadius.pill,
                 backgroundColor: cond.bg,
               }}
             >

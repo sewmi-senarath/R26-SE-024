@@ -64,6 +64,14 @@ export interface ScoringLogEntry {
   max: number;
 }
 
+// The patient's drawing for the drawing question: SVG path strings plus the
+// canvas size they were drawn on (so review can scale them to any screen).
+export interface SavedDrawing {
+  width: number;
+  height: number;
+  strokes: { d: string; color: string; strokeWidth: number }[];
+}
+
 export interface MMSESession {
   // Navigation
   currentQuestionIndex: number;
@@ -76,6 +84,7 @@ export interface MMSESession {
   timePerQuestion: Record<string, number>;
   attemptCount: Record<string, number>;
   skipped: string[];
+  drawings?: Record<string, SavedDrawing>;
   registrationWords: string[];
   questionSet?: Question[];     // v2+: the rotated questions this session was given
 

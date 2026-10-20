@@ -2,7 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import { Image, Text, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../../../constants/colors';
+import { FamilyColors, FamilyRadius, FamilyShadow } from '../../../constants/familyTheme';
 import { MemorySessionReport } from '../../../services/family/emotionService';
+import { markQuizSeenByFamily } from '../../../services/family/storyQuizService';
 
 interface LatestStoryCardProps {
   report: MemorySessionReport;
@@ -28,8 +30,13 @@ export const LatestStoryCard: React.FC<LatestStoryCardProps> = ({ report, patien
   return (
     <TouchableOpacity
       activeOpacity={0.85}
-      onPress={() => setExpanded((e) => !e)}
-      style={{ marginHorizontal: 20, marginTop: 20, backgroundColor: Colors.white, borderRadius: 20, padding: 16, borderWidth: 1, borderColor: Colors.borderLight, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3 }}
+      onPress={() => {
+        setExpanded((e) => !e);
+        if (report.quizAttemptId && !report.quizSeenByFamilyAt) {
+          markQuizSeenByFamily(report.quizAttemptId);
+        }
+      }}
+      style={{ marginHorizontal: 20, marginTop: 20, backgroundColor: Colors.white, borderRadius: FamilyRadius.lg, padding: 16, borderWidth: 1, borderColor: Colors.borderLight, ...FamilyShadow.card }}
     >
       <Text style={{ fontSize: 11, fontWeight: '700', color: Colors.textMuted, letterSpacing: 0.5, marginBottom: 10 }}>LATEST STORY WATCHED</Text>
 
@@ -45,7 +52,7 @@ export const LatestStoryCard: React.FC<LatestStoryCardProps> = ({ report, patien
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <View style={{ paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6, backgroundColor: Colors.purpleSoft }}>
-              <Text style={{ fontSize: 9, fontWeight: '800', color: Colors.purple, textTransform: 'capitalize' }}>{report.category}</Text>
+              <Text style={{ fontSize: 9, fontWeight: '700', color: Colors.purple, textTransform: 'capitalize' }}>{report.category}</Text>
             </View>
             <Text style={{ fontSize: 11, color: Colors.textMuted }}>{report.triggeredAt}</Text>
           </View>
@@ -55,6 +62,11 @@ export const LatestStoryCard: React.FC<LatestStoryCardProps> = ({ report, patien
           <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 2 }}>
             {emoji(report.mostFrequentEmotion)} Mostly {report.mostFrequentEmotion || 'neutral'} · {shift > 0 ? '+' : ''}{shift}% mood shift
           </Text>
+          {report.quizScore !== null && (
+            <Text style={{ fontSize: 12, color: Colors.purple, fontWeight: '700', marginTop: 2 }}>
+              🧠 Remembered {report.quizScore}/{report.quizTotal}
+            </Text>
+          )}
         </View>
 
         <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color={Colors.textMuted} />
@@ -80,7 +92,7 @@ export const LatestStoryCard: React.FC<LatestStoryCardProps> = ({ report, patien
             </View>
           </View>
 
-          <View style={{ marginTop: 12, backgroundColor: Colors.background, borderRadius: 10, padding: 10 }}>
+          <View style={{ marginTop: 12, backgroundColor: FamilyColors.canvasAlt, borderRadius: 10, padding: 10 }}>
             <Text style={{ fontSize: 12, color: Colors.textSecondary, lineHeight: 18 }}>
               {shift > 10
                 ? `${patientName}'s mood lifted noticeably (${shift > 0 ? '+' : ''}${shift}%) during this story.`

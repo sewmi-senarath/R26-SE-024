@@ -287,6 +287,41 @@ const markReactionSeen = async (req, res) => {
   }
 };
 
+// --- GET unseen reactions across every event for this patient — the
+//     family-side half of the Moment Card loop. A patient reacting used to
+//     be invisible unless the family happened to reopen that one event's
+//     detail screen; this is what the dashboard bell badge now polls ---
+const getUnseenReactions = async (req, res) => {
+  try {
+    const patientId = req.linkedPatientId;
+
+    // "skipped" is the absence of a reaction (patient tapped Later) — not
+    // something worth a notification badge, only real emoji/voice/video
+    const reactions = await EventReaction.find({
+      patientId,
+      seenByFamilyAt: null,
+      type: { $ne: 'skipped' },
+    })
+      .populate('event', 'title eventType')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      count: reactions.length,
+      reactions: reactions.map((r) => ({
+        id: r._id,
+        eventId: r.event ? r.event._id : null,
+        eventTitle: r.event ? r.event.title : 'A moment',
+        type: r.type,
+        emoji: r.emoji,
+        createdAt: r.createdAt,
+      })),
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // hour-of-day buckets a reaction's createdAt falls into — coarse on purpose,
 // a single lucky/unlucky hour shouldn't drive the recommendation
 const BUCKETS = [
@@ -342,5 +377,6 @@ module.exports = {
   deleteEvent,
   getReactions,
   markReactionSeen,
+  getUnseenReactions,
   getBestTime,
 };

@@ -13,6 +13,7 @@ import {
   AI_URL, getPatientId, getPatientName, speak, startListening, stopSpeaking,
 } from '../../../services/memoryAI';
 import { getStoredRole, getStoredUser } from '../../../api/authApi';
+import { CelebrateArt, MoodFace } from './art/MemoryArt';
 
 // Storybook palette - warm paper, ink, and three soft accents.
 const P = {
@@ -111,7 +112,10 @@ function RevealPhoto({ url, box, revealed }: { url: string; box?: number[]; reve
           { translateY: z.interpolate({ inputRange: [0, 1], outputRange: [(0.5 - cy) * h * 3.2, 0] }) },
           { scale: z.interpolate({ inputRange: [0, 1], outputRange: [3.2, 1] }) },
         ] }} />
-      <View style={styles.mediaBadge}><Text style={styles.mediaBadgeText}>🔍 හැංගිලා ඉන්නේ මොකක්ද?</Text></View>
+      <View style={[styles.mediaBadge, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}>
+        <Ionicons name="search" size={15} color="#fff" />
+        <Text style={styles.mediaBadgeText}>හැංගිලා ඉන්නේ මොකක්ද?</Text>
+      </View>
     </View>
   );
 }
@@ -193,7 +197,7 @@ function SceneArt({ icon, label }: { icon?: string; label?: string }) {
   return (
     <View style={styles.artCard}>
       <View style={styles.sceneCircle}>
-        <Text style={{ fontSize: 54 }}>{icon || '🏠'}</Text>
+        {icon ? <Text style={{ fontSize: 54 }}>{icon}</Text> : <Ionicons name="home" size={52} color={P.teal} />}
         <View style={styles.sceneQ}><Text style={styles.sceneQText}>?</Text></View>
       </View>
       {!!label && <Text style={styles.emojiLabel}>{label}</Text>}
@@ -532,7 +536,7 @@ export default function MemoryQuizUI() {
             {moods.map((m) => (
               <Pressable key={m.key} onPress={() => chooseMood(m)}
                 style={({ pressed }) => [styles.moodBtn, pressed && { transform: [{ scale: 0.96 }] }]}>
-                <Text style={{ fontSize: 46 }}>{m.emoji}</Text>
+                <MoodFace mood={m.key} size={66} />
                 <Text style={styles.moodText}>{m.si}</Text>
               </Pressable>
             ))}
@@ -540,7 +544,7 @@ export default function MemoryQuizUI() {
         )}
         {phase === 'empty' && (
           <View style={{ alignItems: 'center', marginTop: 10 }}>
-            <SceneArt icon="📷" />
+            <SceneArt />
             <Pressable style={[styles.bigBtn, { backgroundColor: P.teal, marginTop: 18 }]} onPress={() => router.replace('/patient/remember-live')}>
               <Ionicons name="camera" size={22} color="#fff" /><Text style={styles.bigBtnText}>කැමරාව පටන් ගන්න</Text>
             </Pressable>
@@ -646,7 +650,7 @@ export default function MemoryQuizUI() {
           <Animated.View pointerEvents="none" style={[styles.starBurst, {
             opacity: starPop.interpolate({ inputRange: [0, 0.2, 1], outputRange: [0, 1, 1] }),
             transform: [{ scale: starPop.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1] }) }] }]}>
-            <Text style={{ fontSize: 46 }}>⭐</Text>
+            <CelebrateArt size={120} />
           </Animated.View>
         )}
         {phase === 'error' && (

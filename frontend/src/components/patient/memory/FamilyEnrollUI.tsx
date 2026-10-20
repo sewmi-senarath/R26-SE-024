@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { RelationAvatar } from './art/MemoryArt';
 import axios from 'axios';
 import {
   AI_URL, RELATIONS, getCaregiverPin, getPatientId, getPatientName, speak, stopSpeaking,
@@ -141,7 +142,7 @@ export default function FamilyEnrollUI() {
       </TouchableOpacity>
       <View style={{ flex: 1 }}>
         <Text style={s.title}>අලුත් කෙනෙක්</Text>
-        <Text style={s.sub}>{patientName ? `👤 ${patientName} ට ලියාපදිංචි කරනවා` : 'Register a family member'}</Text>
+        <Text style={s.sub}>{patientName ? `${patientName} ට ලියාපදිංචි කරනවා` : 'Register a family member'}</Text>
       </View>
     </View>
   );
@@ -192,7 +193,7 @@ export default function FamilyEnrollUI() {
           <View style={s.relGrid}>
             {RELATIONS.map((r) => (
               <TouchableOpacity key={r.en} style={[s.rel, relation === r.en && s.relOn]} onPress={() => setRelation(r.en)}>
-                <Text style={s.relEmoji}>{r.emoji}</Text>
+                <RelationAvatar relation={r.en} size={46} />
                 <Text style={[s.relText, relation === r.en && { color: '#fff' }]}>{r.si}</Text>
               </TouchableOpacity>
             ))}
@@ -200,7 +201,7 @@ export default function FamilyEnrollUI() {
           <TouchableOpacity style={[s.consent, talkOk && s.consentOn]} onPress={() => setTalkOk((v) => !v)} activeOpacity={0.85}>
             <Ionicons name={talkOk ? 'checkbox' : 'square-outline'} size={26} color={talkOk ? '#5eead4' : '#94a3b8'} />
             <View style={{ flex: 1 }}>
-              <Text style={s.consentTitle}>🎙 කතාබහ සාරාංශ කරන්න අවසර</Text>
+              <Text style={s.consentTitle}><Ionicons name="mic" size={16} /> කතාබහ සාරාංශ කරන්න අවසර</Text>
               <Text style={s.consentText}>
                 මේ කෙනා බලන්න ආවම කතා කරන දේවල් app එක අහලා කෙටි සාරාංශයක් විතරක් තියාගන්නවා (audio save වෙන්නේ නැහැ).
                 එයාගෙන් අවසර ගත්තා නම් විතරක් tick කරන්න.

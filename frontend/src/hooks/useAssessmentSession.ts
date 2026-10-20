@@ -1,4 +1,4 @@
-import { MMSESession, Question } from "@/src/types/assessment.types";
+import { MMSESession, Question, SavedDrawing } from "@/src/types/assessment.types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   completeSession as completeSessionApi,
@@ -32,7 +32,7 @@ function isActiveAssessmentQuestion(question: Question) {
 }
 
 // Normalize backend shape -> frontend shape (`questionId` -> `id`).
-function normalizeQuestions(raw: any[]): Question[] {
+export function normalizeQuestions(raw: any[]): Question[] {
   return raw
     .map((q: any) => ({
       ...q,
@@ -215,11 +215,12 @@ export function useAssessmentSession(patientId?: string, caregiverId?: string) {
   );
 
   const submitAnswer = useCallback(
-    async (questionId: string, answer: any) => {
+    async (questionId: string, answer: any, extras?: { drawing?: SavedDrawing }) => {
       if (!session) return;
       const updated = await submitAnswerApi(session.sessionId, {
         questionId,
         answer,
+        ...(extras?.drawing ? { drawing: extras.drawing } : {}),
         timeSpentMs: Date.now() - questionStartRef.current,
         answeredAt: Date.now(),
       });

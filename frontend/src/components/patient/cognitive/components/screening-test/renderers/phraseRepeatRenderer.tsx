@@ -9,12 +9,22 @@ import { InfoCard, tapFeedback, VerdictButtons } from '../assessmentUi';
 interface Props {
   question: Question;
   onAnswer: (answer: string) => void;
+  // Review mode: preselect the saved answer (the review screen blocks touches).
+  answer?: unknown;
 }
 
-export function PhraseRepeatRenderer({ question, onAnswer }: Props) {
+export function PhraseRepeatRenderer({ question, onAnswer, answer }: Props) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [hasListened, setHasListened] = useState(false);
   const [userResponse, setUserResponse] = useState<'correct' | 'incorrect' | null>(null);
+
+  // Review mode: show the caregiver's saved verdict straight away.
+  useEffect(() => {
+    if (answer === 'correct' || answer === 'incorrect') {
+      setUserResponse(answer);
+      setHasListened(true);
+    }
+  }, [answer]);
 
   // expo-audio player (loads the file and frees it automatically on unmount)
   const player = useAudioPlayer(require('@/assets/audio/patient-assessment.mp3'));

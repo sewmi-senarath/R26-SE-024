@@ -16,10 +16,11 @@ import cloudinary
 import cloudinary.uploader
 import cloudinary.api
 
+# Keys come from the environment (ml-service/.env locally, the service settings on a server), never from the code.
 cloudinary.config(
-  cloud_name = "dc1x4qpjp",
-  api_key = "223333656458116",
-  api_secret = "eJgs0d77ubYRTTZgK_G6Y62Ic2U"
+  cloud_name = os.environ.get("CLOUDINARY_NAME", ""),
+  api_key = os.environ.get("CLOUDINARY_API_KEY", ""),
+  api_secret = os.environ.get("CLOUDINARY_SECRET_KEY", "")
 )
 
 from PIL import Image
@@ -235,7 +236,7 @@ try:
 except Exception as e:
     print(f"Warning: Could not load dataset/expected_locations.csv - {e}")
 
-import datetime
+import sltime as datetime  # Sri Lanka time whatever the host timezone (see sltime.py)
 from fastapi import Form, File, UploadFile
 from pydantic import BaseModel
 import shutil
@@ -1415,6 +1416,10 @@ import memory_video  # video diary of the day (story narration + Sinhala cards)
 app.include_router(memory_video.router)
 import reminders  # adaptive reminders learned from routines and visit promises
 app.include_router(reminders.router)
+import memory_recap  # weekly / monthly / yearly memory
+app.include_router(memory_recap.router)
+import routine_ai  # sensor-free adaptive reminders (research/routine_reminders, strategy C)
+app.include_router(routine_ai.router)
 
 
 if __name__ == "__main__":

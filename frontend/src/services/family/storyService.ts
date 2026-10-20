@@ -84,6 +84,9 @@ export interface CategoryRecommendation {
   category: string;
   avgMoodShiftPercent: number;
   sessionCount: number;
+  avgQuizAccuracyPercent: number | null; // null when no completed quiz exists yet for this category
+  quizAttemptsCount: number;
+  combinedScore: number; // 70% mood-shift + 30% quiz-accuracy signal — what ranking is now sorted by
 }
 
 export interface CategoryRecommendationResponse {
