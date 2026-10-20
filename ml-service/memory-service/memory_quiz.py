@@ -1692,9 +1692,6 @@ def _insights(r):
     def add(tone, en, si):
         out.append({"tone": tone, "text": en, "text_si": si})
 
-    if s.get("demo_history"):
-        add("muted", "Includes simulated demo history (past 4 weeks) to show the forecast - not real game results.",
-            "මෙහි forecast එක පෙන්වීමට simulated demo දත්ත (පහුගිය සති 4) ඇතුළත් - සැබෑ ක්‍රීඩා ප්‍රතිඵල නෙමෙයි.")
     if s["trend"]:
         word = {"improving": "is improving", "stable": "is stable", "declining": "is going down"}[s["trend"]]
         add({"improving": "good", "stable": "neutral", "declining": "warn"}[s["trend"]],

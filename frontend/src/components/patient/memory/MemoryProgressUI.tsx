@@ -261,7 +261,7 @@ function riskHtml(rows: RiskRow[], generated: string, lang: Lang) {
     <h1>MemoCare · ${esc(t('allReport', lang))}</h1>
     <div class="sub">${esc(new Date(generated).toLocaleString())} · ${rows.length} patients</div>
     <table><tr><th>#</th><th>Patient</th><th>Memory (7 d)</th><th>Trend</th><th>Forecast 4 wk</th><th>Risk</th><th>MMSE</th><th>Severity</th><th>Weakest skill</th></tr>${body}</table>
-    <p class="note">${esc(t('disclaimer', lang))}<br/>Forecast: partial pooling (empirical-Bayes random slope) + gradient boosting, trained on a simulated cohort; shown only with at least 5 game days in the last month. MMSE, cognitive games and severity are read from the other components.</p>
+    <p class="note">${esc(t('disclaimer', lang))}${rows.some((r) => r.demo_history) ? '<br/>* Some histories include simulated demonstration data.' : ''}<br/>Forecast: partial pooling (empirical-Bayes random slope) + gradient boosting, trained on a simulated cohort; shown only with at least 5 game days in the last month. MMSE, cognitive games and severity are read from the other components.</p>
   </body></html>`;
 }
 
@@ -450,7 +450,6 @@ export default function MemoryProgressUI() {
                     {p.mmse_last != null && <Text style={st.chip}>{t('mmse', lang, { n: p.mmse_last })}</Text>}
                     {sevChip(p.severity)}
                     {p.simulated && <Text style={st.badge}>{t('simulated', lang)}</Text>}
-                    {p.demo_history && <Text style={st.badge}>{t('demoHistory', lang)}</Text>}
                   </View>
                 </View>
                 <Ionicons name="chevron-forward" size={20} color="#94A3B8" />
@@ -478,7 +477,6 @@ export default function MemoryProgressUI() {
                       {r.mmse_last != null && <Text style={st.chip}>{t('mmse', lang, { n: r.mmse_last })}</Text>}
                       {sevChip(r.severity)}
                       {r.simulated && <Text style={st.badge}>{t('simulated', lang)}</Text>}
-                      {r.demo_history && <Text style={st.badge}>{t('demoHistory', lang)}</Text>}
                     </View>
                   </View>
                   <Ionicons name="chevron-forward" size={20} color="#94A3B8" />
@@ -492,12 +490,7 @@ export default function MemoryProgressUI() {
         ) : (
           <>
             {rep.simulated && <Text style={[st.badge, { alignSelf: 'flex-start', marginBottom: 10 }]}>{t('simulated', lang)}</Text>}
-            {!!rep.summary.demo_history && (
-              <View style={st.demoBanner}>
-                <Ionicons name="flask" size={18} color="#92400E" />
-                <Text style={st.demoText}>{t('demoBanner', lang)}</Text>
-              </View>
-            )}
+
             <View style={st.heroRow}>
               <View style={[st.card, st.hero]}>
                 <Text style={st.muted}>{t('now', lang)}</Text>
