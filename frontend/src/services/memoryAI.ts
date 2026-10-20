@@ -17,6 +17,9 @@ export interface Detection {
   label_si: string;
   confidence: number;
   box: [number, number, number, number]; // normalized x1,y1,x2,y2
+  owned?: boolean;        // this patient's own thing ("Sunil's cup")
+  other_owner?: string;   // another resident's own thing - shown with their name, never saved here
+  label_en?: string;
 }
 
 export interface SeenThing {

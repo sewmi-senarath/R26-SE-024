@@ -7,8 +7,10 @@ the user id has to follow it.
 Run in the memory-service folder while the AI service is STOPPED (it rewrites the
 *_db.json files). A copy of every file is kept as <file>.before-merge-<time>.
 
-    python ../tools/merge_patient_id.py <old_id> <new_id>
+    python ../tools/merge_patient_id.py <old_id> <new_id>          move
+    python ../tools/merge_patient_id.py <old_id> <new_id> --copy   copy (the old id keeps its data)
 """
+import copy
 import glob
 import json
 import shutil
@@ -16,6 +18,7 @@ import sys
 import time
 
 old, new = sys.argv[1], sys.argv[2]
+COPY = "--copy" in sys.argv
 stamp = time.strftime("%Y%m%d-%H%M%S")
 
 
@@ -35,11 +38,13 @@ def walk(x):
     if isinstance(x, dict):
         moved = 0
         if old in x:
-            val = x.pop(old)
+            val = copy.deepcopy(x[old]) if COPY else x.pop(old)
             x[new] = merge(val, x[new]) if new in x else val
             moved = 1
         for k in list(x):
-            if x[k] == old:
+            if k == new and moved:
+                continue   # just copied/moved in - don't walk it again
+            if x[k] == old and not COPY:   # copying keeps references to the old id as they are
                 x[k] = new
                 moved += 1
             else:
@@ -48,7 +53,7 @@ def walk(x):
     if isinstance(x, list):
         moved = 0
         for i, v in enumerate(x):
-            if v == old:
+            if v == old and not COPY:
                 x[i] = new
                 moved += 1
             else:

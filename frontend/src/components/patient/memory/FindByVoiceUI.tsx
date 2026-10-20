@@ -240,6 +240,9 @@ export default function FindByVoiceUI() {
                     <Text style={s.cardName}>{item.label_si}</Text>
                     <Text style={s.cardMeta}>{item.when_si || timeAgo(item.time)}</Text>
                     {!!item.room_si && <Text style={s.cardMeta}>📍 {item.room_si}{item.anchors?.length ? ` · ${item.anchors.join(', ')}` : ''}</Text>}
+                    {item.lat != null && item.lng != null && (
+                      <Text style={s.cardMeta}>🌐 {item.lat.toFixed(6)}, {item.lng.toFixed(6)}</Text>
+                    )}
                   </View>
                 </View>
                 {!!item.clip_url && <ClipPlayer url={item.clip_url} />}

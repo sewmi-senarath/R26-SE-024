@@ -32,6 +32,10 @@ const MISSES_BEFORE_RESET = 3;
 const PERSON_MISSES_BEFORE_LEAVE = 4;
 const LISTEN_MS = 5000;
 const MIN_CONF = 0.5;
+// A clear thing (confident in 2 frames running) is saved after this instead of the full
+// DWELL_MS - so a quick look while walking past is enough.
+const QUICK_DWELL_MS = 2000;
+const QUICK_CONF = 0.7;
 // Furniture and fittings never start a countdown by themselves - they're kept
 // by the server only as "near the sink" style location clues.
 const FIXED = new Set(['sink', 'oven', 'refrigerator', 'microwave', 'bed', 'couch', 'toilet',
@@ -484,7 +488,8 @@ export default function RememberLiveUI() {
   // ─── Per-frame dwell tracking ────────────────────────────────────────
   const onFrame = useCallback((dets: Detection[]) => {
     const now = Date.now();
-    const movable = dets.filter((d) => d.confidence >= MIN_CONF && d.label !== 'person' && !FIXED.has(d.label));
+    // Another resident's own thing is shown with their name but never saved into this patient's memories.
+    const movable = dets.filter((d) => d.confidence >= MIN_CONF && d.label !== 'person' && !FIXED.has(d.label) && !d.other_owner);
     const labels = [...new Set(movable.map((d) => d.label))];
 
     // A person close enough to be interacting (not someone far in the background).
@@ -546,7 +551,8 @@ export default function RememberLiveUI() {
     const elapsed = now - cur.start;
     setProgress(Math.min(1, elapsed / DWELL_MS));
 
-    if (elapsed >= DWELL_MS && steady.length) {
+    const clear = steady.length > 0 && cur.frames >= 2 && steady.every((l) => movable.some((m) => m.label === l && m.confidence >= QUICK_CONF));
+    if ((elapsed >= DWELL_MS || (clear && elapsed >= QUICK_DWELL_MS)) && steady.length) {
       const key = [...steady].sort().join('|');
       if (lastSaved.current && lastSaved.current.key === key && now - lastSaved.current.at < RESAVE_COOLDOWN_MS) {
         resetDwell(); // just saved these - don't save the same scene every 20 seconds
