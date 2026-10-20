@@ -694,6 +694,7 @@ def save_moment_core(patient_id, labels, lat=None, lng=None, room=None, source="
                 "say_si": " ".join(parts)}
 
     now = datetime.datetime.now().isoformat()
+    routines_done = _routines_seen(patient_id, new + moved + same)
     for lbl in same:
         if lbl in seen:
             seen[lbl]["time"] = now
@@ -706,7 +707,7 @@ def save_moment_core(patient_id, labels, lat=None, lng=None, room=None, source="
     wanted = new + moved
     if not wanted:
         _save()
-        return {"status": "success", "result": "unchanged", "same": same, "say_si": ""}
+        return {"status": "success", "result": "unchanged", "same": same, "say_si": "", "routines_done": routines_done}
 
     photo_urls = [u for u in (_upload(fr["jpeg"], "memocare_moments") for fr in best) if u]
     if not photo_urls:
@@ -786,7 +787,18 @@ def save_moment_core(patient_id, labels, lat=None, lng=None, room=None, source="
             save_db()
 
     return {"status": "success", "result": "saved", "moment": moment, "new": new, "moved": moved, "same": same,
-            "say_si": " ".join(say_parts)}
+            "say_si": " ".join(say_parts), "routines_done": routines_done}
+
+
+def _routines_seen(pid, labels):
+    """A pill bottle / toothbrush / plate seen near its routine's usual time marks the
+    AI reminder done (routine_ai.camera_seen). Never stops a moment from saving."""
+    try:
+        import routine_ai
+        return routine_ai.camera_seen(pid, labels)
+    except Exception as e:
+        print("routine camera signal failed:", e)
+        return []
 
 
 def _place_changed(prev, room_en, anchors, lat, lng):

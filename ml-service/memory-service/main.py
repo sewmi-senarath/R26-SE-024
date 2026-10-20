@@ -1418,6 +1418,8 @@ import reminders  # adaptive reminders learned from routines and visit promises
 app.include_router(reminders.router)
 import memory_recap  # weekly / monthly / yearly memory
 app.include_router(memory_recap.router)
+import routine_ai  # sensor-free adaptive reminders (research/routine_reminders, strategy C)
+app.include_router(routine_ai.router)
 
 
 if __name__ == "__main__":
