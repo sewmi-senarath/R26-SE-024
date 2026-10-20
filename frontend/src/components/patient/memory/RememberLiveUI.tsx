@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -765,7 +765,8 @@ export default function RememberLiveUI() {
 
   // Each face goes to the person box it sits in (closest to that box's head area),
   // and each box / face is used once - so three people get three different labels.
-  const personTags = useMemo(() => {
+  // (plain code, not useMemo: this runs after the screen's early returns, where a hook must not be)
+  const personTags = (() => {
     const out = new Map<number, { text: string; color: string }>();
     if (!faceTags) return out;
     const pairs: { i: number; f: number; dist: number }[] = [];
@@ -785,7 +786,7 @@ export default function RememberLiveUI() {
       usedFace.add(f);
     });
     return out;
-  }, [detections, faceTags]);
+  })();
 
   return (
     <SafeAreaView style={s.container}>
