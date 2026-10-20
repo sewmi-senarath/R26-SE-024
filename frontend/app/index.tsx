@@ -44,9 +44,13 @@
 //   );
 // }
 
+import { Ionicons } from '@expo/vector-icons';
 import { Redirect, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Text, TouchableOpacity, View } from 'react-native';
+import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+import PrimaryButton from '../src/components/common/PrimaryButton';
+import ScreenBackground from '../src/components/common/ScreenBackground';
 import { getAccessToken, getStoredRole } from '../src/api/authApi';
 
 const HOME_BY_ROLE: Record<string, string> = {
@@ -79,61 +83,55 @@ export default function Index() {
 
   if (home) return <Redirect href={home as never} />;
 
+  const chips = [
+    { icon: 'heart' as const, label: 'Compassionate', color: '#ec4899' },
+    { icon: 'people' as const, label: 'Connected', color: '#3b82f6' },
+    { icon: 'shield-checkmark' as const, label: 'Secure', color: '#10b981' },
+  ];
+
   return (
-    <View style={{
-      flex: 1, backgroundColor: '#EFF6FF',
-      alignItems: 'center', justifyContent: 'space-between',
-      paddingVertical: 60, paddingHorizontal: 24,
-    }}>
+    <ScreenBackground>
+      <View style={{ flex: 1, justifyContent: 'space-between', paddingTop: 80, paddingBottom: 48, paddingHorizontal: 24 }}>
 
-      {/* Logo */}
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-        <Image
-          source={require('../assets/images/logo.png')}
-          style={{ width: 180, height: 180 }}
-          resizeMode="contain"
-        />
-        {/* <Text style={{ fontSize: 38, fontWeight: 'bold', color: '#1e40af', marginTop: 16 }}>
-          MemoCare
-        </Text> */}
-        <Text style={{ fontSize: 16, color: '#6b7280', marginTop: 8, textAlign: 'center', lineHeight: 24 }}>
-          Connected care for what matters most
-        </Text>
-      </View>
-
-      {/* Buttons */}
-      <View style={{ width: '100%', gap: 12 }}>
-
-        {/* Get Started → onboarding intro slides */}
-        <TouchableOpacity
-          onPress={() => router.push('/onboarding')}
-          style={{
-            backgroundColor: '#2563eb', paddingVertical: 16,
-            borderRadius: 14, alignItems: 'center',
-            shadowColor: '#2563eb', shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.3, shadowRadius: 8, elevation: 5,
-          }}
-        >
-          <Text style={{ color: 'white', fontSize: 18, fontWeight: 'bold' }}>
-            Get Started
+        <Animated.View entering={FadeInDown.duration(600)} style={{ alignItems: 'center' }}>
+          <View style={{
+            width: 190, height: 190, borderRadius: 95, backgroundColor: '#fff',
+            alignItems: 'center', justifyContent: 'center',
+            shadowColor: '#2563eb', shadowOffset: { width: 0, height: 14 },
+            shadowOpacity: 0.18, shadowRadius: 28, elevation: 8,
+          }}>
+            <Image source={require('../assets/images/logo.png')} style={{ width: 140, height: 140 }} resizeMode="contain" />
+          </View>
+          <Text style={{ fontSize: 40, fontWeight: '800', color: '#1e3a8a', marginTop: 28, letterSpacing: -0.5 }}>
+            MemoCare
           </Text>
-        </TouchableOpacity>
-
-        {/* Login */}
-        <TouchableOpacity
-          onPress={() => router.push('/auth/login')}
-          style={{
-            backgroundColor: 'white', paddingVertical: 16,
-            borderRadius: 14, alignItems: 'center',
-            borderWidth: 2, borderColor: '#2563eb',
-          }}
-        >
-          <Text style={{ color: '#2563eb', fontSize: 18, fontWeight: 'bold' }}>
-            Already have an account?
+          <Text style={{ fontSize: 16, color: '#64748b', marginTop: 8, textAlign: 'center', lineHeight: 24 }}>
+            Connected care for what matters most
           </Text>
-        </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 24, flexWrap: 'wrap', justifyContent: 'center' }}>
+            {chips.map((c) => (
+              <View key={c.label} style={{
+                flexDirection: 'row', alignItems: 'center', gap: 6,
+                backgroundColor: '#fff', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999,
+                shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2,
+              }}>
+                <Ionicons name={c.icon} size={14} color={c.color} />
+                <Text style={{ fontSize: 13, fontWeight: '600', color: '#334155' }}>{c.label}</Text>
+              </View>
+            ))}
+          </View>
+        </Animated.View>
+
+        <Animated.View entering={FadeInUp.delay(250).duration(600)} style={{ width: '100%', gap: 14 }}>
+          <PrimaryButton label="Get Started" onPress={() => router.push('/onboarding')} />
+          <TouchableOpacity onPress={() => router.push('/auth/login')} style={{ paddingVertical: 8, alignItems: 'center' }}>
+            <Text style={{ color: '#475569', fontSize: 15 }}>
+              Already have an account? <Text style={{ color: '#2563eb', fontWeight: '700' }}>Log in</Text>
+            </Text>
+          </TouchableOpacity>
+        </Animated.View>
 
       </View>
-    </View>
+    </ScreenBackground>
   );
 }
