@@ -18,6 +18,9 @@ import ClipPlayer from './findThings/ClipPlayer';
 
 const LISTEN_SECONDS = 5;
 const NEAR_METRES = 15; // below this, GPS can't tell rooms apart - guide by room/anchor instead
+// While the map is open the thing's place is re-read this often: seen again somewhere
+// else -> the pin moves there (the server keeps only the latest sighting).
+const ITEM_REFRESH_MS = 10000;
 
 type Phase = 'idle' | 'listening' | 'thinking';
 type Result = { found: true; item: SeenThing } | { found: false; say: string };
@@ -34,6 +37,10 @@ export default function FindByVoiceUI() {
   const [userLoc, setUserLoc] = useState<{ lat: number; lng: number } | null>(null);
   const [heading, setHeading] = useState<number | null>(null);
   const pulse = useRef(new Animated.Value(1)).current;
+  const mapRef = useRef<MapView>(null);
+  const [cardH, setCardH] = useState(420);
+  const [moved, setMoved] = useState(false);   // the thing was seen at a new place while the map was open
+  const fittedFor = useRef<string>('');
 
   useFocusEffect(
     useCallback(() => {
@@ -73,6 +80,37 @@ export default function FindByVoiceUI() {
       Animated.timing(pulse, { toValue: 1, duration: 500, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
     ])).start();
   }, [phase, pulse]);
+
+  // Phone location follows the patient while the map is open (the "you" pin and the distance move).
+  const open = !!result?.found;
+  useEffect(() => {
+    if (!open) return;
+    let sub: Location.LocationSubscription | null = null;
+    Location.watchPositionAsync({ accuracy: Location.Accuracy.High, distanceInterval: 2, timeInterval: 2000 },
+      (p) => setUserLoc({ lat: p.coords.latitude, lng: p.coords.longitude }))
+      .then((w) => { sub = w; }).catch(() => {});
+    return () => { sub?.remove(); };
+  }, [open]);
+
+  // The thing's latest place: if the camera saw it somewhere else, the pin moves.
+  const openLabel = result?.found ? result.item.label : null;
+  useEffect(() => {
+    if (!openLabel || !patientId) return;
+    const id = setInterval(async () => {
+      try {
+        const res = await axios.get(`${AI_URL}/find-thing/${patientId}`, { params: { label: openLabel }, timeout: 10000 });
+        const fresh: SeenThing | undefined = res.data.found ? res.data.item : undefined;
+        setResult((cur) => {
+          if (!fresh || !cur?.found || cur.item.label !== openLabel) return cur;
+          const was = cur.item;
+          if (fresh.time === was.time && fresh.lat === was.lat && fresh.lng === was.lng) return cur;
+          if (fresh.lat !== was.lat || fresh.lng !== was.lng) setMoved(true);
+          return { found: true, item: fresh };
+        });
+      } catch {}
+    }, ITEM_REFRESH_MS);
+    return () => clearInterval(id);
+  }, [openLabel, patientId]);
 
   const guidanceFor = (item: SeenThing, here: { lat: number; lng: number } | null, hdg: number | null) => {
     if (!item.lat || !item.lng || !here) return '';
@@ -137,6 +175,27 @@ export default function FindByVoiceUI() {
 
   const item = result?.found ? result.item : null;
   const hasMap = !!(item?.lat && item?.lng);
+
+  // Fit both pins (the thing + the phone) into the part of the map above the card.
+  const fitMap = () => {
+    if (!item?.lat || !item?.lng || !mapRef.current) return;
+    const thing = { latitude: item.lat, longitude: item.lng };
+    if (!userLoc || distanceMetres(userLoc.lat, userLoc.lng, item.lat, item.lng) < 20) {
+      mapRef.current.animateCamera({ center: thing, zoom: 18, pitch: 0, heading: 0 }, { duration: 600 });
+      return;
+    }
+    mapRef.current.fitToCoordinates([thing, { latitude: userLoc.lat, longitude: userLoc.lng }],
+      { edgePadding: { top: 130, right: 70, bottom: cardH + 60, left: 70 }, animated: true });
+  };
+  // re-fit when the thing moves or the first phone fix arrives - not on every GPS step
+  const fitKey = item ? `${item.label}|${item.lat}|${item.lng}|${userLoc ? 1 : 0}` : '';
+  useEffect(() => {
+    if (fitKey && fitKey !== fittedFor.current) {
+      fittedFor.current = fitKey;
+      const t = setTimeout(fitMap, 300);
+      return () => clearTimeout(t);
+    }
+  });
   const dist = item && hasMap && userLoc ? distanceMetres(userLoc.lat, userLoc.lng, item.lat!, item.lng!) : null;
   const camHeading = item && hasMap && userLoc ? bearingDegrees(userLoc.lat, userLoc.lng, item.lat!, item.lng!) : 0;
 
@@ -193,25 +252,27 @@ export default function FindByVoiceUI() {
         <View style={s.modal}>
           {item && hasMap ? (
             <MapView
+              ref={mapRef}
               style={StyleSheet.absoluteFill}
               showsUserLocation
-              showsBuildings
               showsCompass
-              pitchEnabled
-              initialCamera={{
-                center: { latitude: item.lat!, longitude: item.lng! },
-                pitch: 60,
-                heading: camHeading,
-                altitude: 220,
-                zoom: 18,
-              }}
+              onMapReady={fitMap}
+              initialRegion={{ latitude: item.lat!, longitude: item.lng!, latitudeDelta: 0.004, longitudeDelta: 0.004 }}
             >
-              <Marker coordinate={{ latitude: item.lat!, longitude: item.lng! }}>
+              <Marker coordinate={{ latitude: item.lat!, longitude: item.lng! }} anchor={{ x: 0.5, y: 1 }}>
                 <View style={s.pin}>
                   <Image source={{ uri: item.photo_url }} style={s.pinImg} />
                   <Text style={s.pinText}>{item.label_si}</Text>
                 </View>
               </Marker>
+              {userLoc && (
+                <Marker coordinate={{ latitude: userLoc.lat, longitude: userLoc.lng }} anchor={{ x: 0.5, y: 0.5 }}>
+                  <View style={s.me}>
+                    <View style={s.meDot} />
+                    <Text style={s.meText}>ඔබ</Text>
+                  </View>
+                </Marker>
+              )}
               {userLoc && (
                 <Polyline
                   coordinates={[{ latitude: userLoc.lat, longitude: userLoc.lng }, { latitude: item.lat!, longitude: item.lng! }]}
@@ -226,14 +287,28 @@ export default function FindByVoiceUI() {
           )}
 
           <SafeAreaView style={s.modalTop} edges={['top']}>
-            <TouchableOpacity style={s.closeBtn} onPress={() => { stopSpeaking(); setResult(null); }}>
+            <TouchableOpacity style={s.closeBtn} onPress={() => { stopSpeaking(); setResult(null); setMoved(false); }}>
               <Ionicons name="close" size={26} color="#0f172a" />
             </TouchableOpacity>
           </SafeAreaView>
 
-          <View style={s.card}>
+          {hasMap && (
+            <SafeAreaView style={s.fitWrap} edges={['top']} pointerEvents="box-none">
+              <TouchableOpacity style={s.fitBtn} onPress={fitMap}>
+                <Ionicons name="locate" size={22} color="#0f172a" />
+              </TouchableOpacity>
+            </SafeAreaView>
+          )}
+
+          <View style={s.card} onLayout={(e) => setCardH(e.nativeEvent.layout.height)}>
             {item ? (
               <>
+                {moved && (
+                  <TouchableOpacity style={s.moved} onPress={() => setMoved(false)}>
+                    <Ionicons name="refresh-circle" size={18} color="#065f46" />
+                    <Text style={s.movedText}>අලුත් තැනක දැක්කා - සිතියම යාවත්කාලීන කළා</Text>
+                  </TouchableOpacity>
+                )}
                 <View style={s.cardRow}>
                   <Image source={{ uri: item.photo_url }} style={s.cardImg} />
                   <View style={{ flex: 1 }}>
@@ -327,6 +402,13 @@ const s = StyleSheet.create({
   modalTop: { position: 'absolute', top: 0, right: 0, padding: 16 },
   closeBtn: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', margin: 8, elevation: 4 },
   pin: { alignItems: 'center' },
+  me: { alignItems: 'center' },
+  meDot: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#2563eb', borderWidth: 4, borderColor: '#fff' },
+  meText: { backgroundColor: '#2563eb', color: '#fff', fontWeight: '900', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, marginTop: 3, overflow: 'hidden' },
+  fitWrap: { position: 'absolute', right: 16, top: 70 },
+  fitBtn: { marginTop: 16, width: 48, height: 48, borderRadius: 24, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', elevation: 6, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 8 },
+  moved: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#d1fae5', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 6 },
+  movedText: { color: '#065f46', fontWeight: '800', fontSize: 13 },
   pinImg: { width: 64, height: 64, borderRadius: 16, borderWidth: 4, borderColor: '#fff', backgroundColor: '#e2e8f0' },
   pinText: { backgroundColor: '#7c3aed', color: '#fff', fontWeight: '900', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, marginTop: 4, overflow: 'hidden' },
 
