@@ -1399,6 +1399,7 @@ remember_moments.init(
     coco_model=model,
     face_fn=extract_face_embedding,
     face_detector=mtcnn if FACENET_AVAILABLE else None,
+    face_net=face_resnet if FACENET_AVAILABLE else None,   # group shots: embed every detected face in one batch
     object_emb_fn=extract_object_embedding,
     facenet_ok=FACENET_AVAILABLE,
     log_diary_event=log_diary_event,

@@ -910,6 +910,121 @@ async def identify_person(patient_id: str = Form(...), ask: bool = Form(True)):
     return identify_core(patient_id, ask)
 
 
+GROUP_FACE_MIN_PX = 36   # faces in a group shot are smaller; below this a name would be a guess
+
+
+def _embed_crop(img):
+    tmp = f"face_{uuid.uuid4().hex[:6]}.jpg"
+    try:
+        img.save(tmp, "JPEG", quality=90)
+        with INFER_LOCK:
+            return _ctx["face_fn"](tmp)
+    except Exception:
+        return None
+    finally:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+
+
+def _embed_boxes(img, boxes):
+    """FaceNet embedding of each detected face box, in one batch (no second detection
+    on a crop, which loses small or half-turned faces in a group)."""
+    if not boxes:
+        return []
+    detector, net = _ctx.get("face_detector"), _ctx.get("face_net")
+    if net is not None:
+        try:
+            import torch
+            from facenet_pytorch import fixed_image_standardization
+            from facenet_pytorch.models.utils.detect_face import extract_face
+            # same 160px crop + standardisation the single-face path (mtcnn(img)) uses
+            faces = [fixed_image_standardization(extract_face(img, [float(v) for v in b], image_size=160, margin=0))
+                     for b in boxes]
+            with INFER_LOCK, torch.no_grad():
+                return [e.tolist() for e in net(torch.stack(faces)).numpy()]
+        except Exception as e:
+            print("batch face embedding failed, per-face fallback:", e)
+    w, h = img.size
+    out = []
+    for x1, y1, x2, y2 in boxes:
+        mx, my = (x2 - x1) * 0.25, (y2 - y1) * 0.25
+        out.append(_embed_crop(img.crop((max(0, int(x1 - mx)), max(0, int(y1 - my)), min(w, int(x2 + mx)), min(h, int(y2 + my))))))
+    return out
+
+
+def faces_in_frame(patient_id, jpeg):
+    """Every face in one frame, each recognised on its own:
+    [{box (normalised, like detections), status known|pending|unknown, person, similarity}].
+    A registered person is given to at most one face - with three brothers in view,
+    each face gets its own name or "unknown", never everybody the same name."""
+    detector = _ctx.get("face_detector")
+    if detector is None:
+        return []
+    img = Image.open(io.BytesIO(jpeg)).convert("RGB")
+    w, h = img.size
+    with INFER_LOCK:
+        boxes, probs = detector.detect(img)
+    if boxes is None:
+        return []
+    keep = [(b, p) for b, p in zip(boxes, probs) if p is not None and p >= 0.90 and (b[2] - b[0]) >= GROUP_FACE_MIN_PX]
+    embs = _embed_boxes(img, [b for b, _p in keep])
+    faces = []
+    for ((x1, y1, x2, y2), _prob), emb in zip(keep, embs):
+        if not emb:
+            continue
+        ranked = _rank_faces(patient_id, emb, only=lambda p: p.get("status") != "rejected")
+        best, sim, second, sure = _family_decision(ranked)
+        faces.append({"box": [round(float(v), 4) for v in (x1 / w, y1 / h, x2 / w, y2 / h)],
+                      "best": best if sure else None, "similarity": round(sim, 3), "margin": round(sim - second, 3)})
+    # One face per person: if two faces both look most like the same person, the
+    # closer one keeps the name and the other becomes "unknown".
+    claimed = {}
+    for i, f in sorted(enumerate(faces), key=lambda x: -x[1]["similarity"]):
+        if f["best"] is not None:
+            if f["best"]["id"] in claimed:
+                f["best"] = None
+            else:
+                claimed[f["best"]["id"]] = i
+    out = []
+    for f in faces:
+        p = f["best"]
+        out.append({"box": f["box"], "similarity": f["similarity"], "margin": f["margin"],
+                    "status": "unknown" if p is None else "known" if _is_verified(p) else "pending",
+                    "person": None if p is None else {k: p.get(k) for k in ("id", "name", "relation", "relation_si", "photo_url",
+                                                                              "conversation_ok")}})
+    return out
+
+
+@router.post("/identify-faces")
+def identify_faces(patient_id: str = Form(...)):
+    """Labels for every person on screen (group shots). Known family seen here are
+    logged as met (at most once an hour each), like the single-person greeting."""
+    if not _ctx.get("facenet_ok"):
+        return {"status": "unavailable", "faces": []}
+    frames = [fr for fr in LIVE_FRAMES.get(patient_id, []) if any(d["label"] == "person" for d in fr["detections"])]
+    if not frames:
+        return {"status": "no_person", "faces": []}
+    faces = faces_in_frame(patient_id, frames[-1]["jpeg"])
+    now = datetime.datetime.now()
+    by_id = {p["id"]: p for p in PEOPLE.get(patient_id, [])}
+    changed = False
+    for f in faces:
+        p = by_id.get((f["person"] or {}).get("id"))
+        if f["status"] != "known" or not p:
+            continue
+        last = p.get("last_seen")
+        if not last or (now - datetime.datetime.fromisoformat(last)).total_seconds() > 3600:
+            _log_met(patient_id, p)
+            p["times_met"] = p.get("times_met", 0) + 1
+        p["last_seen"] = now.isoformat()
+        changed = True
+        who = p["name"] if p["name"] and p["name"] != p["relation_si"] else ""
+        f["say_si"] = f"මේ ඔබේ {p['relation_si']}{(' ' + who) if who else ''}."
+    if changed:
+        _save()
+    return {"status": "success", "faces": faces}
+
+
 def identify_core(patient_id: str, ask: bool = True):
     """Runs face recognition on the newest live frame that has a person in it.
     ask=False is the instant check the app runs as soon as someone appears:

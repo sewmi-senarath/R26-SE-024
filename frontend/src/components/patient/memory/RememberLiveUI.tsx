@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -28,6 +28,9 @@ const NO_FACE_RETRY_MS = 6000;
 // How often the silent "is this someone we know?" check repeats while an
 // unrecognised person is in view (their face may turn toward the camera later).
 const QUICK_CHECK_EVERY_MS = 1200;
+// With two or more people in view every face is recognised on its own (/identify-faces),
+// refreshed this often so the names follow people as they move.
+const GROUP_CHECK_EVERY_MS = 1500;
 const MISSES_BEFORE_RESET = 3;
 const PERSON_MISSES_BEFORE_LEAVE = 4;
 const LISTEN_MS = 5000;
@@ -154,6 +157,13 @@ export default function RememberLiveUI() {
   const [personProgress, setPersonProgress] = useState(0);
   // Shown on the person's box instead of "පුද්ගලයා": who they are, or that they're unknown.
   const [personTag, setPersonTag] = useState<{ text: string; color: string } | null>(null);
+  // Group in view: one tag per face (normalised face box), so each person box gets its own name.
+  const [faceTags, setFaceTags] = useState<{ box: number[]; text: string; color: string }[] | null>(null);
+  const group = useRef<{ inFlight: boolean; at: number; greeted: Set<string>;
+    seen: Record<string, { first: number; last: number; name_si: string }> }>({ inFlight: false, at: 0, greeted: new Set(), seen: {} });
+  const speakChain = useRef<Promise<unknown>>(Promise.resolve());
+  const faceTagsRef = useRef(faceTags);
+  faceTagsRef.current = faceTags;
 
   useEffect(() => {
     mounted.current = true;
@@ -415,17 +425,65 @@ export default function RememberLiveUI() {
     visit.current = null;
     setPersonProgress(0);
     setPersonTag(null);
+    setFaceTags(null);
     talkEnd();
-    if (!v?.personId || !patientId) return;
-    const form = new FormData();
-    form.append('patient_id', patientId);
-    form.append('kind', 'person');
-    form.append('ref', v.personId);
-    form.append('seconds', String(Math.round((v.lastSeen - v.start) / 1000)));
-    axios.post(`${AI_URL}/log-interaction`, form, {
-      headers: { 'Content-Type': 'multipart/form-data' }, timeout: 10000,
-    }).catch(() => {});
+    if (!patientId) return;
+    const log = (ref: string, seconds: number, nameSi = '') => {
+      const form = new FormData();
+      form.append('patient_id', patientId);
+      form.append('kind', 'person');
+      form.append('ref', ref);
+      form.append('seconds', String(Math.max(1, Math.round(seconds))));
+      if (nameSi) form.append('name_si', nameSi);
+      axios.post(`${AI_URL}/log-interaction`, form, {
+        headers: { 'Content-Type': 'multipart/form-data' }, timeout: 10000,
+      }).catch(() => {});
+    };
+    if (v?.personId) log(v.personId, (v.lastSeen - v.start) / 1000);
+    // Everyone else recognised in the group counts as met too (the story and the memory game use this).
+    Object.entries(group.current.seen).forEach(([id, g]) => {
+      if (id !== v?.personId) log(id, (g.last - g.first) / 1000, g.name_si);
+    });
+    group.current = { inFlight: false, at: 0, greeted: new Set(), seen: {} };
   }, [patientId, talkEnd]);
+
+  // Two or more people in view: name every face separately.
+  const refreshFaces = useCallback(async () => {
+    const g = group.current;
+    if (!patientId || g.inFlight) return;
+    g.inFlight = true;
+    g.at = Date.now();
+    try {
+      const form = new FormData();
+      form.append('patient_id', patientId);
+      const res = await axios.post(`${AI_URL}/identify-faces`, form, {
+        headers: { 'Content-Type': 'multipart/form-data' }, timeout: 15000,
+      });
+      if (!visit.current || group.current !== g) return;   // everyone left meanwhile
+      const faces: { box: number[]; status: string; say_si?: string;
+        person: { id: string; name: string; relation_si: string } | null }[] = res.data.faces || [];
+      const now = Date.now();
+      setFaceTags(faces.map((f) => {
+        if (f.status === 'known' && f.person) {
+          const p = f.person;
+          const who = p.name && p.name !== p.relation_si ? ` ${p.name}` : '';
+          const seen = g.seen[p.id];
+          g.seen[p.id] = { first: seen?.first ?? now, last: now, name_si: p.relation_si };
+          if (!g.greeted.has(p.id) && p.id !== visit.current?.personId && f.say_si) {
+            g.greeted.add(p.id);
+            speakChain.current = speakChain.current.then(() => speak(f.say_si as string)).catch(() => {});
+          }
+          return { box: f.box, text: `${p.relation_si}${who} ✓`, color: '#16a34a' };
+        }
+        if (f.status === 'pending') return { box: f.box, text: 'තහවුරු කර නැති කෙනෙක්', color: '#d97706' };
+        return { box: f.box, text: 'නොදන්නා කෙනෙක්', color: '#dc2626' };
+      }));
+    } catch {
+      // best-effort - the next refresh tries again
+    } finally {
+      g.inFlight = false;
+    }
+  }, [patientId]);
 
   // ask=false: instant, silent check run as soon as someone appears - known
   // family are greeted immediately; unknown faces are only labelled.
@@ -497,6 +555,12 @@ export default function RememberLiveUI() {
       const [x1, y1, x2, y2] = d.box;
       return d.label === 'person' && d.confidence >= 0.5 && (x2 - x1) * (y2 - y1) >= 0.04;
     });
+    const people = dets.filter((d) => d.label === 'person' && d.confidence >= 0.5);
+    if (people.length >= 2) {
+      if (now - group.current.at > GROUP_CHECK_EVERY_MS) refreshFaces();
+    } else if (faceTagsRef.current) {
+      setFaceTags(null);   // back to one person: the single-person tag is right again
+    }
     if (person) {
       if (!visit.current) {
         visit.current = { start: now, lastSeen: now, misses: 0, checkedAt: 0, personId: null, done: false };
@@ -560,7 +624,7 @@ export default function RememberLiveUI() {
       }
       saveMoment(steady);
     }
-  }, [checkPerson, saveMoment, endVisit]);
+  }, [checkPerson, saveMoment, endVisit, refreshFaces]);
 
   useEffect(() => {
     if (cam?.source !== 'phone' || !permission?.granted || !focused) return;
@@ -699,6 +763,30 @@ export default function RememberLiveUI() {
     thinking: 'තේරුම් ගන්නවා...',
   };
 
+  // Each face goes to the person box it sits in (closest to that box's head area),
+  // and each box / face is used once - so three people get three different labels.
+  const personTags = useMemo(() => {
+    const out = new Map<number, { text: string; color: string }>();
+    if (!faceTags) return out;
+    const pairs: { i: number; f: number; dist: number }[] = [];
+    detections.forEach((d, i) => {
+      if (d.label !== 'person') return;
+      const [x1, y1, x2, y2] = d.box;
+      const hx = (x1 + x2) / 2, hy = y1 + (y2 - y1) * 0.15;
+      faceTags.forEach((ft, f) => {
+        const cx = (ft.box[0] + ft.box[2]) / 2, cy = (ft.box[1] + ft.box[3]) / 2;
+        if (cx >= x1 && cx <= x2 && cy >= y1 && cy <= y2) pairs.push({ i, f, dist: Math.hypot(cx - hx, cy - hy) });
+      });
+    });
+    const usedFace = new Set<number>();
+    pairs.sort((a, b) => a.dist - b.dist).forEach(({ i, f }) => {
+      if (out.has(i) || usedFace.has(f)) return;
+      out.set(i, faceTags[f]);
+      usedFace.add(f);
+    });
+    return out;
+  }, [detections, faceTags]);
+
   return (
     <SafeAreaView style={s.container}>
       <View style={s.header}>
@@ -738,13 +826,14 @@ export default function RememberLiveUI() {
 
         {detections.map((d, i) => {
           const [x1, y1, x2, y2] = d.box;
-          const tagged = d.label === 'person' && personTag;
-          const c = tagged ? personTag.color : colorFor(d.label);
+          // Several people: each box shows the face inside it; one person: the single-person tag.
+          const tag = d.label !== 'person' ? null : faceTags ? personTags.get(i) ?? null : personTag;
+          const c = tag ? tag.color : colorFor(d.label);
           return (
             <View key={`${d.label}-${i}`} pointerEvents="none"
               style={[s.box, { left: x1 * VIEW_W, top: y1 * viewH, width: (x2 - x1) * VIEW_W, height: (y2 - y1) * viewH, borderColor: c }]}>
               <View style={[s.tag, { backgroundColor: c }]}>
-                <Text style={s.tagText}>{tagged ? personTag.text : `${d.label_si} ${Math.round(d.confidence * 100)}%`}</Text>
+                <Text style={s.tagText}>{tag ? tag.text : `${d.label_si} ${Math.round(d.confidence * 100)}%`}</Text>
               </View>
             </View>
           );
