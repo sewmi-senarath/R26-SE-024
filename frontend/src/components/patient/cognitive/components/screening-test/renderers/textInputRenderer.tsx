@@ -6,20 +6,24 @@ import { InfoCard } from '../assessmentUi';
 interface Props {
   question: Question;
   onAnswer: (answer: string) => void;
+  // Review mode: preselect the saved answer (the review screen blocks touches).
+  answer?: unknown;
+  readOnly?: boolean;
 }
 
-export function TextInputRenderer({ question, onAnswer }: Props) {
+export function TextInputRenderer({ question, onAnswer, answer, readOnly }: Props) {
   const [text, setText] = useState('');
   const [saved, setSaved] = useState(false);
 
   // Reset when navigating between questions.
   useEffect(() => {
-    setText('');
-    setSaved(false);
-  }, [question.id]);
+    const saved = typeof answer === 'string' ? answer : '';
+    setText(saved);
+    setSaved(!!saved);
+  }, [question.id, answer]);
 
   const save = () => {
-    if (!text.trim()) return;
+    if (readOnly || !text.trim()) return;
     onAnswer(text.trim());
     setSaved(true);
     Keyboard.dismiss();
@@ -45,7 +49,8 @@ export function TextInputRenderer({ question, onAnswer }: Props) {
         className="border-2 border-blue-300 rounded-3xl px-5 py-4 text-xl bg-white text-gray-900"
         style={{ minHeight: 120 }}
         maxLength={200}
-        autoFocus
+        autoFocus={!readOnly}
+        editable={!readOnly}
         autoCapitalize="sentences"
         // A sentence needs no line breaks: the return key saves instead.
         returnKeyType="done"

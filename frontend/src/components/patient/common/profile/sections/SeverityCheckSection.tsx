@@ -125,6 +125,38 @@ export function SeverityCheckSection({
             onFaqRequired={() => setFaqModalOpen(true)}
           />
 
+          {/* Re-open the full MMSE results screen for the latest completed
+              assessment (read-only). The patient-route screen is only wired
+              for the patient's own profile, so it follows the same flag as
+              the "take assessment" CTA. */}
+          {showTakeAssessmentCta && (
+            <AiButton
+              label="View MMSE results"
+              icon="document-text-outline"
+              variant="secondary"
+              onPress={() =>
+                router.push({
+                  pathname: "/patient/cognitive/assessment/results",
+                  params: { sessionId: latestSession.sessionId },
+                })
+              }
+            />
+          )}
+
+          {showTakeAssessmentCta && (
+            <AiButton
+              label="Review my answers"
+              icon="list-outline"
+              variant="secondary"
+              onPress={() =>
+                router.push({
+                  pathname: "/patient/cognitive/assessment/review",
+                  params: { sessionId: latestSession.sessionId },
+                })
+              }
+            />
+          )}
+
           {/* Re-open the questionnaire any time, not just on the first run.
               Submitting again re-runs the triage, which picks up the latest
               MMSE score and the new answers. */}

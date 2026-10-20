@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, Image } from 'react-native';
 import { Question } from '@/src/types/assessment.types';
 import { CARD_SHADOW, ChoiceCard } from '../assessmentUi';
@@ -6,10 +6,16 @@ import { CARD_SHADOW, ChoiceCard } from '../assessmentUi';
 interface Props {
   question: Question;
   onAnswer: (answer: string) => void;
+  // Review mode: preselect the saved answer (the review screen blocks touches).
+  answer?: unknown;
 }
 
-export function ImageMcqRenderer({ question, onAnswer }: Props) {
+export function ImageMcqRenderer({ question, onAnswer, answer }: Props) {
   const [selected, setSelected] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSelected(typeof answer === 'string' ? answer : null);
+  }, [question.id, answer]);
 
   const handleSelect = (optionLabel: string) => {
     setSelected(optionLabel);

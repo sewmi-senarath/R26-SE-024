@@ -1,4 +1,4 @@
-import { MMSESession } from "@/src/types/assessment.types";
+import { MMSESession, SavedDrawing } from "@/src/types/assessment.types";
 
 const API_BASE_URL = `${process.env.EXPO_PUBLIC_API_URL}/api/cognitive`;
 
@@ -21,6 +21,7 @@ type SubmitAnswerPayload = {
   timeSpentMs?: number;
   answeredAt?: number;
   skipped?: boolean;
+  drawing?: SavedDrawing;
 };
 
 type UpdateProgressPayload = {
@@ -58,6 +59,16 @@ async function apiRequest<T>(path: string, init: RequestInit): Promise<T> {
   }
 
   return (body as ApiSuccess<T>).data;
+}
+
+export async function getAssessmentSession(
+  sessionId: string,
+): Promise<MMSESession> {
+  const data = await apiRequest<{ session: MMSESession }>(
+    `/assessments/${sessionId}`,
+    { method: "GET" },
+  );
+  return data.session;
 }
 
 export async function startSession(
