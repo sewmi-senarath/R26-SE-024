@@ -1,16 +1,19 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import {
   Canvas,
+  Group,
   Path,
   Skia,
   SkPath,
 } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { Question } from '@/src/types/assessment.types';
+import { Question, SavedDrawing } from '@/src/types/assessment.types';
 import { Ionicons } from '@expo/vector-icons';
 import { CARD_SHADOW, InfoCard, VerdictButtons } from '../assessmentUi';
 import { PENTAGON_CRITERIA, ReferenceFigure } from './referenceFigures';
+
+const CANVAS_HEIGHT = 280;
 
 interface DrawnPath {
   path: SkPath;
@@ -20,17 +23,54 @@ interface DrawnPath {
 
 interface Props {
   question: Question;
-  onAnswer: (passed: boolean) => void;
+  onAnswer: (passed: boolean, drawing?: SavedDrawing) => void;
+  // Review mode: the caregiver's saved verdict and the saved strokes (if any).
+  answer?: unknown;
+  drawing?: SavedDrawing;
+  readOnly?: boolean;
 }
 
-export function DrawingRenderer({ question, onAnswer }: Props) {
+export function DrawingRenderer({ question, onAnswer, answer, drawing, readOnly }: Props) {
   const [paths, setPaths] = useState<DrawnPath[]>([]);
   const [currentPath, setCurrentPath] = useState<SkPath | null>(null);
   const [hasDrawn, setHasDrawn] = useState(false);
   const [CaregiverMarked, setCaregiverMarked] = useState<boolean | null>(null);
+  const [canvasWidth, setCanvasWidth] = useState(0);
+
+  // Review mode: show the saved verdict (and the strokes, drawn below).
+  useEffect(() => {
+    if (!readOnly) return;
+    setHasDrawn(true);
+    setCaregiverMarked(typeof answer === 'boolean' ? answer : null);
+  }, [readOnly, answer]);
+
+  const savedPaths = useMemo(
+    () =>
+      (drawing?.strokes ?? []).flatMap((s) => {
+        const path = Skia.Path.MakeFromSVGString(s.d);
+        return path ? [{ path, color: s.color, strokeWidth: s.strokeWidth }] : [];
+      }),
+    [drawing],
+  );
+  const scale = drawing && canvasWidth > 0 ? canvasWidth / drawing.width : 1;
+
+  // Strokes saved with the verdict so the drawing can be reviewed later.
+  const buildDrawing = (): SavedDrawing | undefined =>
+    paths.length > 0 && canvasWidth > 0
+      ? {
+          width: canvasWidth,
+          height: CANVAS_HEIGHT,
+          strokes: paths.map((p) => ({
+            d: p.path.toSVGString(),
+            color: p.color,
+            strokeWidth: p.strokeWidth,
+          })),
+        }
+      : undefined;
 
   // ── Gesture: finger down → start a new path ──────────────────
   const pan = Gesture.Pan()
+    .enabled(!readOnly)
     .runOnJS(true)
     .onBegin((e) => {
       const path = Skia.Path.Make();
@@ -73,7 +113,7 @@ export function DrawingRenderer({ question, onAnswer }: Props) {
   // ✓ Intersection forms a four-sided figure
   const handleMark = (passed: boolean) => {
     setCaregiverMarked(passed);
-    onAnswer(passed);
+    onAnswer(passed, buildDrawing());
   };
 
   return (
@@ -97,7 +137,7 @@ export function DrawingRenderer({ question, onAnswer }: Props) {
           </View>
           <TouchableOpacity
             onPress={handleClear}
-            disabled={!hasDrawn}
+            disabled={!hasDrawn || readOnly}
             accessibilityRole="button"
             accessibilityLabel="Clear drawing"
             className={`flex-row items-center gap-1 rounded-full px-3 py-1.5 ${
@@ -110,7 +150,8 @@ export function DrawingRenderer({ question, onAnswer }: Props) {
         </View>
         <View
           className="border-2 border-dashed border-blue-200 rounded-3xl overflow-hidden bg-white"
-          style={{ height: 280 }}
+          style={{ height: CANVAS_HEIGHT }}
+          onLayout={(e) => setCanvasWidth(e.nativeEvent.layout.width)}
         >
           <GestureDetector gesture={pan}>
             <Canvas style={StyleSheet.absoluteFill}>
@@ -128,6 +169,23 @@ export function DrawingRenderer({ question, onAnswer }: Props) {
                 />
               ))}
 
+              {/* Review mode: the strokes saved with this session */}
+              {readOnly && (
+                <Group transform={[{ scale }]}>
+                  {savedPaths.map((p, i) => (
+                    <Path
+                      key={i}
+                      path={p.path}
+                      color={p.color}
+                      style="stroke"
+                      strokeWidth={p.strokeWidth}
+                      strokeJoin="round"
+                      strokeCap="round"
+                    />
+                  ))}
+                </Group>
+              )}
+
               {/* Render the stroke currently being drawn */}
               {currentPath && (
                 <Path
@@ -144,6 +202,14 @@ export function DrawingRenderer({ question, onAnswer }: Props) {
           </GestureDetector>
 
           {/* Empty state hint */}
+          {readOnly && savedPaths.length === 0 && (
+            <View className="absolute inset-0 items-center justify-center gap-2 pointer-events-none">
+              <Ionicons name="image-outline" size={32} color="#cbd5e1" />
+              <Text className="text-gray-400 text-base">
+                The drawing was not saved for this session
+              </Text>
+            </View>
+          )}
           {!hasDrawn && (
             <View className="absolute inset-0 items-center justify-center gap-2 pointer-events-none">
               <Ionicons name="hand-left-outline" size={32} color="#cbd5e1" />

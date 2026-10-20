@@ -10,11 +10,19 @@ transcript is turned into a short summary (topics, plans/promises, mood plus
 two quiz questions) and the transcript itself is dropped too. Only the summary
 is kept - that's what the evening story and the memory game use
 ("කමල් කතා කළේ මොනවා ගැනද?").
+
+With GEMINI_API_KEY set, the clips of a visit are also held IN MEMORY (never on
+disk) until the visit ends. Google Gemini then listens to the whole visit at
+once - it understands Sinhala speech directly and can tell the two speakers
+apart - and its summary replaces the Whisper one a few minutes later. The audio
+is dropped as soon as Gemini answers (or fails); the Whisper summary stays if it
+fails.
 """
 import os
 import json
+import time
 import uuid
-import datetime
+import sltime as datetime  # Sri Lanka time whatever the host timezone (see sltime.py)
 import threading
 
 import requests
@@ -26,10 +34,19 @@ router = APIRouter()
 
 DB_FILE = "visit_talk_db.json"
 CONVERSATIONS = {}   # pid -> [{id, person_id, day, time, seconds, summary_si, summary_en, topics, promises, mood,
-                    #          visitor_asked, patient_said, questions}]
+                    #          visitor_asked, patient_said, questions, source}]
 CONSENT_ALL = {}     # pid -> {on, at}: caregiver chose to summarise talks with ANY visitor, not only registered family
-LIVE = {}            # visit_id -> {pid, person_id, texts: [..], started, clip_seconds} (memory only)
+PROMISES = {}        # pid -> [{id, person_id, date, si, en, said_at}]: "I'll come again" dates confirmed during the visit
+LIVE = {}            # visit_id -> {pid, person_id, texts: [..], audio: [(bytes, mime)], started, clip_seconds} (memory only)
 _lock = threading.Lock()
+
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+# Tried in order; the free tier is sometimes overloaded on one model and fine on another.
+GEMINI_MODELS = [m.strip() for m in os.environ.get("GEMINI_MODELS", "gemini-3.8-flash,gemini-flash-latest").split(",") if m.strip()]
+GEMINI_TIMEOUT_MS = 90_000
+GEMINI_MAX_AUDIO = 18 * 1024 * 1024   # one request takes about 20 MB of inline audio (~1 hour of 30 s m4a clips)
+AUDIO_MIME = {".m4a": "audio/mp4", ".mp4": "audio/mp4", ".mp3": "audio/mpeg", ".wav": "audio/wav",
+              ".ogg": "audio/ogg", ".webm": "audio/webm", ".aac": "audio/aac", ".3gp": "audio/3gpp"}
 
 
 def _load():
@@ -40,6 +57,7 @@ def _load():
                 data = json.load(f)
             CONVERSATIONS = data.get("CONVERSATIONS", {})
             CONSENT_ALL = data.get("CONSENT_ALL", {})
+            PROMISES.update(data.get("PROMISES", {}))
         except Exception as e:
             print("visit_talk_db load failed:", e)
 
@@ -47,7 +65,7 @@ def _load():
 def _save():
     with _lock:
         with open(DB_FILE, "w", encoding="utf-8") as f:
-            json.dump({"CONVERSATIONS": CONVERSATIONS, "CONSENT_ALL": CONSENT_ALL}, f, ensure_ascii=False)
+            json.dump({"CONVERSATIONS": CONVERSATIONS, "CONSENT_ALL": CONSENT_ALL, "PROMISES": PROMISES}, f, ensure_ascii=False)
 
 
 _load()
@@ -110,9 +128,118 @@ WHISPER_HINT = ("आयुबोवन अम्मे ताता आच्च
 VISIT_DEBUG = os.environ.get("VISIT_DEBUG", "") == "1"
 
 
+# ─── "I'll come again" - ask for the exact day while the visitor is still here ──
+# Words that hint at a plan to come back (Sinhala as transliterated from Whisper,
+# plus English). Only clips with one of these go to the LLM, to keep it cheap.
+PROMISE_HINTS = ["එනව", "එන්නම්", "ආයෙ", "ආපහු", "ලබන", "හෙට", "සතියේ", "මාසේ", "ඉරිදා", "සඳුදා", "අඟහරු",
+                 "බදාදා", "බ්‍රහස්", "සිකුරා", "සෙනසුරා", "come", "next week", "tomorrow", "weekend"]
+DAYS_SI = ["සඳුදා", "අඟහරුවාදා", "බදාදා", "බ්‍රහස්පතින්දා", "සිකුරාදා", "සෙනසුරාදා", "ඉරිදා"]
+MONTHS_SI = ["ජනවාරි", "පෙබරවාරි", "මාර්තු", "අප්‍රේල්", "මැයි", "ජූනි", "ජූලි", "අගෝස්තු", "සැප්තැම්බර්",
+             "ඔක්තෝබර්", "නොවැම්බර්", "දෙසැම්බර්"]
+ASK_CLIPS = 3   # clips to wait for the answer before giving up (the summary still keeps the vague promise)
+
+
+def _day_text(iso, lang):
+    d = datetime.date.fromisoformat(iso)
+    if lang == "en":
+        return f"{d.strftime('%A')}, {d.day} {d.strftime('%B')}"
+    return f"{DAYS_SI[d.weekday()]}, {MONTHS_SI[d.month - 1]} {d.day}"
+
+
+WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+
+
+def _promise_date(r, today=None):
+    """The exact day from the LLM's reading. The LLM only names the day (a weekday, tomorrow, a
+    date); the calendar arithmetic is done here, because LLMs often get the weekday of a date wrong."""
+    today = today or datetime.date.today()
+    day = str(r.get("day") or "").strip().lower()
+    if day in ("today",):
+        return today
+    if day in ("tomorrow",):
+        return today + datetime.timedelta(days=1)
+    if day in ("day_after_tomorrow", "day after tomorrow"):
+        return today + datetime.timedelta(days=2)
+    if day in WEEKDAYS:
+        ahead = (WEEKDAYS.index(day) - today.weekday()) % 7 or 7     # the next one, never today
+        if r.get("next_week") and ahead < 7 - today.weekday():
+            ahead += 7                                               # "next week's Thursday" said on a Monday
+        return today + datetime.timedelta(days=ahead)
+    if r.get("month") and r.get("date_of_month"):
+        try:
+            d = datetime.date(today.year, int(r["month"]), int(r["date_of_month"]))
+            return d if d >= today else d.replace(year=today.year + 1)
+        except (TypeError, ValueError):
+            return None
+    return None
+
+
+def _read_promise(text, asked):
+    """LLM: is there a plan to come again in this bit of conversation, and on which day?"""
+    return rm._llm_json(
+        "Part of a Sinhala conversation during a home visit to an elderly person with dementia (speech recognition, "
+        "Sinhala written phonetically in Devanagari or Sinhala letters, may contain mistakes). "
+        + ("The app has just asked the VISITOR exactly which day they will come again; this is their answer. "
+           if asked else "Does the VISITOR say they will come again / visit again? ")
+        + "Do NOT work out dates yourself, only say which day was named. Reply ONLY JSON: "
+        '{"promise": true/false (a plan to come or visit again), '
+        '"day": "monday".."sunday" if a weekday was named (ඉරිදා=sunday, සඳුදා=monday, අඟහරුවාදා=tuesday, '
+        'බදාදා=wednesday, බ්‍රහස්පතින්දා=thursday, සිකුරාදා=friday, සෙනසුරාදා=saturday), or "today", "tomorrow" '
+        '(හෙට), "day_after_tomorrow" (අනිද්දා), else empty, '
+        '"next_week": true/false (the weekday was said as in next week, e.g. ලබන සතියේ සඳුදා), '
+        '"month": 1-12 and "date_of_month": 1-31 only if a calendar date was said, else 0, '
+        '"vague": true/false (true for next week / next month / soon / later without a day), '
+        '"si": "short Sinhala sentence of the plan, e.g. ලබන සිකුරාදා ආයෙත් එනවා", "en": "the same in English"}\n\n'
+        "Conversation: " + text) or {}
+
+
+def _save_promise(pid, person_id, date_iso, si, en):
+    items = PROMISES.setdefault(pid, [])
+    if any(x["person_id"] == person_id and x["date"] == date_iso for x in items):
+        return
+    items.append({"id": f"pr-{uuid.uuid4().hex[:8]}", "person_id": person_id, "date": date_iso, "si": si, "en": en,
+                  "said_at": datetime.datetime.now().isoformat()})
+    PROMISES[pid] = items[-100:]
+    _save()
+
+
+def _check_promise(buf, p, text, lang):
+    """-> {"saved": text to speak} | {"ask": text to speak} | None"""
+    asked = buf.get("promise_asked", 0)
+    plain = rm.to_sinhala_script(text)
+    if not asked and not any(h in plain or h in text.lower() for h in PROMISE_HINTS):
+        return None
+    try:
+        r = _read_promise(" ".join(buf["texts"][-2:]) if asked else text, asked=bool(asked))
+    except Exception as e:
+        print("promise check failed:", e)
+        return None
+    who_si = _visitor_si(p)
+    who_en = (p or {}).get("name") or (p or {}).get("relation") or "the visitor"
+    day = _promise_date(r)
+    if day:
+        if day >= datetime.date.today():
+            buf["promise_asked"] = 0
+            _save_promise(buf["pid"], buf["person_id"], day.isoformat(), r.get("si", ""), r.get("en", ""))
+            print(f"[visit] promise saved: {who_en} on {day}")
+            when = _day_text(day.isoformat(), lang)
+            return {"saved": (f"Okay, I'll remember: {who_en} is coming on {when}. I'll remind on that day."
+                              if lang == "en" else
+                              f"හරි, {who_si} {when} එනවා කියලා මතක තියාගත්තා. ඒ දවසේ මම මතක් කරන්නම්.")}
+    if asked:
+        buf["promise_asked"] = asked + 1 if asked < ASK_CLIPS else 0
+        return None
+    if r.get("promise") and r.get("vague"):
+        buf["promise_asked"] = 1
+        return {"ask": ("You said you'll come again - which exact day? Tell me the day and I'll remind them."
+                        if lang == "en" else
+                        "ආයෙත් එනවා කිව්වා නේද? හරියටම කවදාද එන්නේ? දවස කිව්වොත් මම මතක් කරලා දෙන්නම්.")}
+    return None
+
+
 @router.post("/visit/audio")
 async def visit_audio(patient_id: str = Form(...), person_id: str = Form(...), visit_id: str = Form(...),
-                      seconds: int = Form(0), file: UploadFile = File(...)):
+                      seconds: int = Form(0), file: UploadFile = File(...), lang: str = Form("si")):
     p = _person(patient_id, person_id)
     if not ((p and p.get("conversation_ok")) or all_visitors_ok(patient_id)):
         # Checked on the server too - the app alone is not trusted with consent.
@@ -121,6 +248,7 @@ async def visit_audio(patient_id: str = Form(...), person_id: str = Form(...), v
         return {"status": "error", "message": "GROQ_API_KEY is not set on the AI server"}
     audio = await file.read()   # kept in memory only; never written to disk
     size = len(audio)
+    keep = audio if GEMINI_API_KEY else None   # held for Gemini until the visit ends
     try:
         r = requests.post(f"{rm.GROQ_BASE}/audio/transcriptions",
                           headers={"Authorization": f"Bearer {rm.GROQ_API_KEY}"},
@@ -139,9 +267,18 @@ async def visit_audio(patient_id: str = Form(...), person_id: str = Form(...), v
                                      "started": datetime.datetime.now().isoformat(), "clip_seconds": 0})
     if text:
         buf["texts"].append(text)
+    if keep is not None and buf.get("audio_bytes", 0) + size <= GEMINI_MAX_AUDIO:
+        mime = AUDIO_MIME.get(os.path.splitext(file.filename or "")[1].lower(), "audio/mp4")
+        buf.setdefault("audio", []).append((keep, mime))
+        buf["audio_bytes"] = buf.get("audio_bytes", 0) + size
     buf["clip_seconds"] += max(0, seconds)
     print(f"[visit] {visit_id} clip {len(buf['texts'])}: {size} bytes audio -> {len(text)} chars")
-    return {"status": "success", "clips": len(buf["texts"])}
+    out = {"status": "success", "clips": len(buf["texts"])}
+    if text:
+        promise = _check_promise(buf, _person(patient_id, person_id), text, lang)
+        if promise:
+            out.update(promise)   # the app says this out loud right away
+    return out
 
 
 def _summarise(p, texts):
@@ -238,6 +375,103 @@ def _second_pass(out, who):
     return out
 
 
+def _gemini_summary(p, audio):
+    """Gemini listens to all clips of the visit (in order) and returns the same JSON as _summarise."""
+    from google import genai
+    from google.genai import types
+
+    p = p or {"relation": "visitor", "relation_si": "අමුත්තා"}
+    visitor = _visitor_si(p if p.get("id") else None)
+    prompt = (
+        "These audio clips, in order, are one home visit in Sri Lanka: an elderly person with dementia (the PATIENT) "
+        f"talking in SINHALA with their {p['relation']} (the VISITOR, call them '{visitor}'). Listen to the voices to "
+        "tell the two speakers apart. The visitor usually calls the patient 'අම්මේ' / 'තාත්තේ' / 'ආච්චි' / 'සීයා' - "
+        "those are forms of address, never names. Use only what is said; never invent topics, names, places or plans. "
+        "Say clearly WHO did what (if the visitor got a job, the visitor got it, not the patient).\n"
+        f"The summary talks TO the patient ABOUT the visitor in the third person ('{visitor} ඔයාගෙන් ... ඇහුවා'), never 'මම'.\n"
+        "Reply ONLY with JSON:\n"
+        '{"sinhala_text": "what was said, in Sinhala script",\n'
+        ' "summary_si": "2-3 short, simple spoken-Sinhala sentences that TELL the patient what happened",\n'
+        ' "summary_en": "the same in simple English",\n'
+        ' "topics": [{"si": "...", "en": "..."}] (max 3 short topic phrases),\n'
+        ' "promises": [{"si": "...", "en": "...", "when_si": "...", "when_en": "...", "date": "YYYY-MM-DD if a day is '
+        f'said, else empty (today is {datetime.date.today().strftime("%A %Y-%m-%d")})"}}],\n'
+        ' "mood": "happy|calm|sad|worried",\n'
+        ' "visitor_asked": [{"si": "...", "en": "..."}] (questions the VISITOR asked the patient),\n'
+        ' "patient_said": [{"si": "...", "en": "..."}] (what the PATIENT said or answered),\n'
+        ' "questions": [2 to 4 memory questions about this talk, one fact each, never yes/no (what, when or where), '
+        "naming the visitor - one each for the main topic, the plan/promise, what the visitor asked, what the patient "
+        'said if they exist. Each: {"question_si": "...", "question_en": "...", "answer_si": "short answer", '
+        '"answer_en": "...", "hint_si": "a gentle clue that does not give the answer", "wrong_si": ["2 believable but '
+        'WRONG answers of the same kind"], "wrong_en": ["..."]}]}')
+    client = genai.Client(api_key=GEMINI_API_KEY, http_options=types.HttpOptions(timeout=GEMINI_TIMEOUT_MS))
+    parts = [prompt] + [types.Part.from_bytes(data=a, mime_type=m) for a, m in audio]
+    last = None
+    for attempt in range(3):  # the free tier is busy now and then: each round tries every model once
+        for model in GEMINI_MODELS:
+            try:
+                resp = client.models.generate_content(
+                    model=model, contents=parts,
+                    config=types.GenerateContentConfig(temperature=0.2, response_mime_type="application/json"))
+                print(f"[visit] gemini answered ({model})")
+                return json.loads(resp.text)
+            except Exception as e:
+                last = e
+                print(f"[visit] gemini {model} attempt {attempt + 1}: {str(e)[:100]}")
+        time.sleep(20 * (attempt + 1))
+    raise last
+
+
+def _conv_fields(out):
+    return {"summary_si": out.get("summary_si", ""), "summary_en": out.get("summary_en", ""),
+            "topics": out.get("topics") or [], "promises": out.get("promises") or [],
+            "mood": out.get("mood", "calm"), "visitor_asked": out.get("visitor_asked") or [],
+            "patient_said": out.get("patient_said") or [], "questions": (out.get("questions") or [])[:4]}
+
+
+def _new_conv(patient_id, p, buf, seconds, out, source):
+    conv = {"id": f"talk-{uuid.uuid4().hex[:8]}", "person_id": p["id"] if p else "visitor",
+            "day": datetime.date.today().isoformat(), "time": buf["started"],
+            "seconds": seconds or buf["clip_seconds"], **_conv_fields(out), "source": source}
+    CONVERSATIONS.setdefault(patient_id, []).append(conv)
+    CONVERSATIONS[patient_id] = CONVERSATIONS[patient_id][-300:]
+    _save()
+    log = rm._ctx.get("log_diary_event")
+    if log:
+        log(patient_id, "conversation", detail=f"{(p or {}).get('relation', 'visitor')}: {conv['summary_en']}",
+            photo_url=(p or {}).get("photo_url", ""))
+    return conv
+
+
+def _gemini_upgrade(patient_id, p, audio, buf, seconds, conv):
+    """Background: replace the Whisper summary (conv) with Gemini's, or create the
+    conversation when Whisper understood too little (conv is None)."""
+    t0 = time.time()
+    try:
+        out = rm.no_hindi(_gemini_summary(p, audio) or {})
+    except Exception as e:
+        print(f"[visit] gemini summary failed, keeping the Whisper one: {str(e)[:160]}")
+        return
+    finally:
+        audio.clear()   # the audio is never kept once Gemini has answered
+    if not out.get("summary_si"):
+        print("[visit] gemini found nothing understandable")
+        return
+    if len(out.get("questions") or []) < 2 or not out.get("visitor_asked") or not out.get("patient_said"):
+        out = rm.no_hindi(_second_pass(out, f"their {p['relation']}" if p else "a visitor"))
+    if conv is not None:
+        conv.update(_conv_fields(out), source="gemini")
+        _save()
+    else:
+        conv = _new_conv(patient_id, p, buf, seconds, out, "gemini")
+    print(f"[visit] gemini summary saved for {conv['id']} in {time.time() - t0:.0f}s: {conv['summary_si'][:80]}")
+
+
+def _start_gemini(patient_id, p, audio, buf, seconds, conv=None):
+    if audio:
+        threading.Thread(target=_gemini_upgrade, args=(patient_id, p, audio, buf, seconds, conv), daemon=True).start()
+
+
 @router.post("/visit/end")
 async def visit_end(patient_id: str = Form(...), visit_id: str = Form(...), seconds: int = Form(0)):
     buf = LIVE.pop(visit_id, None)
@@ -245,14 +479,18 @@ async def visit_end(patient_id: str = Form(...), visit_id: str = Form(...), seco
         print(f"[visit] {visit_id} end: no clips arrived")
         return {"status": "success", "result": "nothing"}
     p = _person(patient_id, buf["person_id"])  # None = a visitor who is not registered
+    audio = buf.pop("audio", None) or []      # for Gemini (empty without GEMINI_API_KEY)
     texts = buf["texts"]
     chars = sum(len(t) for t in texts)
-    print(f"[visit] {visit_id} end: {len(texts)} clips, {chars} chars of speech")
+    print(f"[visit] {visit_id} end: {len(texts)} clips, {chars} chars of speech"
+          + (f", {len(audio)} clips for Gemini" if audio else ""))
     if chars < 15:
+        _start_gemini(patient_id, p, audio, buf, seconds)   # Gemini may still understand quiet speech
         return {"status": "success", "result": "too_short", "chars": chars}
     try:
         out = rm.no_hindi(_summarise(p, texts))  # every field shown to people: Sinhala letters only
     except Exception as e:
+        _start_gemini(patient_id, p, audio, buf, seconds)
         return {"status": "error", "message": f"Summary failed: {e}"}
     finally:
         buf["texts"] = []   # the transcript is not kept once summarised
@@ -266,24 +504,13 @@ async def visit_end(patient_id: str = Form(...), visit_id: str = Form(...), seco
             print("simple summary failed:", e)
     if not out.get("summary_si"):
         print(f"[visit] {visit_id} end: nothing understandable")
+        _start_gemini(patient_id, p, audio, buf, seconds)
         return {"status": "success", "result": "unclear"}
     if len(out.get("questions") or []) < 2 or not out.get("visitor_asked") or not out.get("patient_said"):
         who = f"their {p['relation']}" if p else "a visitor"
         out = rm.no_hindi(_second_pass(out, who))
-    now = datetime.datetime.now()
-    conv = {"id": f"talk-{uuid.uuid4().hex[:8]}", "person_id": p["id"] if p else "visitor", "day": now.date().isoformat(),
-            "time": buf["started"], "seconds": seconds or buf["clip_seconds"],
-            "summary_si": out.get("summary_si", ""), "summary_en": out.get("summary_en", ""),
-            "topics": out.get("topics") or [], "promises": out.get("promises") or [],
-            "mood": out.get("mood", "calm"), "visitor_asked": out.get("visitor_asked") or [],
-            "patient_said": out.get("patient_said") or [], "questions": (out.get("questions") or [])[:4]}
-    CONVERSATIONS.setdefault(patient_id, []).append(conv)
-    CONVERSATIONS[patient_id] = CONVERSATIONS[patient_id][-300:]
-    _save()
-    log = rm._ctx.get("log_diary_event")
-    if log:
-        log(patient_id, "conversation", detail=f"{(p or {}).get('relation', 'visitor')}: {conv['summary_en']}",
-            photo_url=(p or {}).get("photo_url", ""))
+    conv = _new_conv(patient_id, p, buf, seconds, out, "whisper")
+    _start_gemini(patient_id, p, audio, buf, seconds, conv)   # a better summary replaces this one later
     return {"status": "success", "result": "saved", "summary_si": conv["summary_si"], "topics": conv["topics"]}
 
 

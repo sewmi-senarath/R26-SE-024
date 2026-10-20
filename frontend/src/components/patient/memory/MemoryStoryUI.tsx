@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,6 +27,14 @@ const HELP = [
   { label: 'ඉඟියෙන්', color: '#2FA597' }, { label: 'තනියම', color: '#0B6E66' },
 ];
 
+type Period = 'day' | 'week' | 'month' | 'year';
+type Recap = { title: string; label: string; story: string; photos: string[]; days: number; visitors: number;
+  games: number; empty: boolean };
+const PERIODS: { key: Period; si: string; en: string }[] = [
+  { key: 'day', si: 'දවස', en: 'Day' }, { key: 'week', si: 'සතිය', en: 'Week' },
+  { key: 'month', si: 'මාසය', en: 'Month' }, { key: 'year', si: 'අවුරුද්ද', en: 'Year' },
+];
+
 const today = () => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -44,6 +52,35 @@ export default function MemoryStoryUI() {
   const [record, setRecord] = useState<DayRecord | null>(null);
   const stopped = useRef(false);
   // Video diary of the selected day: story narration over the day's photos and visitors.
+  // Week / month / year memory (memory_recap.py); 'day' is the daily story below.
+  const [period, setPeriod] = useState<Period>('day');
+  const [recap, setRecap] = useState<Recap | null>(null);
+  const [recapLoading, setRecapLoading] = useState(false);
+  useEffect(() => {
+    if (period === 'day') return;
+    let alive = true;
+    (async () => {
+      setRecapLoading(true);
+      setRecap(null);
+      try {
+        const pid = await getPatientId();
+        const res = await axios.get(`${AI_URL}/memory-recap/${pid}`, { params: { period, lang }, timeout: 60000 });
+        if (alive) setRecap(res.data);
+      } catch {
+        if (alive) setRecap({ title: '', label: '', story: lang === 'si' ? 'සේවාවට සම්බන්ධ වෙන්න බැහැ. ටිකකින් ආයෙත් උත්සාහ කරන්න.'
+          : 'Cannot reach the service. Please try again shortly.', photos: [], days: 0, visitors: 0, games: 0, empty: true });
+      } finally {
+        if (alive) setRecapLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, [period, lang]);
+  const playRecap = () => {
+    if (!recap) return;
+    if (speaking) { stopSpeaking(); setSpeaking(false); return; }
+    setSpeaking(true);
+    speak(recap.story, lang).finally(() => setSpeaking(false));
+  };
   const [video, setVideo] = useState<{ state: 'idle' | 'making' | 'ready' | 'error'; url?: string; msg?: string }>({ state: 'idle' });
   const player = useVideoPlayer(null, (p) => { p.loop = false; });
 
@@ -137,7 +174,57 @@ export default function MemoryStoryUI() {
           </View>
         </View>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.days}>
+        <View style={s.tabs}>
+          {PERIODS.map((pp) => (
+            <TouchableOpacity key={pp.key} style={[s.tab, period === pp.key && s.tabOn]}
+              onPress={() => { stopSpeaking(); setSpeaking(false); setPeriod(pp.key); }}>
+              <Text style={[s.tabText, period === pp.key && { color: '#fff' }]}>{lang === 'si' ? pp.si : pp.en}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {period !== 'day' && (recapLoading || !recap ? (
+          <View style={s.loading}>
+            <StoryArt size={120} />
+            <ActivityIndicator size="large" color="#db2777" />
+          </View>
+        ) : (
+          <>
+            {recap.photos.length > 0 && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.photos}>
+                {recap.photos.map((u, i) => <Image key={`${u}-${i}`} source={{ uri: u }} style={s.photo} />)}
+              </ScrollView>
+            )}
+            <View style={s.storyCard}>
+              <View style={s.storyHead}>
+                <StoryArt size={56} />
+                <View style={{ flex: 1 }}>
+                  <Text style={s.storyTitle}>{recap.title}</Text>
+                  {!!recap.label && <Text style={s.recapLabel}>{recap.label}</Text>}
+                </View>
+              </View>
+              <Text style={s.storyText}>{recap.story}</Text>
+              {!recap.empty && (
+                <View style={s.recapStats}>
+                  <View style={s.recapStat}><Ionicons name="calendar" size={16} color="#db2777" />
+                    <Text style={s.recapStatText}>{lang === 'si' ? `මතක දවස් ${recap.days}` : `${recap.days} days`}</Text></View>
+                  <View style={s.recapStat}><Ionicons name="people" size={16} color="#db2777" />
+                    <Text style={s.recapStatText}>{lang === 'si' ? `ආපු අය ${recap.visitors}` : `${recap.visitors} visitors`}</Text></View>
+                  <View style={s.recapStat}><Ionicons name="game-controller" size={16} color="#db2777" />
+                    <Text style={s.recapStatText}>{lang === 'si' ? `සෙල්ලම් ${recap.games}` : `${recap.games} games`}</Text></View>
+                </View>
+              )}
+            </View>
+            {!recap.empty && (
+              <TouchableOpacity style={[s.play, speaking && { backgroundColor: '#475569' }]} onPress={playRecap}>
+                <Ionicons name={speaking ? 'stop' : 'play'} size={26} color="#fff" />
+                <Text style={s.playText}>{speaking ? (lang === 'si' ? 'නවත්තන්න' : 'Stop') : lang === 'si' ? 'අහන්න' : 'Listen'}</Text>
+              </TouchableOpacity>
+            )}
+          </>
+        ))}
+
+        {period === 'day' && <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.days}>
           {dayChips.map((d) => (
             <TouchableOpacity key={d.date} style={[s.day, d.date === date && s.dayOn]} onPress={() => setDate(d.date)}>
               {d.cover ? <Image source={{ uri: d.cover }} style={s.dayImg} /> : <Ionicons name="book" size={18} color={d.date === date ? '#fff' : '#db2777'} />}
@@ -145,12 +232,12 @@ export default function MemoryStoryUI() {
               {d.auto && <Ionicons name="moon" size={12} color={d.date === date ? '#fff' : '#a855f7'} />}
             </TouchableOpacity>
           ))}
-        </ScrollView>
-        <Text style={s.nightly}>
+        </ScrollView>}
+        {period === 'day' && <Text style={s.nightly}>
           🌙 {lang === 'si' ? 'හැමදාම රෑ 8ට ඔබේ දවසේ කතාව ඉබේම ලියවෙනවා.' : 'Every night at 8 PM your day is written into a story automatically.'}
-        </Text>
+        </Text>}
 
-        {loading || !story ? (
+        {period !== 'day' ? null : loading || !story ? (
           <View style={s.loading}>
             <StoryArt size={120} />
             <ActivityIndicator size="large" color="#db2777" />
@@ -239,7 +326,7 @@ export default function MemoryStoryUI() {
           </>
         )}
 
-        {record && (
+        {period === 'day' && record && (
           <View style={s.recordWrap}>
             <Text style={s.recordTitle}>📒 {dayLabel(date)} දවසේ සටහන</Text>
             <View style={s.countRow}>
@@ -297,6 +384,16 @@ const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff7fb' },
   scroll: { padding: 20, paddingBottom: 48 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 18 },
+  tabs: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 16, padding: 4, borderWidth: 1, borderColor: '#fbcfe8',
+    marginBottom: 14 },
+  tab: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 12 },
+  tabOn: { backgroundColor: '#db2777' },
+  tabText: { fontWeight: '900', color: '#831843', fontSize: 14 },
+  recapLabel: { fontSize: 13, color: '#9d174d', fontWeight: '700', marginTop: 2 },
+  recapStats: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
+  recapStat: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#fdf2f8', borderRadius: 12,
+    paddingHorizontal: 10, paddingVertical: 6 },
+  recapStatText: { fontSize: 13, fontWeight: '800', color: '#831843' },
   backBtn: { width: 46, height: 46, borderRadius: 16, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#fbcfe8' },
   title: { fontSize: 24, fontWeight: '900', color: '#0f172a' },
   sub: { fontSize: 13, color: '#be185d', fontWeight: '700' },

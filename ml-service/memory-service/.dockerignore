@@ -1,0 +1,9 @@
+__pycache__/
+*_db.json
+*.backup-*.json
+esp32_passive.json
+care_profiles.json
+tts_cache/
+videos/
+uploads/
+crop_*.jpg
