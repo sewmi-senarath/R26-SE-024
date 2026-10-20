@@ -36,6 +36,10 @@ const AssessmentSchema = new mongoose.Schema(
     timePerQuestion: { type: Map, of: Number, default: {} },
     attemptCount: { type: Map, of: Number, default: {} },
     skipped: { type: [String], default: [] },
+    // Patient's drawing per question id: { width, height, strokes: [{ d, color,
+    // strokeWidth }] } (d = SVG path). Kept apart from `answers` so scoring,
+    // which only needs the caregiver's pass/fail, is untouched.
+    drawings: { type: Map, of: mongoose.Schema.Types.Mixed, default: {} },
     registrationWords: { type: [String], default: [] },
 
     sectionScores: { type: SectionScoresSchema, default: () => ({}) },

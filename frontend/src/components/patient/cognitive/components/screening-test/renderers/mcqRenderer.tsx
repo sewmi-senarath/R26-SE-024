@@ -6,15 +6,17 @@ import { ChoiceCard } from "../assessmentUi";
 interface Props {
   question: Question;
   onAnswer: (answer: string) => void;
+  // Review mode: preselect the saved answer (the review screen blocks touches).
+  answer?: unknown;
 }
 
-export function MCQRenderer({ question, onAnswer }: Props) {
+export function MCQRenderer({ question, onAnswer, answer }: Props) {
   const [selected, setSelected] = useState<string | null>(null);
 
   // Prevent stale selected state when moving between questions.
   useEffect(() => {
-    setSelected(null);
-  }, [question.id]);
+    setSelected(typeof answer === "string" ? answer : null);
+  }, [question.id, answer]);
 
   const handleSelect = (optionLabel: string) => {
     setSelected(optionLabel);

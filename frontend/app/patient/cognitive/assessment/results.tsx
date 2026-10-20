@@ -3,8 +3,12 @@ import {
   getSectionTheme,
 } from "@/src/components/patient/cognitive/components/screening-test/assessmentUi";
 import { TriageSection } from "@/src/components/patient/cognitive/components/screening-test/TriageSection";
-import { useAssessmentSession } from "@/src/hooks/useAssessmentSession";
-import { Question, Severity } from "@/src/types/assessment.types";
+import { getAssessmentSession } from "@/src/api/assessmentApi";
+import {
+  normalizeQuestions,
+  useAssessmentSession,
+} from "@/src/hooks/useAssessmentSession";
+import { MMSESession, Question, Severity } from "@/src/types/assessment.types";
 import {
   Bubbles,
   Gradient,
@@ -15,9 +19,10 @@ import {
   ScoreRing,
 } from "@/src/components/patient/cognitive/components/screening-test/visuals";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   LayoutAnimation,
   ScrollView,
   Text,
@@ -194,26 +199,79 @@ function markingRule(q: Question): string {
 
 export default function ResultsScreen() {
   const router = useRouter();
-  const { session, questions } = useAssessmentSession();
+  const { sessionId: reviewSessionId } = useLocalSearchParams<{
+    sessionId?: string;
+  }>();
+  const isReview = !!reviewSessionId;
+  const { session: activeSession, questions: activeQuestions } =
+    useAssessmentSession();
 
   // ── Move ALL hooks to top - BEFORE any conditional logic ──────
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const insets = useSafeAreaInsets();
 
+  // Review mode: show an earlier, already-completed session (opened from the
+  // profile) without touching the cached active session.
+  const [reviewSession, setReviewSession] = useState<MMSESession | null>(null);
+  const [reviewLoading, setReviewLoading] = useState(isReview);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!reviewSessionId) return;
+    let cancelled = false;
+    setReviewLoading(true);
+    setReviewError(null);
+    getAssessmentSession(reviewSessionId)
+      .then((s) => {
+        if (!cancelled) setReviewSession(s);
+      })
+      .catch((err) => {
+        if (!cancelled)
+          setReviewError(err?.message ?? "Could not load this assessment.");
+      })
+      .finally(() => {
+        if (!cancelled) setReviewLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [reviewSessionId]);
+
+  const session = isReview ? reviewSession : activeSession;
+  const questions: Question[] = isReview
+    ? normalizeQuestions(reviewSession?.questionSet ?? [])
+    : activeQuestions;
+
+  const leaveScreen = () =>
+    isReview ? router.back() : router.replace("/patient/games");
+
   // ── NOW you can do conditional checks ──────────────────────────
-  if (session.status !== "done") {
+  if (isReview && reviewLoading) {
+    return (
+      <SafeAreaView className="flex-1 bg-slate-50 items-center justify-center gap-3 px-8">
+        <ActivityIndicator size="large" color="#6366f1" />
+        <Text className="text-base text-gray-500">Loading results…</Text>
+      </SafeAreaView>
+    );
+  }
+
+  if (!session || session.status !== "done") {
     return (
       <SafeAreaView className="flex-1 bg-slate-50 items-center justify-center gap-3 px-8">
         <Ionicons name="document-text-outline" size={48} color="#9ca3af" />
         <Text className="text-base text-gray-500 text-center">
-          No completed assessment found.
+          {reviewError ?? "No completed assessment found."}
         </Text>
         <TouchableOpacity
-          onPress={() => router.replace("/patient/cognitive/assessment")}
+          onPress={() =>
+            isReview
+              ? router.back()
+              : router.replace("/patient/cognitive/assessment")
+          }
           className="mt-2 bg-blue-500 rounded-2xl px-6 py-3"
         >
           <Text className="text-white font-semibold text-base">
-            Start Assessment
+            {isReview ? "Back to profile" : "Start Assessment"}
           </Text>
         </TouchableOpacity>
       </SafeAreaView>
@@ -293,7 +351,7 @@ export default function ResultsScreen() {
           <View className="flex-row items-center gap-1.5 self-center rounded-full border border-white/30 bg-white/20 px-3 py-1.5 mb-2">
             <Ionicons name="checkmark-circle" size={16} color="white" />
             <Text className="text-sm font-semibold text-white">
-              Assessment complete
+              {isReview ? "Past assessment" : "Assessment complete"}
             </Text>
           </View>
           <Text className="text-2xl font-extrabold text-white mb-5">
@@ -357,7 +415,7 @@ export default function ResultsScreen() {
           )}
 
           {/* ── AI triage prediction (ML model) ── */}
-          {session.patientId && (
+          {session.patientId && !isReview && (
             <View className="mx-6">
               <TriageSection
                 patientId={session.patientId}
@@ -594,12 +652,29 @@ export default function ResultsScreen() {
 
           {/* ── Action buttons ─────────────────────────────────── */}
           <View className="mx-6 gap-3">
+            {/* read-only walkthrough of every question and the answer given */}
+            <TouchableOpacity
+              onPress={() =>
+                router.push({
+                  pathname: "/patient/cognitive/assessment/review",
+                  params: { sessionId: session.sessionId },
+                })
+              }
+              accessibilityRole="button"
+              className="flex-row items-center justify-center gap-2 rounded-2xl border-2 border-indigo-200 bg-white py-4"
+            >
+              <Ionicons name="list-outline" size={20} color="#4f46e5" />
+              <Text className="text-base font-bold text-indigo-600">
+                Review my answers
+              </Text>
+            </TouchableOpacity>
+
             {/* go back to patient dashboard */}
             <GradientButton
-              label="Return to Activities"
+              label={isReview ? "Back to Profile" : "Return to Activities"}
               colors={GRADIENTS.primary}
-              icon="home"
-              onPress={() => router.replace("/patient/games")}
+              icon={isReview ? "arrow-back" : "home"}
+              onPress={leaveScreen}
             />
           </View>
         </View>
