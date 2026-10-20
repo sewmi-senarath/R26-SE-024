@@ -84,7 +84,8 @@ exports.piCameraUpload = async (req, res) => {
     if (!req.file) return res.status(400).json({ success: false, message: 'No image file' });
     if (!patientId) return res.status(400).json({ success: false, message: 'patientId required' });
 
-    const AI_URL = process.env.AI_SERVICE_URL || 'http://localhost:5001';
+    // Memory AI service (YOLO /detect). Not AI_SERVICE_URL: that one is the family story service.
+    const AI_URL = process.env.MEMORY_AI_URL || 'http://localhost:8000';
     const imageBuffer = fs.readFileSync(req.file.path);
     const form = new FormData();
     form.append('file', imageBuffer, { filename: 'cam.jpg', contentType: 'image/jpeg' });

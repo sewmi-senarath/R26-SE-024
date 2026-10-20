@@ -12,11 +12,11 @@ import {
     Alert,
     Image,
     Text,
-    TextInput,
     TouchableOpacity,
     View,
 } from "react-native";
 import DropDownPicker from "react-native-dropdown-picker";
+import { KeyboardAwareTextInput as TextInput } from "@/src/components/common/KeyboardAware";
 import "react-native-get-random-values";
 import { v4 as uuidv4 } from "uuid";
 
