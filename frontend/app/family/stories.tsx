@@ -13,6 +13,9 @@ import {
   View,
 } from 'react-native';
 import { Colors } from '../../src/constants/colors';
+import { FamilyColors, FamilyRadius, FamilyShadow } from '../../src/constants/familyTheme';
+import { ScreenHeader } from '../../src/components/family/ui/ScreenHeader';
+import { Card } from '../../src/components/family/ui/Card';
 import { getLinkedPatient } from '../../src/services/family/familyService';
 import {
   CategoryRecommendationResponse,
@@ -204,7 +207,7 @@ export default function StoriesScreen() {
 
   if (patientLoading) {
     return (
-      <View style={{ flex: 1, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ flex: 1, backgroundColor: FamilyColors.canvas, alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator color={Colors.purple} size="large" />
       </View>
     );
@@ -212,7 +215,7 @@ export default function StoriesScreen() {
 
   if (!patient) {
     return (
-      <View style={{ flex: 1, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <View style={{ flex: 1, backgroundColor: FamilyColors.canvas, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
         <Text style={{ fontSize: 14, color: Colors.textMuted, textAlign: 'center' }}>
           We couldn't find a patient linked to your account. Please check your registration or contact support.
         </Text>
@@ -221,24 +224,20 @@ export default function StoriesScreen() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: Colors.background }}>
+    <View style={{ flex: 1, backgroundColor: FamilyColors.canvas }}>
       <StatusBar barStyle="dark-content" />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
 
-        {/* Header */}
-        <View style={{ backgroundColor: Colors.white, paddingTop: 56, paddingHorizontal: 20, paddingBottom: 20, borderBottomLeftRadius: 24, borderBottomRightRadius: 24, shadowColor: Colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 6 }}>
-          <Text style={{ fontSize: 22, fontWeight: '800', color: Colors.textPrimary }}>Memory Stories</Text>
-          <Text style={{ fontSize: 14, color: Colors.textMuted, marginTop: 2 }}>AI-narrated stories in a familiar voice</Text>
-        </View>
+        <ScreenHeader title="Memory Stories" subtitle="AI-narrated stories in a familiar voice" />
 
         {/* Explainer card */}
-        <View style={{ margin: 20, backgroundColor: Colors.purple + '15', borderRadius: 20, padding: 18, borderWidth: 1, borderColor: Colors.purple + '30' }}>
+        <View style={{ margin: 20, backgroundColor: Colors.purple + FamilyColors.alpha.faint, borderRadius: FamilyRadius.lg, padding: 18, borderWidth: 1, borderColor: Colors.purple + FamilyColors.alpha.soft }}>
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
-            <View style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: Colors.purpleSoft, justifyContent: 'center', alignItems: 'center', flexShrink: 0 }}>
+            <View style={{ width: 42, height: 42, borderRadius: FamilyRadius.sm, backgroundColor: Colors.purpleSoft, justifyContent: 'center', alignItems: 'center', flexShrink: 0 }}>
               <Ionicons name="mic" size={22} color={Colors.purple} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 14, fontWeight: '800', color: Colors.purple, marginBottom: 4 }}>AI Voice Narration</Text>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: Colors.purple, marginBottom: 4 }}>AI Voice Narration</Text>
               <Text style={{ fontSize: 12, color: Colors.textSecondary, lineHeight: 18 }}>Upload a photo and our system creates a personalised voice story narrated in a familiar family voice. Stories trigger mood improvements and enhance memory recall.</Text>
             </View>
           </View>
@@ -246,13 +245,13 @@ export default function StoriesScreen() {
 
         {/* Adaptive recommendation — what's actually working, from real data */}
         {recommendation && (
-          <View style={{ marginHorizontal: 20, marginBottom: 20, backgroundColor: Colors.purple + '15', borderRadius: 20, padding: 18, borderWidth: 1, borderColor: Colors.purple + '30' }}>
+          <View style={{ marginHorizontal: 20, marginBottom: 20, backgroundColor: Colors.purple + FamilyColors.alpha.faint, borderRadius: FamilyRadius.lg, padding: 18, borderWidth: 1, borderColor: Colors.purple + FamilyColors.alpha.soft }}>
             <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
-              <View style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: Colors.purpleSoft, justifyContent: 'center', alignItems: 'center', flexShrink: 0 }}>
+              <View style={{ width: 42, height: 42, borderRadius: FamilyRadius.sm, backgroundColor: Colors.purpleSoft, justifyContent: 'center', alignItems: 'center', flexShrink: 0 }}>
                 <Ionicons name="bulb" size={22} color={Colors.purple} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 14, fontWeight: '800', color: Colors.purple, marginBottom: 4 }}>What's Working</Text>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: Colors.purple, marginBottom: 4 }}>What's Working</Text>
                 {recommendation.recommendation ? (
                   <Text style={{ fontSize: 12, color: Colors.textSecondary, lineHeight: 18 }}>
                     {categoryLabel(recommendation.recommendation.category)} stories have lifted {patient.name}'s mood by an average of{' '}
@@ -277,10 +276,10 @@ export default function StoriesScreen() {
         <TouchableOpacity
           activeOpacity={0.85}
           onPress={() => setShowModal(true)}
-          style={{ marginHorizontal: 20, marginBottom: 20, backgroundColor: Colors.purple, borderRadius: 16, paddingVertical: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, shadowColor: Colors.purple, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 6 }}
+          style={{ marginHorizontal: 20, marginBottom: 20, backgroundColor: Colors.purple, borderRadius: FamilyRadius.md, paddingVertical: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, ...FamilyShadow.elevated, shadowColor: Colors.purple }}
         >
           <Ionicons name="camera" size={22} color="#fff" />
-          <Text style={{ fontSize: 15, fontWeight: '800', color: '#fff' }}>Upload Photo & Create Story</Text>
+          <Text style={{ fontSize: 15, fontWeight: '700', color: '#fff' }}>Upload Photo & Create Story</Text>
         </TouchableOpacity>
 
         {/* Stories list — real, deletable memories */}
@@ -292,25 +291,25 @@ export default function StoriesScreen() {
               <ActivityIndicator color={Colors.purple} />
             </View>
           ) : stories.length === 0 ? (
-            <View style={{ backgroundColor: Colors.white, borderRadius: 16, padding: 20, alignItems: 'center', borderWidth: 1, borderColor: Colors.borderLight }}>
+            <Card radius="md" style={{ alignItems: 'center' }} padding={20}>
               <Ionicons name="images-outline" size={26} color={Colors.textMuted} />
               <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 8, textAlign: 'center' }}>
                 No stories yet — create one above.
               </Text>
-            </View>
+            </Card>
           ) : (
             stories.map((story) => (
-              <View key={story._id} style={{ backgroundColor: Colors.white, borderRadius: 16, padding: 16, marginBottom: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3, borderWidth: 1, borderColor: Colors.borderLight }}>
+              <Card key={story._id} radius="md" style={{ marginBottom: 12 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
                   {story.photoUrl ? (
-                    <Image source={{ uri: story.photoUrl }} style={{ width: 56, height: 56, borderRadius: 12 }} />
+                    <Image source={{ uri: story.photoUrl }} style={{ width: 56, height: 56, borderRadius: FamilyRadius.sm }} />
                   ) : (
-                    <View style={{ width: 56, height: 56, borderRadius: 12, backgroundColor: Colors.purpleSoft, justifyContent: 'center', alignItems: 'center' }}>
+                    <View style={{ width: 56, height: 56, borderRadius: FamilyRadius.sm, backgroundColor: Colors.purpleSoft, justifyContent: 'center', alignItems: 'center' }}>
                       <Ionicons name="images" size={26} color={Colors.purple} />
                     </View>
                   )}
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 14, fontWeight: '800', color: Colors.textPrimary }}>{categoryLabel(story.category)}</Text>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: Colors.textPrimary }}>{categoryLabel(story.category)}</Text>
                     <Text style={{ fontSize: 12, color: Colors.textMuted, marginBottom: 4 }} numberOfLines={2}>{story.familyNote}</Text>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
@@ -350,7 +349,7 @@ export default function StoriesScreen() {
                     <Text style={{ fontSize: 12, color: Colors.textPrimary, lineHeight: 18, fontStyle: 'italic' }}>"{story.generatedStory}"</Text>
                   </View>
                 )}
-              </View>
+              </Card>
             ))
           )}
         </View>
@@ -364,7 +363,7 @@ export default function StoriesScreen() {
         presentationStyle="pageSheet"
         onRequestClose={resetModal}
       >
-        <View style={{ flex: 1, backgroundColor: Colors.background }}>
+        <View style={{ flex: 1, backgroundColor: FamilyColors.canvas }}>
           <ScrollView
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={{ padding: 20, paddingBottom: 60 }}
@@ -373,7 +372,7 @@ export default function StoriesScreen() {
             {/* Modal header */}
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
               <View>
-                <Text style={{ fontSize: 20, fontWeight: '800', color: Colors.textPrimary }}>
+                <Text style={{ fontSize: 20, fontWeight: '700', color: Colors.textPrimary }}>
                   Create Memory Story
                 </Text>
                 <Text style={{ fontSize: 13, color: Colors.textMuted, marginTop: 2 }}>
@@ -388,7 +387,7 @@ export default function StoriesScreen() {
             {/* Photo picker */}
             <TouchableOpacity onPress={handlePickPhoto} style={{ marginBottom: 16 }}>
               {photo ? (
-                <View style={{ borderRadius: 16, overflow: 'hidden', borderWidth: 2, borderColor: Colors.purple }}>
+                <View style={{ borderRadius: FamilyRadius.md, overflow: 'hidden', borderWidth: 2, borderColor: Colors.purple }}>
                   <Image
                     source={{ uri: photo.uri }}
                     style={{ width: '100%', height: 200 }}
@@ -402,8 +401,8 @@ export default function StoriesScreen() {
                   </View>
                 </View>
               ) : (
-                <View style={{ backgroundColor: Colors.white, borderRadius: 16, borderWidth: 2, borderStyle: 'dashed', borderColor: Colors.purple + '60', height: 180, justifyContent: 'center', alignItems: 'center' }}>
-                  <Ionicons name="cloud-upload-outline" size={48} color={Colors.purple + '80'} />
+                <View style={{ backgroundColor: Colors.white, borderRadius: FamilyRadius.md, borderWidth: 2, borderStyle: 'dashed', borderColor: Colors.purple + FamilyColors.alpha.strong, height: 180, justifyContent: 'center', alignItems: 'center' }}>
+                  <Ionicons name="cloud-upload-outline" size={48} color={Colors.purple + FamilyColors.alpha.strong} />
                   <Text style={{ color: Colors.purple, fontWeight: '700', fontSize: 15, marginTop: 10 }}>
                     Tap to select photo
                   </Text>
@@ -415,8 +414,8 @@ export default function StoriesScreen() {
             </TouchableOpacity>
 
             {/* Category picker */}
-            <View style={{ backgroundColor: Colors.white, borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: Colors.borderLight }}>
-              <Text style={{ fontSize: 13, fontWeight: '800', color: Colors.textPrimary, marginBottom: 10 }}>
+            <Card radius="md" style={{ marginBottom: 16 }} padding={16}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: Colors.textPrimary, marginBottom: 10 }}>
                 Category
               </Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
@@ -427,7 +426,7 @@ export default function StoriesScreen() {
                     style={{
                       paddingHorizontal: 14,
                       paddingVertical: 8,
-                      borderRadius: 20,
+                      borderRadius: FamilyRadius.pill,
                       backgroundColor: category === opt.key ? Colors.primary : Colors.white,
                       borderWidth: 1,
                       borderColor: category === opt.key ? Colors.primary : Colors.border,
@@ -439,43 +438,43 @@ export default function StoriesScreen() {
                   </TouchableOpacity>
                 ))}
               </View>
-            </View>
+            </Card>
 
             {/* Memory note */}
-            <View style={{ backgroundColor: Colors.white, borderRadius: 16, padding: 16, marginBottom: 24, borderWidth: 1, borderColor: Colors.borderLight }}>
-              <Text style={{ fontSize: 13, fontWeight: '800', color: Colors.textPrimary, marginBottom: 4 }}>
+            <Card radius="md" style={{ marginBottom: 24 }} padding={16}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: Colors.textPrimary, marginBottom: 4 }}>
                 Your Memory Note
               </Text>
               <Text style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 10 }}>
                 What do you remember about this moment?
               </Text>
               <TextInput
-                style={{ borderWidth: 1, borderColor: Colors.borderLight, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: 13, color: Colors.textPrimary, backgroundColor: Colors.background, minHeight: 100 }}
+                style={{ borderWidth: 1, borderColor: Colors.borderLight, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: 13, color: Colors.textPrimary, backgroundColor: FamilyColors.canvasAlt, minHeight: 100 }}
                 placeholder="e.g. Amma wore the red sari her mother chose. Thaththa was so nervous that morning. Grandmother cried happy tears."
                 value={familyNote}
                 onChangeText={setFamilyNote}
                 multiline
                 textAlignVertical="top"
               />
-            </View>
+            </Card>
 
             {/* Generate button */}
             <TouchableOpacity
               onPress={handleGenerate}
               disabled={loading}
-              style={{ backgroundColor: loading ? Colors.purple + '70' : Colors.purple, borderRadius: 16, paddingVertical: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 20 }}
+              style={{ backgroundColor: loading ? Colors.purple + FamilyColors.alpha.medium : Colors.purple, borderRadius: FamilyRadius.md, paddingVertical: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 20 }}
             >
               {loading ? (
                 <>
                   <ActivityIndicator color="#fff" size="small" />
-                  <Text style={{ color: '#fff', fontWeight: '800', fontSize: 15 }}>
+                  <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>
                     {status || 'Creating story...'}
                   </Text>
                 </>
               ) : (
                 <>
                   <Ionicons name="sparkles" size={20} color="#fff" />
-                  <Text style={{ color: '#fff', fontWeight: '800', fontSize: 15 }}>
+                  <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>
                     Generate Memory Story
                   </Text>
                 </>
@@ -484,12 +483,12 @@ export default function StoriesScreen() {
 
             {/* Story result */}
             {generatedStory ? (
-              <View style={{ backgroundColor: Colors.purple + '10', borderRadius: 16, padding: 18, borderWidth: 1, borderColor: Colors.purple + '30' }}>
+              <View style={{ backgroundColor: Colors.purple + FamilyColors.alpha.faint, borderRadius: FamilyRadius.md, padding: 18, borderWidth: 1, borderColor: Colors.purple + FamilyColors.alpha.soft }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 }}>
                   <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.purple, justifyContent: 'center', alignItems: 'center' }}>
                     <Ionicons name="heart" size={18} color="#fff" />
                   </View>
-                  <Text style={{ fontSize: 15, fontWeight: '800', color: Colors.purple }}>
+                  <Text style={{ fontSize: 15, fontWeight: '700', color: Colors.purple }}>
                     Memory Story Ready
                   </Text>
                 </View>
@@ -500,14 +499,14 @@ export default function StoriesScreen() {
 
                 <TouchableOpacity
                   onPress={handleVoicePlayStop}
-                  style={{ backgroundColor: voicePlaying ? '#EF4444' : Colors.success, borderRadius: 12, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 10 }}
+                  style={{ backgroundColor: voicePlaying ? Colors.danger : Colors.success, borderRadius: 12, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginBottom: 10 }}
                 >
                   <Ionicons
                     name={voicePlaying ? 'stop-circle' : 'play-circle'}
                     size={22}
                     color="#fff"
                   />
-                  <Text style={{ color: '#fff', fontWeight: '800', fontSize: 14 }}>
+                  <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>
                     {voicePlaying ? 'Stop Voice' : 'Play Voice Story'}
                   </Text>
                 </TouchableOpacity>
@@ -523,7 +522,7 @@ export default function StoriesScreen() {
                   style={{ backgroundColor: Colors.purple, borderRadius: 12, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}
                 >
                   <Ionicons name="checkmark-circle" size={20} color="#fff" />
-                  <Text style={{ color: '#fff', fontWeight: '800', fontSize: 14 }}>
+                  <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>
                     Saved to Vault
                   </Text>
                 </TouchableOpacity>

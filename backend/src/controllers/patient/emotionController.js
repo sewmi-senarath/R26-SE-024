@@ -1,6 +1,11 @@
 const EmotionLog = require('../../models/family/EmotionLog');
 const SessionOutcome = require('../../models/family/SessionOutcome');
+const FamilyMemory = require('../../models/family/FamilyMemory');
 const { classifyEmotion, ensureReady } = require('../../services/emotion/faceEmotionDetector');
+const { computeDecision } = require('../../services/family/decisionEngine');
+const { runFollowUpScan } = require('../../services/family/followUpScanner');
+
+const VALID_REACTIONS = ['happy', 'calm', 'sad'];
 
 // Same local, self-hosted classifier the family-side emotionController.js
 // uses (see services/emotion/faceEmotionDetector.js) — deliberately
@@ -133,8 +138,14 @@ const finalizeSession = async (req, res) => {
             return res.status(404).json({ success: false, message: 'No emotion readings found for this session' });
         }
 
-        const firstReadings = readings.slice(0, Math.min(3, readings.length));
-        const lastReadings = readings.slice(-Math.min(3, readings.length));
+        // see family-side emotionController.js::finalizeSession for why this
+        // isn't just Math.min(3, readings.length) — below 6 readings the two
+        // windows overlap (fully, at N<=3), silently forcing a 0% shift
+        // regardless of any real change. Below 6, compare the single
+        // earliest reading to the single latest one instead.
+        const windowSize = readings.length < 6 ? 1 : 3;
+        const firstReadings = readings.slice(0, windowSize);
+        const lastReadings = readings.slice(-windowSize);
 
         const avgPositivity = (readingSet) => {
             const scores = readingSet.map((r) => calculatePositivity(r.emotionScores));
@@ -165,7 +176,9 @@ const finalizeSession = async (req, res) => {
             }
         }
 
-        const ALERT_THRESHOLD = 1.0;
+        // see family-side emotionController.js::finalizeSession for why
+        // this was lowered from 1.0 to 0.5
+        const ALERT_THRESHOLD = 0.5;
         const alertTriggered = moodLift >= ALERT_THRESHOLD;
 
         const emotionCounts = {};
@@ -173,6 +186,19 @@ const finalizeSession = async (req, res) => {
             emotionCounts[r.dominantEmotion] = (emotionCounts[r.dominantEmotion] || 0) + 1;
         }
         const mostFrequentEmotion = Object.entries(emotionCounts).sort((a, b) => b[1] - a[1])[0][0];
+
+        const roundedMoodLift = Math.round(moodLift * 100) / 100;
+
+        // see family-side emotionController.js::finalizeSession for why
+        // decision is computed here with recallScore: null
+        const memory = await FamilyMemory.findById(readings[0].memoryId).select('category');
+        const decision = computeDecision({
+            moodLift: roundedMoodLift,
+            framesUsed: readings.length,
+            recallScore: null,
+            reaction: null,
+            category: memory ? memory.category : null,
+        });
 
         const outcome = await SessionOutcome.findOneAndUpdate(
             { sessionId },
@@ -184,7 +210,7 @@ const finalizeSession = async (req, res) => {
                 peakEmotion: peakReading.dominantEmotion,
                 finalEmotion: lastReadings[lastReadings.length - 1].dominantEmotion,
                 mostFrequentEmotion,
-                moodLift: Math.round(moodLift * 100) / 100,
+                moodLift: roundedMoodLift,
                 totalReadings: readings.length,
                 alertTriggered,
                 sadBeforePercent,
@@ -192,9 +218,45 @@ const finalizeSession = async (req, res) => {
                 happyAfterPercent,
                 moodShiftPercent,
                 playbackDurationSeconds: readings[readings.length - 1].secondsIntoPlayback,
+                decision,
             },
             { upsert: true, new: true }
         );
+
+        res.status(200).json({ success: true, outcome });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// --- REACTION — see family-side emotionController.js::submitReaction ---
+const submitReaction = async (req, res) => {
+    try {
+        const { reaction } = req.body;
+        if (!VALID_REACTIONS.includes(reaction)) {
+            return res.status(400).json({ success: false, message: 'Invalid reaction value' });
+        }
+
+        const outcome = await SessionOutcome.findById(req.params.id);
+        if (!outcome) {
+            return res.status(404).json({ success: false, message: 'Outcome not found' });
+        }
+        if (outcome.patientId.toString() !== req.resolvedPatientId.toString()) {
+            return res.status(403).json({ success: false, message: 'Not authorized to update this outcome' });
+        }
+
+        const priorInputs = outcome.decision && outcome.decision.inputs ? outcome.decision.inputs : {};
+        outcome.decision = computeDecision({
+            moodLift: outcome.moodLift,
+            framesUsed: priorInputs.framesUsed,
+            framesTotal: priorInputs.framesTotal,
+            recallScore: priorInputs.recallScore ?? null,
+            reaction,
+            category: priorInputs.category,
+        });
+        await outcome.save();
+
+        await runFollowUpScan(outcome);
 
         res.status(200).json({ success: true, outcome });
     } catch (error) {
@@ -207,4 +269,5 @@ module.exports = {
     captureEmotion,
     logEmotionReading,
     finalizeSession,
+    submitReaction,
 };

@@ -1,7 +1,9 @@
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../../../constants/colors';
+import { FamilyColors } from '../../../constants/familyTheme';
 import { EngagementAlert } from '../../../types/family.types';
+import { Card } from '../ui/Card';
 
 interface FollowUpPromptProps {
   alert: EngagementAlert;
@@ -15,8 +17,8 @@ const OPTIONS: { key: 'positive' | 'neutral' | 'difficult'; emoji: string; label
 ];
 
 export const FollowUpPrompt: React.FC<FollowUpPromptProps> = ({ alert, onAnswer }) => (
-  <View style={{ marginHorizontal: 20, marginTop: 20, backgroundColor: Colors.white, borderRadius: 20, padding: 18, borderWidth: 1, borderColor: Colors.borderLight, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3 }}>
-    <Text style={{ fontSize: 14, fontWeight: '800', color: Colors.textPrimary, marginBottom: 2 }}>
+  <Card style={{ marginHorizontal: 20, marginTop: 20 }}>
+    <Text style={{ fontSize: 14, fontWeight: '700', color: Colors.textPrimary, marginBottom: 2 }}>
       How did the call go?
     </Text>
     <Text style={{ fontSize: 12, color: Colors.textMuted, marginBottom: 14 }}>
@@ -28,12 +30,12 @@ export const FollowUpPrompt: React.FC<FollowUpPromptProps> = ({ alert, onAnswer 
         <TouchableOpacity
           key={opt.key}
           onPress={() => onAnswer(opt.key)}
-          style={{ flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: 14, backgroundColor: Colors.background }}
+          style={{ flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: 14, backgroundColor: FamilyColors.canvasAlt }}
         >
           <Text style={{ fontSize: 24, marginBottom: 4 }}>{opt.emoji}</Text>
           <Text style={{ fontSize: 11, fontWeight: '700', color: Colors.textSecondary }}>{opt.label}</Text>
         </TouchableOpacity>
       ))}
     </View>
-  </View>
+  </Card>
 );

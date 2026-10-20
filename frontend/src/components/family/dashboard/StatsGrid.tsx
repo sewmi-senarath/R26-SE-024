@@ -2,7 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../../../constants/colors';
+import { FamilyRadius, FamilyShadow } from '../../../constants/familyTheme';
 import { FamilyDashboardStats } from '../../../types/family.types';
+import { IconChip } from '../ui/IconChip';
 
 interface StatsGridProps {
   stats: FamilyDashboardStats;
@@ -29,29 +31,15 @@ const StatCard: React.FC<StatCardProps> = ({
     style={{
       flex: 1,
       backgroundColor: Colors.white,
-      borderRadius: 16,
+      borderRadius: FamilyRadius.md,
       padding: 14,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.06,
-      shadowRadius: 8,
-      elevation: 3,
       borderWidth: 1,
       borderColor: Colors.borderLight,
+      ...FamilyShadow.card,
     }}
   >
-    <View
-      style={{
-        width: 36,
-        height: 36,
-        borderRadius: 10,
-        backgroundColor: iconBg,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 10,
-      }}
-    >
-      <Ionicons name={icon} size={18} color={iconColor} />
+    <View style={{ marginBottom: 10 }}>
+      <IconChip icon={icon} color={iconColor} bg={iconBg} size={36} radius={FamilyRadius.sm} />
     </View>
     <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 2 }}>
       <Text style={{ fontSize: 24, fontWeight: '800', color: Colors.textPrimary }}>{value}</Text>

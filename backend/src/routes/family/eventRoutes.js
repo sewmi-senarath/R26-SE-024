@@ -9,6 +9,7 @@ const {
   deleteEvent,
   getReactions,
   markReactionSeen,
+  getUnseenReactions,
   getBestTime,
 } = require('../../controllers/family/eventController');
 const {
@@ -29,6 +30,7 @@ router.get('/', getEvents);
 router.get('/settings', getEventSettings);
 router.put('/settings', updateEventSettings);
 router.get('/best-time', getBestTime);
+router.get('/reactions/unseen', getUnseenReactions);
 
 router.put('/:id', updateEvent);
 router.delete('/:id', deleteEvent);

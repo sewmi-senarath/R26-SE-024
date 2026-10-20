@@ -294,7 +294,7 @@ export default function MomentCardUI() {
       {videoMode ? (
         <View style={{ alignItems: 'center' }}>
           <View style={{ width: '100%', aspectRatio: 4 / 3, borderRadius: 18, overflow: 'hidden', marginBottom: 12 }}>
-            <CameraView ref={cameraRef} style={{ flex: 1 }} facing="front" />
+            <CameraView ref={cameraRef} style={{ flex: 1 }} facing="front" mode="video" />
           </View>
           <Text style={{ fontSize: 16, fontWeight: '700', color: theme.accent, marginBottom: 10 }}>
             Recording… {videoSeconds}s / {MAX_VOICE_SECONDS}s

@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../../../constants/colors';
+import { FamilyShadow } from '../../../constants/familyTheme';
 
 interface DashboardHeaderProps {
   familyName: string;
@@ -33,11 +34,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
         backgroundColor: Colors.white,
         borderBottomLeftRadius: 24,
         borderBottomRightRadius: 24,
-        shadowColor: Colors.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.08,
-        shadowRadius: 12,
-        elevation: 6,
+        ...FamilyShadow.header,
       }}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -46,7 +43,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
           <Text style={{ fontSize: 13, color: Colors.textMuted, fontWeight: '500', marginBottom: 2 }}>
             {greeting},
           </Text>
-          <Text style={{ fontSize: 22, fontWeight: '800', color: Colors.textPrimary }}>
+          <Text style={{ fontSize: 22, fontWeight: '700', color: Colors.textPrimary }}>
             {familyName} 👋
           </Text>
           {patientName && (
@@ -114,14 +111,14 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                 width: 42,
                 height: 42,
                 borderRadius: 21,
-                backgroundColor: '#E8D5F5',
+                backgroundColor: Colors.purpleSoft,
                 justifyContent: 'center',
                 alignItems: 'center',
                 borderWidth: 2,
                 borderColor: Colors.purple,
               }}
             >
-              <Text style={{ fontSize: 15, fontWeight: '800', color: Colors.purple }}>{initials}</Text>
+              <Text style={{ fontSize: 15, fontWeight: '700', color: Colors.purple }}>{initials}</Text>
             </View>
           </TouchableOpacity>
         </View>
