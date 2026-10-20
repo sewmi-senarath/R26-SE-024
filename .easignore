@@ -1,0 +1,40 @@
+# What EAS Build uploads when the APK is built from frontend/.
+# EAS packs the whole git repository, so without this file it also uploaded the
+# backend, the ML services and the web frontend (~88 MB) that the app never uses.
+# When this file exists EAS ignores .gitignore, so its rules are repeated here.
+
+# Git history (not needed to build)
+.git/
+
+# Not part of the mobile app
+/backend/
+/ml-service/
+/models/
+/ai-services/
+/web-frontend/
+/hardware/
+/.vscode/
+
+# Same as .gitignore
+node_modules/
+.expo/
+.claude/
+.venv/
+.venv-ml/
+__pycache__/
+*.pt
+.env
+.env.*
+dist/
+
+# frontend/.gitignore (native folders are generated on the build server)
+/frontend/android/
+/frontend/ios/
+/frontend/web-build/
+/frontend/test-reports/
+/frontend/coverage/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision

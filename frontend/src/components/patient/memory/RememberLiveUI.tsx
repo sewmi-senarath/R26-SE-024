@@ -3,28 +3,31 @@ import { Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useIsFocused, useLocalSearchParams, useRouter } from 'expo-router';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import * as Location from 'expo-location';
 import axios from 'axios';
 import Svg, { Circle } from 'react-native-svg';
 import { RecordingPresets, setAudioModeAsync, useAudioRecorder } from 'expo-audio';
 import {
-  AI_URL, CameraSource, Detection, getPatientId, loadCameraSource, speak, startListening,
+  AI_URL, CameraSource, Detection, getPatientId, getPatientName, loadCameraSource, speak, startListening,
   stopAndUnderstand, stopSpeaking,
 } from '../../../services/memoryAI';
 
 // A thing or a person counts as "interacted with" once it stays in view this long.
-const DWELL_MS = 30000;
-const PERSON_DWELL_MS = 30000;
+const DWELL_MS = 5000;
+const PERSON_DWELL_MS = 5000;
 // Pause between announcing "I'm remembering X" and actually saving, so the
 // patient hears what's about to be kept before it happens.
 const SAVE_DELAY_MS = 2000;
-const RESAVE_COOLDOWN_MS = 2 * 60 * 1000;
+// The SAME scene is not saved again for a minute: each save uploads photos, and a
+// patient keeps their last 500 moments, so saving one scene every 5 s would push
+// out the earlier days the story and the memory game use.
+const RESAVE_COOLDOWN_MS = 60 * 1000;
 const NO_FACE_RETRY_MS = 6000;
 // How often the silent "is this someone we know?" check repeats while an
 // unrecognised person is in view (their face may turn toward the camera later).
-const QUICK_CHECK_EVERY_MS = 3000;
+const QUICK_CHECK_EVERY_MS = 1200;
 const MISSES_BEFORE_RESET = 3;
 const PERSON_MISSES_BEFORE_LEAVE = 4;
 const LISTEN_MS = 5000;
@@ -44,7 +47,9 @@ type Phase = 'watching' | 'saving' | 'asking' | 'listening' | 'thinking';
 type Toast = { text: string; photo?: string; tone: 'ok' | 'info' | 'warn' };
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-const TALK_CLIP_MS = 30000; // visit-conversation audio is sent in clips of this length
+// Visit-conversation audio is sent in clips of this length (short, so the app can ask
+// "which day will you come?" soon after the visitor promises to come again).
+const TALK_CLIP_MS = 15000;
 
 export default function RememberLiveUI() {
   const router = useRouter();
@@ -90,6 +95,8 @@ export default function RememberLiveUI() {
 
   const [cam, setCam] = useState<CameraSource | null>(null);
   const [patientId, setPatientId] = useState<string | null>(null);
+  // Sent with each frame so the patient's own things come back as "සුනිල්ගේ කෝප්පය".
+  const patientName = useRef('');
   const [detections, setDetections] = useState<Detection[]>([]);
   const [aspect, setAspect] = useState(3 / 4); // width / height of the analysed frame
   const [espFrame, setEspFrame] = useState<string | null>(null);
@@ -111,7 +118,20 @@ export default function RememberLiveUI() {
 
   // Small frames are the biggest speed win: a full 12MP photo is slow to take
   // and to upload, and the detector only looks at ~640px anyway.
+  // A camera that never started (black preview) is not a server problem: the loop
+  // waits for it and shows its own message instead of "cannot reach the AI service".
+  const camReady = useRef(false);
+  const [camIssue, setCamIssue] = useState(false);
+  // iOS sometimes leaves a new camera black (e.g. another screen still held it):
+  // restart the preview a few times before telling the user.
+  const [camKey, setCamKey] = useState(0);
+  const camTries = useRef(0);
+  // Only the screen in front uses the camera; screens behind it in the stack let go.
+  const focused = useIsFocused();
   const onCameraReady = useCallback(async () => {
+    camReady.current = true;
+    camTries.current = 0;
+    setCamIssue(false);
     try {
       const sizes = (await cameraRef.current?.getAvailablePictureSizesAsync()) || [];
       const pick = ['640x480', '1280x720', 'Medium', 'Low'].find((s) => sizes.includes(s));
@@ -126,7 +146,7 @@ export default function RememberLiveUI() {
   const lastSaved = useRef<{ key: string; at: number } | null>(null);
   const pendingFace = useRef<string | null>(null);
   // One continuous visit of a person in front of the camera.
-  const visit = useRef<{ start: number; lastSeen: number; misses: number; checkedAt: number; personId: string | null; done: boolean; talkDone?: boolean } | null>(null);
+  const visit = useRef<{ start: number; lastSeen: number; misses: number; checkedAt: number; personId: string | null; done: boolean; talkDone?: boolean; checking?: boolean } | null>(null);
   const [personProgress, setPersonProgress] = useState(0);
   // Shown on the person's box instead of "පුද්ගලයා": who they are, or that they're unknown.
   const [personTag, setPersonTag] = useState<{ text: string; color: string } | null>(null);
@@ -137,6 +157,7 @@ export default function RememberLiveUI() {
       setCam(await loadCameraSource());
       const pid = await getPatientId();
       setPatientId(pid);
+      patientName.current = await getPatientName();
       if (pid) axios.get(`${AI_URL}/family/consent-all/${pid}`, { timeout: 8000 })
         .then((r) => { allVisitors.current = !!r.data.on; }).catch(() => {});
       await Location.requestForegroundPermissionsAsync();
@@ -284,7 +305,9 @@ export default function RememberLiveUI() {
   const talkStart = useCallback(async (personId: string, who = '', photo?: string) => {
     if (!patientId || talk.current) return;
     setTalkInfo({ who, photo, startedAt: Date.now() });
-    const t = { visitId: `v-${Date.now()}`, personId, stop: false, startedAt: Date.now(), done: null as Promise<void> | null };
+    // say: lines from the server to speak during the visit ("which day will you come?" / "okay, Friday").
+    const t = { visitId: `v-${Date.now()}`, personId, stop: false, startedAt: Date.now(), done: null as Promise<void> | null,
+      say: [] as string[] };
     talk.current = t;
     setTalking(true);
     const upload = (uri: string, secs: number) => {
@@ -295,6 +318,14 @@ export default function RememberLiveUI() {
       f.append('seconds', String(secs));
       f.append('file', { uri, name: 'clip.m4a', type: 'audio/m4a' } as any);
       return axios.post(`${AI_URL}/visit/audio`, f, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 60000 })
+        .then((res) => {
+          // The visitor said they'll come again: ask for the exact day, or confirm the saved one.
+          const line = res.data?.ask || res.data?.saved;
+          if (line && !t.stop) {
+            t.say.push(line);
+            showToast({ text: `📅 ${line}`, tone: res.data?.saved ? 'ok' : 'info' }, 7000);
+          }
+        })
         .catch(() => {}); // a lost clip only makes the summary shorter
     };
     t.done = (async () => {
@@ -307,7 +338,7 @@ export default function RememberLiveUI() {
           break; // no microphone permission - the visit is still logged as usual
         }
         const clipStart = Date.now();
-        while (!t.stop && mounted.current && Date.now() - clipStart < TALK_CLIP_MS) await sleep(400);
+        while (!t.stop && mounted.current && Date.now() - clipStart < TALK_CLIP_MS && !t.say.length) await sleep(400);
         try {
           await talkRecorder.stop();
           const uri = talkRecorder.uri;
@@ -320,6 +351,9 @@ export default function RememberLiveUI() {
             lastUri = uri;
           }
         } catch {}
+        // Speaking while recording would break the clip, so the question is said
+        // between two clips; recording starts again right after (to catch the answer).
+        while (t.say.length && !t.stop && mounted.current) await speak(t.say.shift()!);
       }
       await Promise.all(uploads); // every clip is in before the visit is summarised
       await setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false }).catch(() => {});
@@ -393,9 +427,10 @@ export default function RememberLiveUI() {
   // family are greeted immediately; unknown faces are only labelled.
   // ask=true: after PERSON_DWELL_MS with an unknown face - "who is this?".
   const checkPerson = useCallback(async (ask: boolean) => {
-    if (!patientId || !visit.current) return;
+    if (!patientId || !visit.current || visit.current.checking) return;
     const v = visit.current;
     v.checkedAt = Date.now();
+    v.checking = true;   // one face check at a time, so quick retries never pile up
     try {
       const form = new FormData();
       form.append('patient_id', patientId);
@@ -441,6 +476,8 @@ export default function RememberLiveUI() {
       // no_face / no_person: leave the visit open and retry shortly.
     } catch {
       // Face check is best-effort; the object loop carries on regardless.
+    } finally {
+      v.checking = false;
     }
   }, [patientId, listenForName, talkStart]);
 
@@ -453,7 +490,7 @@ export default function RememberLiveUI() {
     // A person close enough to be interacting (not someone far in the background).
     const person = dets.find((d) => {
       const [x1, y1, x2, y2] = d.box;
-      return d.label === 'person' && d.confidence >= 0.6 && (x2 - x1) * (y2 - y1) >= 0.06;
+      return d.label === 'person' && d.confidence >= 0.5 && (x2 - x1) * (y2 - y1) >= 0.04;
     });
     if (person) {
       if (!visit.current) {
@@ -466,7 +503,7 @@ export default function RememberLiveUI() {
       const together = now - v.start;
       if (!v.done && !busy.current && now - v.checkedAt > QUICK_CHECK_EVERY_MS) {
         if (together >= PERSON_DWELL_MS) {
-          checkPerson(true); // stayed 30s and still unknown -> ask who they are
+          checkPerson(true); // stayed 5s and still unknown -> ask who they are
         } else {
           checkPerson(false); // instant recognition attempt, repeated while their face gets clearer
         }
@@ -519,6 +556,22 @@ export default function RememberLiveUI() {
     }
   }, [checkPerson, saveMoment, endVisit]);
 
+  useEffect(() => {
+    if (cam?.source !== 'phone' || !permission?.granted || !focused) return;
+    camReady.current = false;
+    const t = setTimeout(() => {
+      if (camReady.current) return;
+      if (camTries.current < 3) {
+        camTries.current += 1;
+        console.log('[camera] not ready, restarting preview', camTries.current);
+        setCamKey((k) => k + 1);
+      } else {
+        setCamIssue(true);
+      }
+    }, 5000);
+    return () => clearTimeout(t);
+  }, [cam?.source, permission?.granted, focused, camKey]);
+
   // The loop below reads the latest handler through a ref, so re-renders never
   // restart it (a restart would briefly run two loops against the server).
   const onFrameRef = useRef(onFrame);
@@ -533,11 +586,18 @@ export default function RememberLiveUI() {
     const tick = async () => {
       const form = new FormData();
       form.append('patient_id', patientId);
+      form.append('patient_name', patientName.current);
       if (cam.source === 'esp32') {
         form.append('esp32_url', `http://${cam.esp32Ip}/capture`);
       } else {
+        if (!camReady.current) throw Object.assign(new Error('camera not ready'), { camera: true });
         // skipProcessing is safe because the server applies the EXIF rotation itself.
-        const shot = await cameraRef.current?.takePictureAsync({ quality: 0.5, shutterSound: false, skipProcessing: true });
+        let shot;
+        try {
+          shot = await cameraRef.current?.takePictureAsync({ quality: 0.5, shutterSound: false, skipProcessing: true });
+        } catch (e) {
+          throw Object.assign(e instanceof Error ? e : new Error(String(e)), { camera: true });
+        }
         if (!shot?.uri) return;
         form.append('file', { uri: shot.uri, name: 'frame.jpg', type: 'image/jpeg' } as any);
       }
@@ -547,6 +607,7 @@ export default function RememberLiveUI() {
       if (res.data.status !== 'success') throw new Error(res.data.message);
       if (!alive) return;
       setOffline(false);
+      setCamIssue(false);
       setDetections(res.data.detections);
       if (res.data.width && res.data.height) setAspect(res.data.width / res.data.height);
       if (res.data.frame_b64) setEspFrame(`data:image/jpeg;base64,${res.data.frame_b64}`);
@@ -563,8 +624,16 @@ export default function RememberLiveUI() {
         }
         try {
           await tick(); // next frame goes as soon as this one is answered
-        } catch {
-          if (alive) setOffline(true);
+        } catch (e: any) {
+          if (alive) {
+            if (e?.camera) {
+              console.log('[camera]', e?.message);
+              setCamIssue(true);
+            } else {
+              console.log('[detect-live]', e?.message);
+              setOffline(true);
+            }
+          }
           await sleep(2000);
         }
       }
@@ -650,8 +719,9 @@ export default function RememberLiveUI() {
 
       <View style={[s.viewport, { height: viewH }]}>
         {cam.source === 'phone' ? (
-          <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="back" animateShutter={false}
-            pictureSize={pictureSize} onCameraReady={onCameraReady} />
+          <CameraView key={camKey} active={focused} ref={cameraRef} style={StyleSheet.absoluteFill} facing="back" mode="picture" mute animateShutter={false}
+            pictureSize={pictureSize} onCameraReady={onCameraReady}
+            onMountError={(e) => { console.log('[camera mount]', e?.message); setCamIssue(true); }} />
         ) : espFrame ? (
           <Image source={{ uri: espFrame }} style={StyleSheet.absoluteFill} />
         ) : (
@@ -718,7 +788,13 @@ export default function RememberLiveUI() {
       {offline && (
         <View style={s.offline}>
           <Ionicons name="cloud-offline" size={18} color="#fecaca" />
-          <Text style={s.offlineText}>AI සේවාවට සම්බන්ධ වෙන්න බැහැ ({AI_URL})</Text>
+          <Text style={s.offlineText}>AI සේවාවට සම්බන්ධ වෙන්න බැහැ. ඉන්ටර්නෙට් එක බලලා ටිකකින් ආයෙත් උත්සාහ කරන්න.</Text>
+        </View>
+      )}
+      {camIssue && !offline && (
+        <View style={s.offline}>
+          <Ionicons name="camera-outline" size={18} color="#fecaca" />
+          <Text style={s.offlineText}>කැමරාව පටන් ගන්න බැහැ. App එක වහලා ආයෙත් අරින්න, නැත්නම් කැමරා අවසරය බලන්න.</Text>
         </View>
       )}
 
@@ -766,7 +842,7 @@ export default function RememberLiveUI() {
         )}
 
         {phase === 'watching' && !engaged.length && (
-          <Text style={s.help}>කෝප්පය, බෝතලය, කණ්ණාඩිය වගේ දෙයක් එක්ක තත්පර 30ක් ඉන්න - මම මතක තියාගන්නම්. කෙනෙක් එක්ක තත්පර 30ක් හිටියොත් මම "මේ කවුද?" කියලා අහනවා; ඔබට හරි එයාට හරි කියන්න පුළුවන්.</Text>
+          <Text style={s.help}>කෝප්පය, බෝතලය, කණ්ණාඩිය වගේ දෙයක් එක්ක තත්පර 5ක් ඉන්න - මම මතක තියාගන්නම්. කෙනෙක් එක්ක තත්පර 5ක් හිටියොත් මම "මේ කවුද?" කියලා අහනවා; ඔබට හරි එයාට හරි කියන්න පුළුවන්.</Text>
         )}
       </View>
 

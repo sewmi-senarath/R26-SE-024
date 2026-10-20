@@ -1,0 +1,42 @@
+# All MemoCare AI services on one server:  docker compose up -d --build
+# The ports listen on 127.0.0.1 only (set BIND_IP=0.0.0.0 in .env to reach them from a phone on the same Wi-Fi) - Nginx/IIS (deploy/) is the
+# one public door, with HTTPS:  /ai -> 8000, /caregiver -> 5001, /dementia -> 5002
+services:
+  memory-service:
+    build: ./memory-service
+    restart: unless-stopped
+    env_file: .env                     # GROQ_API_KEY, GEMINI_API_KEY ... (see .env.example)
+    environment:
+      NODE_API_URL: ${NODE_API_URL:-http://host.docker.internal:5000}   # Node API (same server by default; set in .env when it is elsewhere, e.g. Render)
+      # Sri Lanka time (UTC+5:30). Without it the container runs on UTC and the 8 PM
+      # story, "today", reminders and saved times are 5.5 hours off. POSIX form, so
+      # the slim image needs no tzdata package.
+      TZ: "<+0530>-05:30"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${BIND_IP:-127.0.0.1}:8000:8000"
+    volumes:
+      # The service keeps its data in JSON files next to the code (moments,
+      # family, quiz, conversations) and the trained models in models/ - mounting
+      # the folder keeps all of it on the server's disk across restarts/rebuilds.
+      - ./memory-service:/app
+      # CLIP weights for YOLO-World (ViT-B-32.pt, 340 MB): downloaded once into this
+      # folder and kept across rebuilds. CLIP_CACHE in .env can point at an existing one.
+      - ${CLIP_CACHE:-./.clip-cache}:/root/.cache/clip
+
+  caregiver:
+    build: ./caregiver
+    restart: unless-stopped
+    environment:
+      TZ: "<+0530>-05:30"
+    ports:
+      - "${BIND_IP:-127.0.0.1}:5001:5001"
+
+  dementia:
+    build: ./dementia
+    restart: unless-stopped
+    environment:
+      TZ: "<+0530>-05:30"
+    ports:
+      - "${BIND_IP:-127.0.0.1}:5002:5002"
