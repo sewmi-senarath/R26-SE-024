@@ -1,31 +1,86 @@
 # ─────────────────────────────────────────────────────────────────────────
-#  Story Quiz Service — standalone, local, free-tier LLM used only to turn
-#  a family memory story + its short family note into a 3-question recall
-#  quiz. Separate from ml-service/memory-service/ (teammate-owned) and from
-#  the Modal-hosted story-narrator (confirmed, via a live probe, to be the
+#  Story Quiz Service — standalone service used only to turn a family
+#  memory story + its short family note into a 3-question recall quiz.
+#  Separate from ml-service/memory-service/ (teammate-owned) and from the
+#  Modal-hosted story-narrator (confirmed, via a live probe, to be the
 #  wrong tool for structured quiz output — it truncates, returns answer
 #  text instead of an index, and its hallucination-guard misfires on quiz
-#  wording). Runs a small quantized instruct model via llama-cpp-python,
-#  CPU-only, loaded once at startup.
+#  wording). Calls Groq's free hosted API instead of running a model
+#  locally — same GROQ_BASE/model/retry pattern already proven working in
+#  memory-service/remember_moments.py's _llm_json, just reimplemented here
+#  rather than imported, since the two services are deliberately kept
+#  independent. Switched away from a locally-hosted GGUF model (via
+#  llama-cpp-python) because that needed more RAM than fits a free hosting
+#  tier, and real on-device inference wasn't needed once a free, fast,
+#  hosted option already existed in this same project.
 # ─────────────────────────────────────────────────────────────────────────
 import json
 import os
 import re
+import time
 
+import requests
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from pydantic import BaseModel
-from llama_cpp import Llama
 
-MODEL_PATH = os.path.join(os.path.dirname(__file__), "models", "qwen2.5-1.5b-instruct-q4_k_m.gguf")
+load_dotenv()  # reads ./.env into os.environ when running directly (uvicorn
+# locally) — a no-op if the file doesn't exist, so Docker/Render deployments
+# (which inject real env vars directly) are unaffected either way
+
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
+GROQ_FALLBACK_MODEL = os.environ.get("GROQ_FALLBACK_MODEL", "openai/gpt-oss-20b")
+GROQ_BASE = "https://api.groq.com/openai/v1"
 
 app = FastAPI()
-llm: Llama | None = None
 
 
-@app.on_event("startup")
-def load_model():
-    global llm
-    llm = Llama(model_path=MODEL_PATH, n_ctx=4096, n_threads=4, verbose=False)
+# Calls Groq's chat completions endpoint, trying the primary model twice
+# (JSON mode on, then off), then the smaller fallback model — same
+# resilience order as memory-service's _llm_json, which was itself tuned
+# against two failures seen in practice there: JSON-mode validation errors
+# on some replies, and 429 rate limits (free tier). temperature stays above
+# 0 (unlike memory-service's 0) because this service's own retry loop
+# below depends on getting a genuinely different sample each attempt, not
+# just error recovery.
+def _call_groq(system_prompt: str, user_prompt: str) -> str | None:
+    if not GROQ_API_KEY:
+        return None
+
+    attempts = [(GROQ_MODEL, True), (GROQ_MODEL, True), (GROQ_MODEL, False), (GROQ_FALLBACK_MODEL, False)]
+    for model, strict in attempts:
+        body = {
+            "model": model,
+            "temperature": 0.3,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            "max_completion_tokens": 800,
+        }
+        if model.startswith("openai/gpt-oss"):
+            body["reasoning_effort"] = "low"
+        if strict:
+            body["response_format"] = {"type": "json_object"}
+
+        try:
+            r = requests.post(
+                f"{GROQ_BASE}/chat/completions",
+                headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
+                json=body,
+                timeout=60,
+            )
+            if r.status_code == 429:
+                wait = re.search(r"try again in ([\d.]+)s", r.text)
+                time.sleep(min(40.0, float(wait.group(1)) + 1) if wait else 5)
+                continue
+            r.raise_for_status()
+            return r.json()["choices"][0]["message"]["content"]
+        except Exception:
+            continue
+
+    return None
 
 
 class GenerateQuizRequest(BaseModel):
@@ -259,15 +314,9 @@ def generate_quiz(req: GenerateQuizRequest):
     # few times, each a fresh stochastic sample, is far more likely to find
     # one than accepting a weaker partial result would be.
     for attempt in range(GENERATE_RETRIES):
-        result = llm.create_chat_completion(
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": build_user_prompt(req)},
-            ],
-            temperature=0.3,
-            max_tokens=800,
-        )
-        raw_text = result["choices"][0]["message"]["content"]
+        raw_text = _call_groq(SYSTEM_PROMPT, build_user_prompt(req))
+        if raw_text is None:
+            continue  # transient Groq failure this attempt — try again
 
         validated = extract_and_validate(raw_text, req.family_note, req.patient_name)
         if validated is not None:
@@ -278,4 +327,4 @@ def generate_quiz(req: GenerateQuizRequest):
 
 @app.get("/health")
 def health():
-    return {"success": True, "modelLoaded": llm is not None}
+    return {"success": True, "groqConfigured": bool(GROQ_API_KEY)}
