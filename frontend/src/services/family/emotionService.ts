@@ -1,5 +1,5 @@
 import { authFetch } from '../../api/authApi';
-import { EngagementAlert } from '../../types/family.types';
+import { EngagementAlert, SessionDecision, SessionAction, SessionFollowUp, ActionType, LoopHealthStats } from '../../types/family.types';
 
 const timeAgo = (iso: string) => {
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -197,6 +197,17 @@ export interface MemorySessionReport {
   happyAfterPercent: number; // real 0-100 confidence, used for the dashboard's Mood Score stat
   totalReadings: number;
   category: string;
+  quizScore: number | null;       // null when no quiz exists for this session (AI unavailable that time)
+  quizTotal: number | null;
+  quizAttemptId: string | null;
+  quizSeenByFamilyAt: string | null;
+  quizQuestions: { questionText: string; isCorrect: boolean | null }[] | null;
+  outcomeId: string;               // SessionOutcome _id — needed to POST an action against this session
+  decision: SessionDecision | null; // null only for sessions that pre-date this feature
+  actions: SessionAction[];
+  firstActedAt: string | null;
+  sharedAt: string | null;
+  followUp: SessionFollowUp;
 }
 
 const formatReportDate = (iso: string) =>
@@ -224,6 +235,17 @@ export const getMemorySessionReports = async (patientId: string): Promise<Memory
       happyAfterPercent: o.happyAfterPercent ?? 0,
       totalReadings: o.totalReadings,
       category: o.memoryId?.category || 'other',
+      quizScore: o.quiz?.score ?? null,
+      quizTotal: o.quiz?.totalQuestions ?? null,
+      quizAttemptId: o.quiz?.attemptId ?? null,
+      quizSeenByFamilyAt: o.quiz?.seenByFamilyAt ?? null,
+      quizQuestions: o.quiz?.questions ?? null,
+      outcomeId: o._id,
+      decision: o.decision && o.decision.code ? o.decision : null,
+      actions: o.actions || [],
+      firstActedAt: o.firstActedAt || null,
+      sharedAt: o.sharedAt || null,
+      followUp: o.followUp || { status: null, outcome: null },
     }));
   } catch (error: any) {
     console.error('Fetch memory session reports error:', error.message);
@@ -244,4 +266,51 @@ export const buildShareableReport = (patientName: string, reports: MemorySession
   });
 
   return `${patientName}'s Memory Report\n\n${lines.join('\n\n')}\n\nSent from MemoCare`;
+};
+
+// Act (stage 4) / Log (stage 5) — logs an action taken on a session's
+// Family Action Card and applies its effect server-side. Returns the
+// updated outcome, or null on failure (caller keeps showing the card as-is).
+export const logSessionAction = async (outcomeId: string, type: ActionType): Promise<boolean> => {
+  try {
+    const data = await authFetch(`/family/emotion/outcomes/${outcomeId}/actions`, {
+      method: 'POST',
+      body: JSON.stringify({ type }),
+    });
+    return !!data?.success;
+  } catch (error: any) {
+    console.error('Log session action error:', error.message);
+    return false;
+  }
+};
+
+// patient's own happy/calm/sad tap right after a story — feeds the
+// decision engine's reaction-confidence rules, which otherwise never see a
+// real reaction for story sessions
+export const submitEmotionReaction = async (
+  outcomeId: string,
+  reaction: 'happy' | 'calm' | 'sad'
+): Promise<boolean> => {
+  try {
+    const data = await authFetch(`/family/emotion/outcomes/${outcomeId}/reaction`, {
+      method: 'PATCH',
+      body: JSON.stringify({ reaction }),
+    });
+    return !!data?.success;
+  } catch (error: any) {
+    console.error('Submit emotion reaction error:', error.message);
+    return false;
+  }
+};
+
+// Loop Health panel data — action rate, median response time,
+// positive-outcome rate, weekly mood trend
+export const getLoopHealth = async (patientId: string): Promise<LoopHealthStats> => {
+  try {
+    const data = await authFetch(`/family/emotion/loop-health/${patientId}`);
+    return data?.success ? data : { hasEnoughData: false, cardsReceived: 0 };
+  } catch (error: any) {
+    console.error('Fetch loop health error:', error.message);
+    return { hasEnoughData: false, cardsReceived: 0 };
+  }
 };

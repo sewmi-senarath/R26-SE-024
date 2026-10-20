@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useRef } from 'react';
 import { Animated, Text, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../../../constants/colors';
+import { FamilyColors, FamilyShadow } from '../../../constants/familyTheme';
 import { EngagementAlert } from '../../../types/family.types';
 
 interface SmartAlertCardProps {
@@ -52,16 +53,13 @@ export const SmartAlertCard: React.FC<SmartAlertCardProps> = ({
 
       <View
         style={{
-          backgroundColor: '#0F172A',
+          backgroundColor: FamilyColors.slate900,
           borderRadius: 20,
           padding: 18,
           borderWidth: 1,
-          borderColor: '#1E3A5F',
+          borderColor: FamilyColors.slateBorder,
+          ...FamilyShadow.elevated,
           shadowColor: Colors.primary,
-          shadowOffset: { width: 0, height: 6 },
-          shadowOpacity: 0.25,
-          shadowRadius: 16,
-          elevation: 8,
         }}
       >
         {/* Stage step indicators */}
@@ -81,7 +79,7 @@ export const SmartAlertCard: React.FC<SmartAlertCardProps> = ({
                         ? Colors.primary
                         : isDone
                         ? Colors.success
-                        : '#1E293B',
+                        : FamilyColors.slate800,
                       justifyContent: 'center',
                       alignItems: 'center',
                       borderWidth: 1.5,
@@ -89,19 +87,19 @@ export const SmartAlertCard: React.FC<SmartAlertCardProps> = ({
                         ? Colors.primary
                         : isDone
                         ? Colors.success
-                        : '#334155',
+                        : FamilyColors.slate700,
                     }}
                   >
                     {isDone ? (
                       <Ionicons name="checkmark" size={14} color="#fff" />
                     ) : (
-                      <Ionicons name={STAGE_ICONS[s]} size={14} color={isActive ? '#fff' : '#475569'} />
+                      <Ionicons name={STAGE_ICONS[s]} size={14} color={isActive ? '#fff' : FamilyColors.slate600} />
                     )}
                   </View>
                   <Text
                     style={{
                       fontSize: 9,
-                      color: isActive ? Colors.primary : isDone ? Colors.success : '#475569',
+                      color: isActive ? Colors.primary : isDone ? Colors.success : FamilyColors.slate600,
                       marginTop: 4,
                       fontWeight: '600',
                       textAlign: 'center',
@@ -116,7 +114,7 @@ export const SmartAlertCard: React.FC<SmartAlertCardProps> = ({
                     style={{
                       flex: 1,
                       height: 2,
-                      backgroundColor: s < alert.stage ? Colors.success : '#1E293B',
+                      backgroundColor: s < alert.stage ? Colors.success : FamilyColors.slate800,
                       marginBottom: 16,
                       marginHorizontal: 2,
                     }}
@@ -131,7 +129,7 @@ export const SmartAlertCard: React.FC<SmartAlertCardProps> = ({
         <View
           style={{
             flexDirection: 'row',
-            backgroundColor: '#1E293B',
+            backgroundColor: FamilyColors.slate800,
             borderRadius: 12,
             padding: 12,
             marginBottom: 14,
@@ -139,22 +137,22 @@ export const SmartAlertCard: React.FC<SmartAlertCardProps> = ({
           }}
         >
           <View style={{ alignItems: 'center', flex: 1 }}>
-            <Text style={{ fontSize: 10, color: '#64748B', fontWeight: '600', marginBottom: 4 }}>SAD BEFORE</Text>
+            <Text style={{ fontSize: 10, color: FamilyColors.slate500, fontWeight: '600', marginBottom: 4 }}>SAD BEFORE</Text>
             <Text style={{ fontSize: 20, fontWeight: '800', color: '#F87171' }}>{alert.sadBefore}%</Text>
           </View>
-          <View style={{ alignItems: 'center', flex: 1, borderLeftWidth: 1, borderRightWidth: 1, borderColor: '#334155' }}>
+          <View style={{ alignItems: 'center', flex: 1, borderLeftWidth: 1, borderRightWidth: 1, borderColor: FamilyColors.slate700 }}>
             <Text style={{ fontSize: 10, color: Colors.success, fontWeight: '700', marginBottom: 4 }}>MOOD SHIFT</Text>
             <Text style={{ fontSize: 20, fontWeight: '800', color: Colors.success }}>+{alert.moodShift}%</Text>
           </View>
           <View style={{ alignItems: 'center', flex: 1 }}>
-            <Text style={{ fontSize: 10, color: '#64748B', fontWeight: '600', marginBottom: 4 }}>HAPPY NOW</Text>
+            <Text style={{ fontSize: 10, color: FamilyColors.slate500, fontWeight: '600', marginBottom: 4 }}>HAPPY NOW</Text>
             <Text style={{ fontSize: 20, fontWeight: '800', color: '#4ADE80' }}>{alert.happyAfter}%</Text>
           </View>
         </View>
 
         {/* Message */}
-        <Text style={{ fontSize: 14, color: '#CBD5E1', lineHeight: 21, marginBottom: 16 }}>
-          <Text style={{ color: '#F8FAFC', fontWeight: '700' }}>
+        <Text style={{ fontSize: 14, color: FamilyColors.slate300, lineHeight: 21, marginBottom: 16 }}>
+          <Text style={{ color: FamilyColors.slate50, fontWeight: '700' }}>
             "{alert.storyTitle}"
           </Text>
           {' '}made her smile.{'\n'}{alert.message}
@@ -162,8 +160,8 @@ export const SmartAlertCard: React.FC<SmartAlertCardProps> = ({
 
         {/* Triggered at */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 16 }}>
-          <Ionicons name="time-outline" size={12} color="#64748B" />
-          <Text style={{ fontSize: 11, color: '#64748B' }}>Alert triggered {alert.triggeredAt}</Text>
+          <Ionicons name="time-outline" size={12} color={FamilyColors.slate500} />
+          <Text style={{ fontSize: 11, color: FamilyColors.slate500 }}>Alert triggered {alert.triggeredAt}</Text>
         </View>
 
         {/* CTA Buttons */}
@@ -183,7 +181,7 @@ export const SmartAlertCard: React.FC<SmartAlertCardProps> = ({
               }}
             >
               <Ionicons name="call" size={18} color="#fff" />
-              <Text style={{ color: '#fff', fontWeight: '800', fontSize: 15 }}>Call Now</Text>
+              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>Call Now</Text>
             </TouchableOpacity>
           </Animated.View>
           <TouchableOpacity
@@ -192,12 +190,12 @@ export const SmartAlertCard: React.FC<SmartAlertCardProps> = ({
               paddingHorizontal: 16,
               borderRadius: 14,
               borderWidth: 1,
-              borderColor: '#334155',
+              borderColor: FamilyColors.slate700,
               justifyContent: 'center',
               alignItems: 'center',
             }}
           >
-            <Text style={{ color: '#64748B', fontWeight: '600', fontSize: 13 }}>Later</Text>
+            <Text style={{ color: FamilyColors.slate500, fontWeight: '600', fontSize: 13 }}>Later</Text>
           </TouchableOpacity>
         </View>
       </View>

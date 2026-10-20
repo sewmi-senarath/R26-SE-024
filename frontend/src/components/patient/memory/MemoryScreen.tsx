@@ -3,9 +3,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Image, RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authFetch } from '../../../api/authApi';
-import { speakStory, stopSpeaking } from '../../../services/family/ttsService';
-import EmotionTracker from '../../family/EmotionTracker';
 import MomentCardUI from './MomentCardUI';
+import StoryPlayerModal from './StoryPlayerModal';
 
 interface Memory {
   _id: string;
@@ -21,8 +20,7 @@ export default function MemoryScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
 
-  const [playingId, setPlayingId] = useState<string | null>(null);
-  const [thankYouFor, setThankYouFor] = useState<string | null>(null);
+  const [activeMemory, setActiveMemory] = useState<Memory | null>(null);
 
   const loadMemories = useCallback(async () => {
     setError('');
@@ -48,22 +46,8 @@ export default function MemoryScreen() {
 
   useEffect(() => { loadMemories(); }, [loadMemories]);
 
-  const playMemory = (memory: Memory) => {
-    stopSpeaking();
-    setThankYouFor(null);
-    setPlayingId(memory._id);
-
+  const markMemoryPlayed = (memory: Memory) => {
     authFetch(`/patient/memories/${memory._id}/play`, { method: 'PATCH' }).catch(() => {});
-
-    speakStory(memory.generatedStory, () => {
-      setPlayingId(null);
-      setThankYouFor(memory._id);
-    });
-  };
-
-  const stopMemory = () => {
-    stopSpeaking();
-    setPlayingId(null);
   };
 
   return (
@@ -98,50 +82,32 @@ export default function MemoryScreen() {
         </View>
       ) : (
         memories.map((item) => {
-          const isPlaying = playingId === item._id;
           return (
             <View key={item._id} className="bg-white rounded-3xl p-4 mb-5 shadow-sm">
               <Image source={{ uri: item.photoUrl }} className="w-full rounded-2xl mb-3" style={{ aspectRatio: 16 / 10 }} />
-              <Text className="text-lg font-bold text-gray-900 mb-3" numberOfLines={isPlaying ? undefined : 2}>
+              <Text className="text-lg font-bold text-gray-900 mb-3" numberOfLines={2}>
                 {item.familyNote}
               </Text>
 
-              {isPlaying && (
-                <View className="bg-purple-50 border border-purple-200 rounded-2xl p-4 mb-4">
-                  <Text className="text-base font-semibold text-purple-950" style={{ lineHeight: 24 }}>
-                    {item.generatedStory}
-                  </Text>
-                </View>
-              )}
-
-              {thankYouFor === item._id ? (
-                <View className="flex-row items-center justify-center gap-2 bg-pink-50 border border-pink-200 rounded-2xl py-4">
-                  <Ionicons name="heart" size={20} color="#EC4899" />
-                  <Text className="text-pink-800 font-bold">Thank you for sharing that with me</Text>
-                </View>
-              ) : (
-                <TouchableOpacity
-                  className={`flex-row items-center justify-center gap-2 rounded-2xl py-4 ${isPlaying ? 'bg-red-600' : 'bg-blue-600'}`}
-                  onPress={() => (isPlaying ? stopMemory() : playMemory(item))}
-                  activeOpacity={0.85}
-                >
-                  <Ionicons name={isPlaying ? 'stop-circle' : 'play-circle'} size={28} color="#fff" />
-                  <Text className="text-white font-extrabold text-base">{isPlaying ? 'Stop' : 'Listen'}</Text>
-                </TouchableOpacity>
-              )}
-
-              {/* runs silently while this story is being read aloud */}
-              {patientId && (
-                <EmotionTracker
-                  patientId={patientId}
-                  memoryId={item._id}
-                  isActive={isPlaying}
-                />
-              )}
+              <TouchableOpacity
+                className="flex-row items-center justify-center gap-2 rounded-2xl py-4 bg-blue-600"
+                onPress={() => setActiveMemory(item)}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="play-circle" size={28} color="#fff" />
+                <Text className="text-white font-extrabold text-base">Listen</Text>
+              </TouchableOpacity>
             </View>
           );
         })
       )}
+
+      <StoryPlayerModal
+        memory={activeMemory}
+        patientId={patientId}
+        onClose={() => setActiveMemory(null)}
+        onPlayStart={markMemoryPlayed}
+      />
     </ScrollView>
   );
 }

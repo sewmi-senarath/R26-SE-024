@@ -39,3 +39,19 @@ export const finalizeEmotionSession = async (sessionId: string) => {
     return { success: false };
   }
 };
+
+export const submitEmotionReaction = async (
+  outcomeId: string,
+  reaction: 'happy' | 'calm' | 'sad'
+): Promise<boolean> => {
+  try {
+    const data = await authFetch(`/patient/emotion/outcomes/${outcomeId}/reaction`, {
+      method: 'PATCH',
+      body: JSON.stringify({ reaction }),
+    });
+    return !!data?.success;
+  } catch (error: any) {
+    console.error('Submit emotion reaction error:', error.message);
+    return false;
+  }
+};

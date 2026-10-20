@@ -77,12 +77,12 @@ export default function FamilyLayout() {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: Colors.primary,
-        tabBarInactiveTintColor: '#94A3B8',
+        tabBarInactiveTintColor: Colors.textMuted,
         tabBarStyle: {
           backgroundColor: Colors.white,
           borderTopWidth: 0,
           elevation: 20,
-          shadowColor: '#4F8EF7',
+          shadowColor: Colors.primary,
           shadowOffset: { width: 0, height: -4 },
           shadowOpacity: 0.08,
           shadowRadius: 16,

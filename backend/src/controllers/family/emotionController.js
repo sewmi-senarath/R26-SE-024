@@ -1,6 +1,13 @@
 const EmotionLog = require('../../models/family/EmotionLog');
 const SessionOutcome = require('../../models/family/SessionOutcome');
+const StoryQuizAttempt = require('../../models/family/StoryQuizAttempt');
+const FamilyMemory = require('../../models/family/FamilyMemory');
+const PatientTopicPreference = require('../../models/family/PatientTopicPreference');
 const { classifyEmotion, ensureReady } = require('../../services/emotion/faceEmotionDetector');
+const { computeDecision } = require('../../services/family/decisionEngine');
+const { expirePendingFollowUps, runFollowUpScan } = require('../../services/family/followUpScanner');
+
+const VALID_REACTIONS = ['happy', 'calm', 'sad'];
 
 // Local, self-hosted classifier (see services/emotion/faceEmotionDetector.js)
 // — replaced the Hugging Face hosted model after it started requiring paid
@@ -164,9 +171,19 @@ const finalizeSession = async (req, res) => {
             });
         }
 
-        // take up to first 3 and last 3 readings
-        const firstReadings = readings.slice(0, Math.min(3, readings.length));
-        const lastReadings = readings.slice(-Math.min(3, readings.length));
+        // groups-of-3 only gives a real baseline-vs-final signal once there
+        // are enough readings for the two windows to be genuinely separate
+        // (6+) — below that, slice(0, min(3,N)) and slice(-min(3,N)) overlap
+        // partially or completely (at N<=3 they're identical), silently
+        // forcing moodShiftPercent to 0 regardless of any real change.
+        // Confirmed against real session data: a 2-reading session showed a
+        // real 32-point swing in raw happy-confidence between its two
+        // frames, but reported 0% shift under the old windowing. Below 6
+        // readings, compare the single earliest reading to the single
+        // latest one instead — always a real signal, never a forced zero.
+        const windowSize = readings.length < 6 ? 1 : 3;
+        const firstReadings = readings.slice(0, windowSize);
+        const lastReadings = readings.slice(-windowSize);
 
         const avgPositivity = (readingSet) => {
             const scores = readingSet.map((r) => calculatePositivity(r.emotionScores));
@@ -200,8 +217,15 @@ const finalizeSession = async (req, res) => {
             }
         }
 
-        // simple threshold — worth tuning after real testing
-        const ALERT_THRESHOLD = 1.0;
+        // lowered from 1.0 — that bar was too strict to ever catch a modest
+        // real lift (confirmed: a real 32-point happy-confidence swing only
+        // produced moodLift -0.64, nowhere close to 1.0). 0.5 is a middle
+        // ground: low enough for a genuine modest improvement to register,
+        // but still above the jitter a single noisy frame can introduce now
+        // that short sessions compare single frames instead of averaged
+        // groups of 3 (see finalizeSession's windowSize comment above).
+        // Still just an estimate — worth tuning after more real sessions.
+        const ALERT_THRESHOLD = 0.5;
         const alertTriggered = moodLift >= ALERT_THRESHOLD;
 
         // whichever dominant emotion showed up most often across the whole
@@ -213,6 +237,23 @@ const finalizeSession = async (req, res) => {
         const mostFrequentEmotion = Object.entries(emotionCounts)
             .sort((a, b) => b[1] - a[1])[0][0];
 
+        const roundedMoodLift = Math.round(moodLift * 100) / 100;
+
+        // Decide (stage 3), hook #1 — mood is known now, recall is not (the
+        // quiz is requested by the frontend only after this call returns,
+        // and can take 30s-250s+ or never complete). recallScore: null
+        // means computeDecision will honestly land on not_enough_data here;
+        // it's recomputed with real recall in storyQuizController.js once
+        // that story's quiz attempt completes.
+        const memory = await FamilyMemory.findById(readings[0].memoryId).select('category');
+        const decision = computeDecision({
+            moodLift: roundedMoodLift,
+            framesUsed: readings.length,
+            recallScore: null,
+            reaction: null, // not yet captured for story-listening sessions — see PatientTopicPreference/decisionEngine notes
+            category: memory ? memory.category : null,
+        });
+
         const outcome = await SessionOutcome.findOneAndUpdate(
             { sessionId },
             {
@@ -223,7 +264,7 @@ const finalizeSession = async (req, res) => {
                 peakEmotion: peakReading.dominantEmotion,
                 finalEmotion: lastReadings[lastReadings.length - 1].dominantEmotion,
                 mostFrequentEmotion,
-                moodLift: Math.round(moodLift * 100) / 100,
+                moodLift: roundedMoodLift,
                 totalReadings: readings.length,
                 alertTriggered,
                 sadBeforePercent,
@@ -232,6 +273,7 @@ const finalizeSession = async (req, res) => {
                 moodShiftPercent,
                 playbackDurationSeconds:
                     readings[readings.length - 1].secondsIntoPlayback,
+                decision,
             },
             { upsert: true, new: true }
         );
@@ -296,6 +338,136 @@ const recordAction = async (req, res) => {
             { actedAt: new Date(), acknowledged: true },
             { new: true }
         );
+
+        res.status(200).json({ success: true, outcome });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// Act (stage 4) / Log (stage 5) — every action a family member can take on
+// a Family Action Card. Every action is only a suggestion; nothing happens
+// to the patient automatically (no push, no auto-messages).
+const ACTION_TYPES = [
+    'send_similar_story', 'share_with_family', 'call_or_visit',
+    'show_photo_together', 'pause_topic', 'try_gentler_story',
+    'call_now', 'dismiss',
+];
+const ACTION_DEDUP_WINDOW_MS = 5000;
+
+// --- LOG an action taken on a session's card, and apply its effect ---
+const logAction = async (req, res) => {
+    try {
+        const { type } = req.body;
+        if (!ACTION_TYPES.includes(type)) {
+            return res.status(400).json({ success: false, message: 'Unknown action type' });
+        }
+
+        const outcome = await SessionOutcome.findById(req.params.id);
+        if (!outcome) {
+            return res.status(404).json({ success: false, message: 'Outcome not found' });
+        }
+        if (outcome.patientId.toString() !== req.linkedPatientId.toString()) {
+            return res.status(403).json({ success: false, message: 'Not authorized to update this outcome' });
+        }
+
+        const now = new Date();
+
+        // repeated taps of the same action within a few seconds (double-tap,
+        // slow network retry) must not create duplicate log entries
+        const recentSame = outcome.actions.find(
+            (a) => a.type === type && (now - a.takenAt) < ACTION_DEDUP_WINDOW_MS
+        );
+        if (recentSame) {
+            return res.status(200).json({ success: true, outcome, deduped: true });
+        }
+
+        const responseSeconds = outcome.decision && outcome.decision.computedAt
+            ? Math.round((now - outcome.decision.computedAt) / 1000)
+            : null;
+
+        outcome.actions.push({ type, takenAt: now, takenBy: req.user.userId, responseSeconds });
+        if (!outcome.firstActedAt) {
+            outcome.firstActedAt = now;
+            // Check (stage 6) only ever considers a session once it has
+            // been acted on — this is where it becomes eligible
+            if (outcome.decision && outcome.decision.code !== 'not_enough_data') {
+                outcome.followUp.status = 'pending';
+            }
+        }
+
+        // effects — see brief section 3.3
+        if (type === 'pause_topic') {
+            const memory = await FamilyMemory.findById(outcome.memoryId).select('category');
+            if (memory) {
+                await PatientTopicPreference.findOneAndUpdate(
+                    { patientId: outcome.patientId, category: memory.category },
+                    { status: 'sensitive', setBy: req.user.userId, setAt: now },
+                    { upsert: true }
+                );
+            }
+        } else if (type === 'share_with_family') {
+            outcome.sharedAt = now;
+        } else if (type === 'call_now') {
+            // log first, then acknowledge — the app never claims a call was
+            // placed, it only opens the phone dialer client-side if a
+            // number exists (none do today — see decisionEngine notes)
+            outcome.acknowledged = true;
+            outcome.actedAt = now; // keep the legacy alert-flow field in sync
+        } else if (type === 'dismiss') {
+            outcome.acknowledged = true;
+        }
+        // send_similar_story / call_or_visit / show_photo_together /
+        // try_gentler_story have no server-side effect beyond the log —
+        // their "effect" is purely what the frontend does next (open the
+        // story form prefilled, show the talk-about tip, show a static
+        // guide, or call the now-sensitive-aware category recommendation)
+
+        await outcome.save();
+
+        res.status(200).json({ success: true, outcome });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// --- REACTION — the patient's own happy/calm/sad tap right after a story,
+//     feeding the one decision-engine input that's otherwise always null
+//     for story sessions (see decisionEngine.js's reactionValence/confidence
+//     rules, which were already built to use this and never received it) ---
+const submitReaction = async (req, res) => {
+    try {
+        const { reaction } = req.body;
+        if (!VALID_REACTIONS.includes(reaction)) {
+            return res.status(400).json({ success: false, message: 'Invalid reaction value' });
+        }
+
+        const outcome = await SessionOutcome.findById(req.params.id);
+        if (!outcome) {
+            return res.status(404).json({ success: false, message: 'Outcome not found' });
+        }
+        if (outcome.patientId.toString() !== req.linkedPatientId.toString()) {
+            return res.status(403).json({ success: false, message: 'Not authorized to update this outcome' });
+        }
+
+        // usually runs before the quiz completes (recallScore still null,
+        // quizDetail was never persisted past its original talk-about-tip
+        // use) — if a quiz already completed first, talkAboutTip falls back
+        // to the generic tip for this one recompute rather than losing the
+        // specific missed-question detail; the quiz's own completion always
+        // recomputes again right after with full detail either way
+        const priorInputs = outcome.decision && outcome.decision.inputs ? outcome.decision.inputs : {};
+        outcome.decision = computeDecision({
+            moodLift: outcome.moodLift,
+            framesUsed: priorInputs.framesUsed,
+            framesTotal: priorInputs.framesTotal,
+            recallScore: priorInputs.recallScore ?? null,
+            reaction,
+            category: priorInputs.category,
+        });
+        await outcome.save();
+
+        await runFollowUpScan(outcome);
 
         res.status(200).json({ success: true, outcome });
     } catch (error) {
@@ -378,11 +550,101 @@ const getEngagementStats = async (req, res) => {
 const getPatientOutcomes = async (req, res) => {
     try {
         const patientId = req.linkedPatientId;
+        await expirePendingFollowUps(patientId);
+
         const outcomes = await SessionOutcome.find({ patientId })
             .populate('memoryId', 'photoUrl generatedStory familyNote category')
             .sort({ createdAt: -1 });
 
-        res.status(200).json({ success: true, outcomes });
+        // attach each session's quiz result (if any) — one batched query
+        // instead of one per outcome. Most sessions will have no attempt
+        // (AI-unavailable fallback is to skip the quiz, not create one).
+        const attempts = await StoryQuizAttempt.find({
+            sessionId: { $in: outcomes.map((o) => o.sessionId) },
+        });
+        const attemptBySessionId = Object.fromEntries(attempts.map((a) => [a.sessionId, a]));
+
+        const outcomesWithQuiz = outcomes.map((o) => {
+            const attempt = attemptBySessionId[o.sessionId];
+            return {
+                ...o.toObject(),
+                quiz: attempt
+                    ? {
+                        attemptId: attempt._id,
+                        score: attempt.score,
+                        totalQuestions: attempt.questions.length,
+                        status: attempt.status,
+                        seenByFamilyAt: attempt.seenByFamilyAt,
+                        questions: attempt.questions.map((q) => ({
+                            questionText: q.questionText,
+                            isCorrect: q.isCorrect,
+                        })),
+                    }
+                    : null,
+            };
+        });
+
+        res.status(200).json({ success: true, outcomes: outcomesWithQuiz });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+const median = (numbers) => {
+    if (numbers.length === 0) return null;
+    const sorted = [...numbers].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 === 0 ? Math.round((sorted[mid - 1] + sorted[mid]) / 2) : sorted[mid];
+};
+
+const MIN_SESSIONS_FOR_LOOP_HEALTH = 3;
+
+// --- GET Loop Health stats — the close-the-loop dashboard panel:
+//     cards received, action rate, median response time, positive-outcome
+//     rate, and a weekly mood trend ---
+const getLoopHealthStats = async (req, res) => {
+    try {
+        const patientId = req.linkedPatientId;
+        await expirePendingFollowUps(patientId);
+
+        const outcomes = await SessionOutcome.find({ patientId }).sort({ createdAt: -1 });
+        const cardsReceived = outcomes.filter((o) => o.decision && o.decision.code).length;
+
+        if (cardsReceived < MIN_SESSIONS_FOR_LOOP_HEALTH) {
+            return res.status(200).json({ success: true, hasEnoughData: false, cardsReceived });
+        }
+
+        const actedOn = outcomes.filter((o) => o.firstActedAt).length;
+        const actionRate = cardsReceived ? Math.round((actedOn / cardsReceived) * 100) : 0;
+
+        const allResponseSeconds = outcomes
+            .flatMap((o) => o.actions.map((a) => a.responseSeconds))
+            .filter((s) => typeof s === 'number');
+        const medianResponseSeconds = median(allResponseSeconds);
+
+        const evaluated = outcomes.filter((o) => o.followUp && o.followUp.status === 'evaluated');
+        const better = evaluated.filter((o) => o.followUp.outcome === 'better').length;
+        const positiveOutcomeRate = evaluated.length
+            ? Math.round((better / evaluated.length) * 100)
+            : null;
+
+        const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        const weeklyMoodTrend = outcomes
+            .filter((o) => o.createdAt >= weekAgo)
+            .map((o) => ({ date: o.createdAt, moodShiftPercent: o.moodShiftPercent }))
+            .reverse(); // oldest first, for a left-to-right trend line
+
+        res.status(200).json({
+            success: true,
+            hasEnoughData: true,
+            cardsReceived,
+            actedOn,
+            actionRate,
+            medianResponseSeconds,
+            evaluatedFollowUps: evaluated.length,
+            positiveOutcomeRate,
+            weeklyMoodTrend,
+        });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -398,4 +660,7 @@ module.exports = {
     recordAction,
     recordFollowUp,
     getEngagementStats,
+    logAction,
+    getLoopHealthStats,
+    submitReaction,
 };

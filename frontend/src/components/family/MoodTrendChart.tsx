@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../../constants/colors';
 import { MemorySessionReport } from '../../services/family/emotionService';
+import { Card } from './ui/Card';
 
 interface MoodTrendChartProps {
   reports: MemorySessionReport[]; // newest-first, as returned by the backend
@@ -20,7 +21,7 @@ export const MoodTrendChart: React.FC<MoodTrendChartProps> = ({ reports }) => {
   const maxAbs = Math.max(1, ...chronological.map((r) => Math.abs(r.moodShiftPercent)));
 
   return (
-    <View style={{ backgroundColor: Colors.white, borderRadius: 20, padding: 18, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 3 }}>
+    <Card style={{ marginBottom: 16 }}>
       <Text style={{ fontSize: 13, fontWeight: '700', color: Colors.textMuted, marginBottom: 4, letterSpacing: 0.5 }}>MOOD TREND</Text>
       <Text style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 12 }}>
         Mood shift per session, oldest to newest — tap a bar for details
@@ -96,6 +97,6 @@ export const MoodTrendChart: React.FC<MoodTrendChartProps> = ({ reports }) => {
           })}
         </View>
       </ScrollView>
-    </View>
+    </Card>
   );
 };

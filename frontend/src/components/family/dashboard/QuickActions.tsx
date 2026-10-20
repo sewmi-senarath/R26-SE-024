@@ -2,10 +2,13 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../../../constants/colors';
+import { FamilyRadius, FamilyShadow } from '../../../constants/familyTheme';
+import { IconChip } from '../ui/IconChip';
 
 interface QuickActionsProps {
   onStoriesPress: () => void;
   onCalendarPress: () => void;
+  calendarBadge?: number;
 }
 
 interface ActionButtonProps {
@@ -26,32 +29,18 @@ const ActionButton: React.FC<ActionButtonProps> = ({
     style={{
       flex: 1,
       backgroundColor: Colors.white,
-      borderRadius: 16,
+      borderRadius: FamilyRadius.md,
       paddingVertical: 14,
       paddingHorizontal: 8,
       alignItems: 'center',
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.06,
-      shadowRadius: 8,
-      elevation: 3,
       borderWidth: 1,
       borderColor: Colors.borderLight,
+      ...FamilyShadow.card,
     }}
   >
     <View style={{ position: 'relative' }}>
-      <View
-        style={{
-          width: 48,
-          height: 48,
-          borderRadius: 14,
-          backgroundColor: bgColor,
-          justifyContent: 'center',
-          alignItems: 'center',
-          marginBottom: 8,
-        }}
-      >
-        <Ionicons name={icon} size={24} color={color} />
+      <View style={{ marginBottom: 8 }}>
+        <IconChip icon={icon} color={color} bg={bgColor} size={48} iconSize={24} radius={FamilyRadius.sm} />
       </View>
       {badge && badge > 0 ? (
         <View
@@ -80,7 +69,7 @@ const ActionButton: React.FC<ActionButtonProps> = ({
 );
 
 export const QuickActions: React.FC<QuickActionsProps> = ({
-  onStoriesPress, onCalendarPress,
+  onStoriesPress, onCalendarPress, calendarBadge,
 }) => (
   <View style={{ marginHorizontal: 20, marginTop: 20 }}>
     <Text style={{ fontSize: 13, fontWeight: '700', color: Colors.textMuted, marginBottom: 10, letterSpacing: 0.5 }}>
@@ -100,6 +89,7 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
         color={Colors.success}
         bgColor={Colors.successSoft}
         onPress={onCalendarPress}
+        badge={calendarBadge}
       />
     </View>
   </View>
