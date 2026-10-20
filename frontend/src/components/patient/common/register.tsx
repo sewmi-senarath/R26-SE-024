@@ -8,17 +8,11 @@ import {
 } from "@/src/types/PatientRegisterTypes";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
-import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    Text,
-    TouchableOpacity,
-    View,
-} from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { KeyboardAwareScrollView } from "@/src/components/common/KeyboardAware";
+import PrimaryButton from "@/src/components/common/PrimaryButton";
+import ScreenBackground from "@/src/components/common/ScreenBackground";
 import Step1BasicInfo from "./step1";
 import Step2PersonalMemories from "./step2";
 import Step3Preferences from "./step3";
@@ -27,6 +21,11 @@ export default function PatientRegistration() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [loading, setLoading] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [currentStep]);
 
   const [step1Data, setStep1Data] = useState<Step1Data>({
     fullName: "",
@@ -161,111 +160,114 @@ export default function PatientRegistration() {
   };
 
   // ── Progress bar ───────────────────────────────────────────────────────
+  const stepTitles = ["Basic Info", "Personal Memories", "Preferences"];
   const renderProgressBar = () => (
-    <View className="px-6 py-4">
+    <View className="px-6 pb-2">
       <View className="flex-row gap-2 mb-2">
         {[1, 2, 3].map((step) => (
-          <View key={step} className="flex-1">
-            <View
-              className={`h-1 rounded-full ${
-                currentStep >= step ? "bg-blue-600" : "bg-gray-300"
-              }`}
-            />
-          </View>
+          <View
+            key={step}
+            className={`flex-1 h-1.5 rounded-full ${
+              currentStep >= step ? "bg-blue-600" : "bg-blue-100"
+            }`}
+          />
         ))}
       </View>
-      <Text className="text-sm text-gray-600 text-center">
-        Step {currentStep} of 3 -{" "}
-        {currentStep === 1
-          ? "Basic Info"
-          : currentStep === 2
-            ? "Personal Memories"
-            : "Preferences"}
+      <Text className="text-xs font-semibold tracking-wider text-slate-500">
+        STEP {currentStep} OF 3 · {stepTitles[currentStep - 1].toUpperCase()}
       </Text>
     </View>
   );
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      className="flex-1"
-    >
-      <ScrollView
-        className="flex-1 bg-gray-50"
-        scrollEnabled={true}
-        keyboardShouldPersistTaps="handled"
+    <ScreenBackground>
+      <KeyboardAwareScrollView
+        ref={scrollRef}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingTop: 56, paddingBottom: 32 }}
       >
         {/* Header */}
-        <View className="px-6 py-4 flex-row items-center gap-4">
+        <View className="px-6 pb-4 flex-row items-center gap-4">
           <TouchableOpacity
             onPress={handleBackPress}
-            className="w-10 h-10 rounded-full bg-white justify-center items-center shadow-sm"
+            className="w-11 h-11 rounded-full bg-white justify-center items-center shadow-sm"
           >
             <Ionicons name="chevron-back" size={24} color="#1e40af" />
           </TouchableOpacity>
-          <Text className="text-xl font-bold text-gray-800">
+          <Text className="text-2xl font-extrabold text-slate-900">
             Patient Profile
           </Text>
         </View>
 
-        {/* Progress Bar */}
         {renderProgressBar()}
 
         {/* Form Content */}
-        <View className="px-6 pb-6">
-          {currentStep === 1 && (
-            <Step1BasicInfo
-              data={step1Data}
-              onChange={(partial) =>
-                setStep1Data((prev) => ({ ...prev, ...partial }))
-              }
-            />
-          )}
-          {currentStep === 2 && (
-            <Step2PersonalMemories
-              data={step2Data}
-              onChange={(partial) =>
-                setStep2Data((prev) => ({ ...prev, ...partial }))
-              }
-            />
-          )}
-          {currentStep === 3 && (
-            <Step3Preferences
-              data={step3Data}
-              showLanguagesPreferred={false}
-              onChange={(partial) =>
-                setStep3Data((prev) => ({ ...prev, ...partial }))
-              }
-            />
-          )}
+        <View className="px-5 pt-3">
+          <View
+            className="bg-white rounded-3xl p-5"
+            style={{
+              shadowColor: "#1e3a8a",
+              shadowOffset: { width: 0, height: 10 },
+              shadowOpacity: 0.08,
+              shadowRadius: 20,
+              elevation: 4,
+            }}
+          >
+            {currentStep === 1 && (
+              <Step1BasicInfo
+                data={step1Data}
+                onChange={(partial) =>
+                  setStep1Data((prev) => ({ ...prev, ...partial }))
+                }
+              />
+            )}
+            {currentStep === 2 && (
+              <Step2PersonalMemories
+                data={step2Data}
+                onChange={(partial) =>
+                  setStep2Data((prev) => ({ ...prev, ...partial }))
+                }
+              />
+            )}
+            {currentStep === 3 && (
+              <Step3Preferences
+                data={step3Data}
+                showLanguagesPreferred={false}
+                onChange={(partial) =>
+                  setStep3Data((prev) => ({ ...prev, ...partial }))
+                }
+              />
+            )}
+          </View>
         </View>
 
         {/* Navigation Buttons */}
-        <View className="px-6 pb-6 gap-3 flex-row">
+        <View className="px-6 pt-6 gap-3 flex-row">
           {currentStep > 1 && (
-            <TouchableOpacity
-              onPress={() => setCurrentStep(currentStep - 1)}
-              className="flex-1 bg-gray-300 rounded-lg py-4 items-center"
-              disabled={loading}
-            >
-              <Text className="text-gray-700 font-semibold">Previous</Text>
-            </TouchableOpacity>
+            <View className="flex-1">
+              <PrimaryButton
+                variant="secondary"
+                label="Previous"
+                disabled={loading}
+                onPress={() => setCurrentStep(currentStep - 1)}
+              />
+            </View>
           )}
-          <TouchableOpacity
-            onPress={handleNextStep}
-            disabled={loading}
-            className="flex-1 bg-blue-600 rounded-lg py-4 items-center"
-          >
-            {loading ? (
-              <ActivityIndicator color="white" />
-            ) : (
-              <Text className="text-white font-semibold">
-                {currentStep === 3 ? "Complete Registration" : "Next"}
-              </Text>
-            )}
-          </TouchableOpacity>
+          <View className="flex-1">
+            <PrimaryButton
+              label={
+                loading
+                  ? "Please wait…"
+                  : currentStep === 3
+                    ? "Complete Registration"
+                    : "Next"
+              }
+              disabled={loading}
+              onPress={handleNextStep}
+            />
+          </View>
         </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
+    </ScreenBackground>
   );
 }

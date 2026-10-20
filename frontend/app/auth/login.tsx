@@ -1,17 +1,12 @@
 import { loginUser, storage } from '@/src/api/authApi';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  Platform,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { useRef, useState } from 'react';
+import { Alert, Image, Platform, Text, TextInput as RNTextInput, TouchableOpacity, View } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { KeyboardAwareScrollView, KeyboardAwareTextInput as TextInput } from '@/src/components/common/KeyboardAware';
+import PrimaryButton from '@/src/components/common/PrimaryButton';
+import ScreenBackground from '@/src/components/common/ScreenBackground';
 
 export default function Login() {
   const router = useRouter();
@@ -69,101 +64,100 @@ export default function Login() {
     }
   };
 
+  const [emailFocus, setEmailFocus] = useState(false);
+  const [passFocus, setPassFocus] = useState(false);
+  const passRef = useRef<RNTextInput>(null);
+
+  const inputBox = (focused: boolean) => ({
+    flexDirection: 'row' as const, alignItems: 'center' as const,
+    borderWidth: 1.5, borderColor: focused ? '#2563eb' : 'transparent',
+    backgroundColor: focused ? '#fff' : '#F1F5FB',
+    borderRadius: 14, paddingHorizontal: 14,
+  });
+
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: '#fff' }}
-      contentContainerStyle={{ padding: 24, paddingTop: 48 }}
-    >
-      {/* Back */}
-      <TouchableOpacity onPress={() => router.back()} style={{ marginBottom: 16 }}>
-        <Text style={{ color: '#6b7280', fontSize: 16 }}>← Back</Text>
-      </TouchableOpacity>
-
-      {/* Logo */}
-      <View style={{ alignItems: 'center', marginBottom: 32 }}>
-        <Image
-          source={require('../../assets/images/logo.png')}
-          style={{ width: 120, height: 120 }}
-          resizeMode="contain"
-        />
-        <Text style={{ fontSize: 28, fontWeight: 'bold', color: '#1f2937', marginTop: 16 }}>
-          Welcome Back!
-        </Text>
-        <Text style={{ color: '#6b7280', marginTop: 4, fontSize: 15 }}>
-          Sign in to your account
-        </Text>
-      </View>
-
-      {/* Email */}
-      <Text style={{ fontWeight: '600', color: '#374151', marginBottom: 8 }}>
-        Email
-      </Text>
-      <TextInput
-        style={{
-          borderWidth: 1, borderColor: '#d1d5db', borderRadius: 10,
-          paddingHorizontal: 16, paddingVertical: 12,
-          fontSize: 16, marginBottom: 16, backgroundColor: '#f9fafb',
-        }}
-        placeholder="Enter your email"
-        placeholderTextColor="#9ca3af"
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-        autoCapitalize="none"
-      />
-
-      {/* Password */}
-      <Text style={{ fontWeight: '600', color: '#374151', marginBottom: 8 }}>
-        Password
-      </Text>
-      <View style={{
-        borderWidth: 1, borderColor: '#d1d5db', borderRadius: 10,
-        flexDirection: 'row', alignItems: 'center',
-        marginBottom: 24, backgroundColor: '#f9fafb',
-      }}>
-        <TextInput
-          style={{ flex: 1, paddingHorizontal: 16, paddingVertical: 12, fontSize: 16 }}
-          placeholder="Enter your password"
-          placeholderTextColor="#9ca3af"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry={!showPassword}
-        />
+    <ScreenBackground>
+      <KeyboardAwareScrollView contentContainerStyle={{ padding: 24, paddingTop: 56, paddingBottom: 32 }}>
         <TouchableOpacity
-          onPress={() => setShowPassword(!showPassword)}
-          style={{ paddingHorizontal: 16 }}
+          onPress={() => router.back()}
+          style={{
+            width: 44, height: 44, borderRadius: 22, backgroundColor: '#fff',
+            alignItems: 'center', justifyContent: 'center', marginBottom: 12,
+            shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2,
+          }}
         >
-          <Text style={{ color: '#6b7280', fontSize: 14 }}>
-            {showPassword ? 'Hide' : 'Show'}
-          </Text>
+          <Ionicons name="chevron-back" size={24} color="#1e40af" />
         </TouchableOpacity>
-      </View>
 
-      {/* Login Button */}
-      <TouchableOpacity
-        onPress={handleLogin}
-        disabled={loading}
-        style={{
-          backgroundColor: '#2563eb', paddingVertical: 16,
-          borderRadius: 12, alignItems: 'center', marginBottom: 16,
-          shadowColor: '#2563eb', shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.3, shadowRadius: 8, elevation: 5,
-        }}
-      >
-        {loading
-          ? <ActivityIndicator color="white" />
-          : <Text style={{ color: 'white', fontSize: 18, fontWeight: 'bold' }}>Sign In</Text>
-        }
-      </TouchableOpacity>
+        <Animated.View entering={FadeInDown.duration(500)}>
+          <View style={{ alignItems: 'center', marginBottom: 28 }}>
+            <View style={{
+              width: 128, height: 128, borderRadius: 64, backgroundColor: '#fff',
+              alignItems: 'center', justifyContent: 'center',
+              shadowColor: '#2563eb', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.18, shadowRadius: 22, elevation: 6,
+            }}>
+              <Image source={require('../../assets/images/logo.png')} style={{ width: 92, height: 92 }} resizeMode="contain" />
+            </View>
+            <Text style={{ fontSize: 30, fontWeight: '800', color: '#1e3a8a', marginTop: 20 }}>Welcome Back!</Text>
+            <Text style={{ color: '#64748b', marginTop: 4, fontSize: 15 }}>Sign in to your account</Text>
+          </View>
 
-      {/* Register Link */}
-      <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 8 }}>
-        <Text style={{ color: '#6b7280' }}>Do not have an account? </Text>
-        <TouchableOpacity onPress={() => router.push('/role/select')}>
-          <Text style={{ color: '#2563eb', fontWeight: 'bold' }}>Sign Up</Text>
-        </TouchableOpacity>
-      </View>
+          <View style={{
+            backgroundColor: '#fff', borderRadius: 24, padding: 20,
+            shadowColor: '#1e3a8a', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.08, shadowRadius: 20, elevation: 4,
+          }}>
+            <Text style={{ fontWeight: '600', color: '#334155', marginBottom: 8 }}>Email</Text>
+            <View style={[inputBox(emailFocus), { marginBottom: 18 }]}>
+              <Ionicons name="mail-outline" size={20} color="#94A3B8" />
+              <TextInput
+                style={{ flex: 1, paddingHorizontal: 10, paddingVertical: 14, fontSize: 16, color: '#0F172A' }}
+                placeholder="Enter your email"
+                placeholderTextColor="#94A3B8"
+                value={email}
+                onChangeText={setEmail}
+                onFocus={() => setEmailFocus(true)}
+                onBlur={() => setEmailFocus(false)}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="next"
+                onSubmitEditing={() => passRef.current?.focus()}
+              />
+            </View>
 
-    </ScrollView>
+            <Text style={{ fontWeight: '600', color: '#334155', marginBottom: 8 }}>Password</Text>
+            <View style={[inputBox(passFocus), { marginBottom: 24 }]}>
+              <Ionicons name="lock-closed-outline" size={20} color="#94A3B8" />
+              <TextInput
+                ref={passRef}
+                style={{ flex: 1, paddingHorizontal: 10, paddingVertical: 14, fontSize: 16, color: '#0F172A' }}
+                placeholder="Enter your password"
+                placeholderTextColor="#94A3B8"
+                value={password}
+                onChangeText={setPassword}
+                onFocus={() => setPassFocus(true)}
+                onBlur={() => setPassFocus(false)}
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+                returnKeyType="done"
+                onSubmitEditing={handleLogin}
+              />
+              <TouchableOpacity onPress={() => setShowPassword(!showPassword)} hitSlop={10}>
+                <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={22} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+
+            <PrimaryButton label={loading ? 'Signing in…' : 'Sign In'} onPress={handleLogin} disabled={loading} />
+          </View>
+
+          <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 24 }}>
+            <Text style={{ color: '#64748b' }}>Do not have an account? </Text>
+            <TouchableOpacity onPress={() => router.push('/role/select')}>
+              <Text style={{ color: '#2563eb', fontWeight: '700' }}>Sign Up</Text>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+      </KeyboardAwareScrollView>
+    </ScreenBackground>
   );
 }
