@@ -1,0 +1,53 @@
+{
+  "test_patients": 90,
+  "forecasts_per_horizon": 270,
+  "note": "unseen simulated patients, same split as train_forecast.py",
+  "4_weeks": {
+    "partial_pooling": {
+      "MAE": 4.42,
+      "MAE_95CI": [
+        3.77,
+        4.95
+      ],
+      "RMSE": 6.03,
+      "within_5": 65.9,
+      "within_10": 91.9,
+      "range_coverage_95": 75.6
+    },
+    "old_rule": {
+      "MAE": 7.9,
+      "MAE_95CI": [
+        7.12,
+        8.63
+      ],
+      "RMSE": 10.32,
+      "within_5": 41.1,
+      "within_10": 70.0
+    },
+    "error_reduction_%": 44.1
+  },
+  "8_weeks": {
+    "partial_pooling": {
+      "MAE": 6.52,
+      "MAE_95CI": [
+        5.68,
+        7.34
+      ],
+      "RMSE": 8.97,
+      "within_5": 48.5,
+      "within_10": 80.4,
+      "range_coverage_95": 81.1
+    },
+    "old_rule": {
+      "MAE": 12.22,
+      "MAE_95CI": [
+        11.01,
+        13.41
+      ],
+      "RMSE": 15.96,
+      "within_5": 27.0,
+      "within_10": 53.3
+    },
+    "error_reduction_%": 46.6
+  }
+}
